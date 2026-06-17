@@ -69,9 +69,7 @@ generateTurnarounds();
 app.use(cors());
 app.use(express.json());
 
-app.get("/", (req, res) => {
-    res.send("FlightOps API Running");
-});
+
 
 app.use("/api/events", eventRoutes);
 app.use("/api/schedules", scheduleRoutes);
