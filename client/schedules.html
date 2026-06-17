@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+
+<meta charset="UTF-8">
+<meta name="viewport"
+      content="width=device-width, initial-scale=1">
+
+<title>Flight Schedules</title>
+
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.7/dist/css/bootstrap.min.css"
+      rel="stylesheet">
+
+</head>
+
+<body>
+
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark fixed-top">
+
+<div class="container-fluid">
+
+    <a class="navbar-brand">
+        FlightOps
+    </a>
+
+    <button
+        class="navbar-toggler"
+        type="button"
+        data-bs-toggle="collapse"
+        data-bs-target="#mainMenu">
+
+        <span class="navbar-toggler-icon"></span>
+
+    </button>
+
+    <div
+        class="collapse navbar-collapse"
+        id="mainMenu">
+
+        <div class="navbar-nav">
+
+   <a
+   id="menuOperations"
+   class="nav-link"
+   href="flights.html">
+
+   Operations
+
+</a>
+
+<a
+   id="menuSchedules"
+   class="nav-link"
+   href="schedules.html">
+
+   Schedules
+
+</a>
+
+<a
+   id="menuStaff"
+   class="nav-link"
+   href="staff.html">
+
+   Staff
+
+</a>
+<div class="ms-auto d-flex align-items-center">
+
+    <span
+        class="text-white me-3"
+        id="currentUserInfo">
+
+    </span>
+
+    <a
+        class="nav-link text-white"
+        href="#"
+        onclick="logout()">
+
+        Logout
+
+    </a>
+
+    <a
+   id="menuAbout"
+   class="nav-link"
+   href="about.html">
+
+   About
+
+</a>
+
+</div>
+
+        </div>
+
+    </div>
+
+</div>
+
+</nav>
+
+<div class="container py-3">
+
+    <h2>
+
+        Flight Schedules
+
+    </h2>
+
+    <button
+        class="btn btn-primary mb-3"
+        onclick="newSchedule()">
+
+        Add Schedule
+
+    </button>
+
+    <div id="scheduleList">
+
+        Loading...
+
+    </div>
+
+</div>
+
+<div class="modal fade"
+     id="scheduleModal"
+     tabindex="-1">
+
+    <div class="modal-dialog modal-lg">
+
+        <div class="modal-content">
+
+            <div class="modal-header">
+
+                <h5 class="modal-title">
+
+                    Flight Schedule
+
+                </h5>
+
+                <button
+                    type="button"
+                    class="btn-close"
+                    data-bs-dismiss="modal">
+                </button>
+
+            </div>
+
+            <div class="modal-body">
+
+                <input
+                    type="hidden"
+                    id="scheduleId">
+
+                <div class="row">
+
+                    <div class="col-md-6 mb-3">
+
+                        <label>Airline</label>
+
+                        <input
+                            class="form-control"
+                            id="airline">
+
+                    </div>
+
+                    <div class="col-md-6 mb-3">
+
+                        <label>Aircraft Type</label>
+
+                        <input
+                            class="form-control"
+                            id="aircraftType">
+
+                    </div>
+
+                </div>
+
+                <div class="row">
+
+                    <div class="col-md-6 mb-3">
+
+                        <label>Arrival Flight</label>
+
+                        <input
+                            class="form-control"
+                            id="arrivalFlight">
+
+                    </div>
+
+                    <div class="col-md-6 mb-3">
+
+                        <label>Departure Flight</label>
+
+                        <input
+                            class="form-control"
+                            id="departureFlight">
+
+                    </div>
+
+                </div>
+
+                <div class="row">
+
+                    <div class="col-md-6 mb-3">
+
+                        <label>Origin</label>
+
+                        <input
+                            class="form-control"
+                            id="origin">
+
+                    </div>
+
+                    <div class="col-md-6 mb-3">
+
+                        <label>Destination</label>
+
+                        <input
+                            class="form-control"
+                            id="destination">
+
+                    </div>
+
+                </div>
+
+                <div class="row">
+
+                    <div class="col-md-6 mb-3">
+
+                        <label>STA</label>
+
+                        <input
+                            type="time"
+                            class="form-control"
+                            id="sta">
+
+                    </div>
+
+                    <div class="col-md-6 mb-3">
+
+                        <label>STD</label>
+
+                        <input
+                            type="time"
+                            class="form-control"
+                            id="std">
+
+                    </div>
+
+                </div>
+
+                <label>
+
+                    Days Of Operation
+
+                </label>
+
+                <div id="daysPanel">
+
+                </div>
+
+            </div>
+
+            <div class="modal-footer">
+
+                <button
+                    class="btn btn-secondary"
+                    data-bs-dismiss="modal">
+
+                    Cancel
+
+                </button>
+
+                <button
+                    class="btn btn-primary"
+                    onclick="saveSchedule()">
+
+                    Save
+
+                </button>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.7/dist/js/bootstrap.bundle.min.js"></script>
+<script src="js/common.js"></script>
+<script src="js/schedules.js"></script>
+
+</body>
+
+</html>

@@ -1,0 +1,973 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+
+<meta charset="UTF-8">
+<meta name="viewport"
+      content="width=device-width, initial-scale=1">
+
+<title>Flight Dashboard</title>
+
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.7/dist/css/bootstrap.min.css"
+      rel="stylesheet">
+
+</head>
+
+<body>
+
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark fixed-top">
+
+<div class="container-fluid">
+
+    <a class="navbar-brand">
+        FlightOps
+    </a>
+
+    <button
+        class="navbar-toggler"
+        type="button"
+        data-bs-toggle="collapse"
+        data-bs-target="#mainMenu">
+
+        <span class="navbar-toggler-icon"></span>
+
+    </button>
+
+    <div
+        class="collapse navbar-collapse"
+        id="mainMenu">
+
+        <div class="navbar-nav">
+
+   <a
+   id="menuOperations"
+   class="nav-link"
+   href="flights.html">
+
+   Operations
+
+</a>
+
+<a
+   id="menuSchedules"
+   class="nav-link"
+   href="schedules.html">
+
+   Schedules
+
+</a>
+
+<a
+   id="menuStaff"
+   class="nav-link"
+   href="staff.html">
+
+   Staff
+
+</a>
+            
+<div class="ms-auto d-flex align-items-center">
+
+    <span
+        class="text-white me-3"
+        id="currentUserInfo">
+
+    </span>
+
+    <a
+        class="nav-link text-white"
+        href="#"
+        onclick="logout()">
+
+        Logout
+
+    </a>
+
+    <a
+   id="menuAbout"
+   class="nav-link"
+   href="about.html">
+
+   About
+
+</a>
+
+</div>
+
+        </div>
+
+    </div>
+
+</div>
+
+</nav>
+
+
+
+
+<div class="container py-3">
+
+    <a href="flights.html"
+       class="btn btn-secondary mb-3">
+
+        ← Flights
+
+    </a>
+
+    
+    <div id="flightInfo">
+
+        Loading...
+
+    </div>
+
+
+<div class="row mt-3">
+
+    <div class="col-md-6">
+
+        <div class="card h-100">
+
+            <div class="card-header">
+
+                Passenger Information
+
+            </div>
+
+            <div
+                class="card-body"
+                id="passengerPanel">
+
+            </div>
+
+        </div>
+
+    </div>
+
+    <div class="col-md-6">
+
+        <div class="card h-100">
+
+            <div class="card-header">
+
+                Special Handling
+
+            </div>
+
+            <div
+                class="card-body"
+                id="specialHandlingPanel">
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+<div class="card mt-3">
+
+    <div class="card-header d-flex justify-content-between">
+
+        <span>Assigned Staff</span>
+
+<button
+    id="editAssignmentsBtn"
+    class="btn btn-sm btn-outline-primary"
+    onclick="openAssignmentModal()">
+
+    Edit
+
+</button>
+
+    </div>
+
+    <div
+        class="card-body"
+        id="staffPanel">
+
+    </div>
+
+</div>
+
+<div class="card mt-3">
+
+    <div class="card-header">
+        Event Actions
+    </div>
+
+    <div class="card-body">
+        <div id="eventButtons"></div>
+    </div>
+
+</div>
+
+
+
+    <div class="card mt-3">
+
+        <div class="card-header">
+
+            Timeline
+
+        </div>
+
+        <div class="card-body">
+
+            <div id="timeline">
+
+                No events
+
+            </div>
+
+        </div>
+
+    </div>
+    <div class="card mt-3">
+
+    <div class="card-header">
+
+        Flight Chat
+
+    </div>
+
+    <div class="card-body">
+
+        <div
+            id="chatMessages"
+            style="
+            height:300px;
+            overflow-y:auto;
+            ">
+
+        </div>
+
+        <div class="input-group mt-3">
+
+<textarea
+    class="form-control"
+    id="chatText">
+</textarea>
+
+            <button
+                class="btn btn-primary"
+                onclick="sendChatMessage()">
+
+                Send
+
+            </button>
+
+        </div>
+
+    </div>
+
+</div>
+
+</div>
+
+
+
+
+
+<div class="modal fade"
+     id="eventModal"
+     tabindex="-1">
+
+    <div class="modal-dialog">
+
+        <div class="modal-content">
+
+            <div class="modal-header">
+
+                <h5 class="modal-title">
+
+                    Edit Event
+
+                </h5>
+
+                <button
+                    type="button"
+                    class="btn-close"
+                    data-bs-dismiss="modal">
+                </button>
+
+            </div>
+
+            <div class="modal-body">
+
+                <input
+                    type="hidden"
+                    id="modalEventId">
+
+                <div class="mb-3">
+
+                    <label class="form-label">
+
+                        Event
+
+                    </label>
+
+                    <input
+                        class="form-control"
+                        id="modalEventType"
+                        readonly>
+
+                </div>
+
+                <div class="mb-3">
+
+                    <label class="form-label">
+
+                        Time
+
+                    </label>
+
+                    <input
+                        type="datetime-local"
+                        class="form-control"
+                        id="modalEventTime">
+
+                </div>
+
+                <div class="mb-3">
+
+                    <label class="form-label">
+
+                        Notes
+
+                    </label>
+
+                    <textarea
+                        class="form-control"
+                        id="modalEventNotes"
+                        rows="3">
+                    </textarea>
+
+                </div>
+
+            </div>
+
+            <div class="modal-footer">
+
+                <button
+                    class="btn btn-secondary"
+                    data-bs-dismiss="modal">
+
+                    Cancel
+
+                </button>
+
+                <button
+                    class="btn btn-primary"
+                    onclick="saveEventEdit()">
+
+                    Save
+
+                </button>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+
+<div class="modal fade"
+     id="passengerModal"
+     tabindex="-1">
+
+    <div class="modal-dialog">
+
+        <div class="modal-content">
+
+            <div class="modal-header">
+
+                <h5 class="modal-title">
+
+                    Passenger Information
+
+                </h5>
+
+                <button
+                    class="btn-close"
+                    data-bs-dismiss="modal">
+                </button>
+
+            </div>
+
+            <div class="modal-body">
+
+                <div class="mb-3">
+
+                    <label>
+
+                        Checked In
+
+                    </label>
+
+                    <input
+                        type="number"
+                        class="form-control"
+                        id="checkedIn">
+
+                </div>
+
+                <div class="mb-3">
+
+<label>Jump Seat</label>
+
+<input
+    id="jumpSeat"
+    type="number"
+    class="form-control">
+
+                </div>
+
+                <div class="mb-3">
+
+                    <label>
+
+                        TOB
+
+                    </label>
+
+                    <input
+                        type="number"
+                        class="form-control"
+                        id="tob">
+
+                </div>
+
+                <div class="mb-3">
+
+                    <label>
+
+                        INF
+
+                    </label>
+
+                    <input
+                        type="number"
+                        class="form-control"
+                        id="infants">
+
+                </div>
+
+            </div>
+
+            <div class="modal-footer">
+
+                <button
+                    class="btn btn-secondary"
+                    data-bs-dismiss="modal">
+
+                    Cancel
+
+                </button>
+
+                <button
+                    class="btn btn-primary"
+                    onclick="savePassengers()">
+
+                    Save
+
+                </button>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+<div class="modal fade"
+     id="specialHandlingModal"
+     tabindex="-1">
+
+    <div class="modal-dialog">
+
+        <div class="modal-content">
+
+            <div class="modal-header">
+
+                <h5 class="modal-title">
+
+                    Special Handling
+
+                </h5>
+
+                <button
+                    class="btn-close"
+                    data-bs-dismiss="modal">
+                </button>
+
+            </div>
+
+            <div class="modal-body">
+
+                <div class="mb-2">
+                    <label>Li-Ion Mobility Aids</label>
+                    <input type="number"
+                           class="form-control"
+                           id="liIonMobilityAids">
+                </div>
+
+                <div class="mb-2">
+                    <label>Dry Cell Mobility Aids</label>
+                    <input type="number"
+                           class="form-control"
+                           id="dryCellMobilityAids">
+                </div>
+
+                <div class="mb-2">
+                    <label>AVIH</label>
+                    <input type="number"
+                           class="form-control"
+                           id="avih">
+                </div>
+
+                <div class="mb-2">
+                    <label>UMNR</label>
+                    <input type="number"
+                           class="form-control"
+                           id="umnr">
+                </div>
+
+                <div class="mb-2">
+                    <label>WEAP</label>
+                    <input type="number"
+                           class="form-control"
+                           id="weap">
+                </div>
+
+                <div class="mb-2">
+                    <label>CBBG</label>
+                    <input type="number"
+                           class="form-control"
+                           id="cbbg">
+                </div>
+
+                <div class="mb-2">
+                    <label>VVIP</label>
+                    <input type="number"
+                           class="form-control"
+                           id="vvip">
+                </div>
+
+            </div>
+
+            <div class="modal-footer">
+
+                <button
+                    class="btn btn-secondary"
+                    data-bs-dismiss="modal">
+
+                    Cancel
+
+                </button>
+
+                <button
+                    class="btn btn-primary"
+                    onclick="saveSpecialHandling()">
+
+                    Save
+
+                </button>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+<div class="modal fade"
+     id="flightDetailsModal"
+     tabindex="-1">
+
+    <div class="modal-dialog">
+
+        <div class="modal-content">
+
+            <div class="modal-header">
+
+                <h5 class="modal-title">
+
+                    Flight Details
+
+                </h5>
+
+                <button
+                    class="btn-close"
+                    data-bs-dismiss="modal">
+                </button>
+
+            </div>
+
+            <div class="modal-body">
+
+                <div class="mb-2">
+
+                    <label>
+
+                        Aircraft Type
+
+                    </label>
+
+                    <input
+                        class="form-control"
+                        id="aircraftType">
+
+                </div>
+
+                <div class="mb-2">
+
+                    <label>
+
+                        Registration
+
+                    </label>
+
+                    <input
+                        class="form-control"
+                        id="registration">
+
+                </div>
+
+                <div class="mb-2">
+
+                    <label>
+
+                        Stand
+
+                    </label>
+
+                    <input
+                        class="form-control"
+                        id="stand">
+
+                </div>
+
+                <div class="mb-2">
+
+                    <label>
+
+                        ETA
+
+                    </label>
+
+                    <input
+                        type="datetime-local"
+                        class="form-control"
+                        id="eta">
+
+                </div>
+
+                <div class="mb-2">
+
+                    <label>
+
+                        ATA
+
+                    </label>
+
+                    <input
+                        type="datetime-local"
+                        class="form-control"
+                        id="ata">
+
+                </div>
+
+                <div class="mb-2">
+
+                    <label>
+
+                        ETD
+
+                    </label>
+
+                    <input
+                        type="datetime-local"
+                        class="form-control"
+                        id="etd">
+
+                </div>
+
+            </div>
+
+            <div class="modal-footer">
+
+                <button
+                    class="btn btn-secondary"
+                    data-bs-dismiss="modal">
+
+                    Cancel
+
+                </button>
+<button
+    class="btn btn-danger me-auto"
+    onclick="cancelFlight()">
+
+    Cancel Flight
+
+</button>
+                <button
+                    class="btn btn-primary"
+                    onclick="saveFlightDetails()">
+
+                    Save
+
+                </button>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+
+<div class="modal fade"
+     id="assignmentModal"
+     tabindex="-1">
+
+    <div class="modal-dialog modal-lg">
+
+        <div class="modal-content">
+
+            <div class="modal-header">
+
+                <h5 class="modal-title">
+
+                    Staff Assignment
+
+                </h5>
+
+                <button
+                    class="btn-close"
+                    data-bs-dismiss="modal">
+                </button>
+
+            </div>
+
+            <div class="modal-body">
+
+                <div id="assignmentEditor">
+
+                </div>
+
+            </div>
+
+            <div class="modal-footer">
+
+                <button
+                    class="btn btn-secondary"
+                    data-bs-dismiss="modal">
+
+                    Cancel
+
+                </button>
+
+                <button
+                    class="btn btn-primary"
+                    onclick="saveAssignments()">
+
+                    Save
+
+                </button>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+<div
+    class="modal fade"
+    id="specialHandlingDetailsModal"
+    tabindex="-1">
+
+    <div class="modal-dialog modal-xl">
+
+        <div class="modal-content">
+
+            <div class="modal-header">
+
+                <h5 class="modal-title">
+
+                    Special Handling Details
+
+                </h5>
+
+                <button
+                    type="button"
+                    class="btn-close"
+                    data-bs-dismiss="modal">
+                </button>
+
+            </div>
+
+            <div class="modal-body">
+
+                <!-- WCLB -->
+
+                <h5 class="mt-2">
+
+                    ♿ WCLB (Li-Ion Wheelchair)
+
+                </h5>
+
+                <button
+                    class="btn btn-success mb-3"
+                    onclick="addWclb()">
+
+                    + Add WCLB
+
+                </button>
+
+                <div id="wclbList"></div>
+
+                <hr>
+
+                <!-- WCBD -->
+
+                <h5>
+
+                    ♿ WCBD (Dry Cell Wheelchair)
+
+                </h5>
+
+                <button
+                    class="btn btn-success mb-3"
+                    onclick="addWcbd()">
+
+                    + Add WCBD
+
+                </button>
+
+                <div id="wcbdList"></div>
+
+                <hr>
+
+                <!-- AVIH -->
+
+                <h5>
+
+                    🐕 AVIH
+
+                </h5>
+
+                <button
+                    class="btn btn-success mb-3"
+                    onclick="addAvih()">
+
+                    + Add AVIH
+
+                </button>
+
+                <div id="avihList"></div>
+
+                <hr>
+
+                <!-- PETC -->
+
+                <h5>
+
+                    🐈 PETC
+
+                </h5>
+
+                <button
+                    class="btn btn-success mb-3"
+                    onclick="addPetc()">
+
+                    + Add PETC
+
+                </button>
+
+                <div id="petcList"></div>
+
+                <hr>
+
+                <!-- CBBG -->
+
+                <h5>
+
+                    🎻 CBBG
+
+                </h5>
+
+                <button
+                    class="btn btn-success mb-3"
+                    onclick="addCbbg()">
+
+                    + Add CBBG
+
+                </button>
+
+                <div id="cbbgList"></div>
+
+                <hr>
+
+                <!-- WEAP -->
+
+                <h5>
+
+                    🔫 WEAP
+
+                </h5>
+
+                <button
+                    class="btn btn-success mb-3"
+                    onclick="addWeap()">
+
+                    + Add WEAP
+
+                </button>
+
+                <div id="weapList"></div>
+
+            </div>
+
+            <div class="modal-footer">
+
+                <button
+                    class="btn btn-secondary"
+                    data-bs-dismiss="modal">
+
+                    Close
+
+                </button>
+
+                <button
+                    class="btn btn-primary"
+                    onclick="saveSpecialHandlingDetails()">
+
+                    Save
+
+                </button>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.7/dist/js/bootstrap.bundle.min.js"></script>
+<script src="/socket.io/socket.io.js"></script>
+<script src="js/common.js"></script>
+<script src="js/dashboard.js"></script>
+</body>
+
+</html>
