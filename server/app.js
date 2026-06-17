@@ -75,6 +75,18 @@ app.use("/api/events", eventRoutes);
 app.use("/api/schedules", scheduleRoutes);
 app.use("/api/flights", flightRoutes);
 
+app.get("/", (req, res) => {
+
+    res.sendFile(
+
+        path.join(
+            __dirname,
+            "../client/login.html"
+        )
+
+    );
+
+});
 
 app.use(
     express.static(
