@@ -781,15 +781,22 @@ function canCancelFlight(){
 
 async function saveFlightDetails(){
 
-    document.getElementById(
+    const cancelBtn =
+document.getElementById(
     "cancelFlightBtn"
-).style.display =
+);
 
-canCancelFlight()
-?
-""
-:
-"none";
+if(cancelBtn){
+
+    cancelBtn.style.display =
+
+    canCancelFlight()
+    ?
+    ""
+    :
+    "none";
+
+}
     await fetch(
 
         `/api/flights/${flightId}/details`,
@@ -1212,95 +1219,230 @@ async function loadAssignmentEditor(){
 
     const roles = [
 
-    {
-        code:"DISPATCH",
-        name:"Dispatcher"
-    },
+        {
+            code:"DISPATCH",
+            name:"Dispatcher"
+        },
 
-    {
-        code:"CHECKIN",
-        name:"Check-In"
-    },
+        {
+            code:"CHECKIN",
+            name:"Check-In"
+        },
 
-    {
-        code:"GATE",
-        name:"Gate"
-    },
+        {
+            code:"GATE",
+            name:"Gate"
+        },
 
-    {
-        code:"ARRIVAL",
-        name:"Arrival"
-    },
+        {
+            code:"ARRIVAL",
+            name:"Arrival"
+        },
 
-    {
-        code:"RAMP",
-        name:"Ramp"
-    },
+        {
+            code:"RAMP",
+            name:"Ramp"
+        },
 
-    {
-        code:"SPUR",
-        name:"SPUR"
+        {
+            code:"SPUR",
+            name:"SPUR"
+        }
+
+    ];
+
+    let visibleRoles = roles;
+
+    switch(
+        CURRENT_USER.position
+    ){
+
+        case "TRAFFIC_COORDINATOR":
+
+            visibleRoles =
+            roles.filter(r=>
+
+                r.code === "DISPATCH"
+
+            );
+
+            break;
+
+        case "CHECKIN_SUPERVISOR":
+
+            visibleRoles =
+            roles.filter(r=>
+
+                [
+                    "CHECKIN",
+                    "GATE",
+                    "ARRIVAL"
+                ].includes(
+                    r.code
+                )
+
+            );
+
+            break;
+
+        case "RAMP_ALLOCATOR":
+
+            visibleRoles =
+            roles.filter(r=>
+
+                r.code === "RAMP"
+
+            );
+
+            break;
+
+        case "SPUR_COORDINATOR":
+
+            visibleRoles =
+            roles.filter(r=>
+
+                r.code === "SPUR"
+
+            );
+
+            break;
+
     }
 
-];
-let visibleRoles = roles;
-
-switch(
-    CURRENT_USER.position
-){
-
-    case "TRAFFIC_COORDINATOR":
-
-        visibleRoles =
-        roles.filter(r=>
-
-            r.code === "OPERATIONS"
-
-        );
-
-        break;
-
-    case "CHECKIN_SUPERVISOR":
-
-    visibleRoles =
-    roles.filter(r=>
-
-        [
-            "CHECKIN",
-            "GATE",
-            "ARRIVAL"
-        ].includes(
-            r.code
-        )
-
+    const response =
+    await fetch(
+        `/api/assignments/${flightId}`
     );
 
-    break;
+    const assignments =
+    await response.json();
 
-    case "RAMP_ALLOCATOR":
+    const panel =
+    document.getElementById(
+        "assignmentEditor"
+    );
 
-        visibleRoles =
-        roles.filter(r=>
+    panel.innerHTML = "";
 
-            r.code === "RAMP_SERVICE"
+    visibleRoles.forEach(role=>{
 
+        const assigned =
+        assignments.find(
+            a => a.role === role.code
         );
 
-        break;
+        const eligibleUsers =
+        users.filter(user=>{
 
-    case "SPUR_COORDINATOR":
+            switch(role.code){
 
-        visibleRoles =
-        roles.filter(r=>
+                case "DISPATCH":
 
-            r.code === "SPUR"
+                    return user.skills?.includes(
+                        "DISPATCH"
+                    );
 
-        );
+                case "CHECKIN":
 
-        break;
+                    return user.skills?.includes(
+                        "CHECKIN"
+                    );
+
+                case "GATE":
+
+                    return user.skills?.includes(
+                        "GATE"
+                    );
+
+                case "ARRIVAL":
+
+                    return user.skills?.includes(
+                        "ARRIVAL"
+                    );
+
+                case "RAMP":
+
+                    return user.skills?.includes(
+                        "RAMP"
+                    );
+
+                case "SPUR":
+
+                    return user.skills?.includes(
+                        "SPUR"
+                    );
+
+                default:
+
+                    return false;
+
+            }
+
+        });
+
+        let options =
+
+        `<option value="">
+            -- Select --
+        </option>`;
+
+        eligibleUsers.forEach(user=>{
+
+            options += `
+
+            <option
+
+                value="${user._id}"
+
+                ${
+                    assigned &&
+                    assigned.userId &&
+                    assigned.userId._id ==
+                    user._id
+                    ?
+                    "selected"
+                    :
+                    ""
+                }
+
+            >
+
+                ${user.name}
+
+            </option>
+
+            `;
+
+        });
+
+        panel.innerHTML += `
+
+        <div class="mb-3">
+
+            <label
+                class="form-label">
+
+                ${role.name}
+
+            </label>
+
+            <select
+
+                class="form-select assignment"
+
+                data-role="${role.code}">
+
+                ${options}
+
+            </select>
+
+        </div>
+
+        `;
+
+    });
 
 }
-
 
     const response =
     await fetch(
