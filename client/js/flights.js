@@ -92,6 +92,101 @@ await fetch(
         const flights =
         await response.json();
 
+
+        const arriving =
+
+flights.filter(
+    f => f.status === "ARRIVING"
+).length;
+
+const turnaround =
+
+flights.filter(
+    f => f.status === "TURNAROUND"
+).length;
+
+const boarding =
+
+flights.filter(
+    f => f.status === "BOARDING"
+).length;
+
+const departed =
+
+flights.filter(
+    f => f.status === "DEPARTED"
+).length;
+
+document.getElementById(
+    "flightSummary"
+).innerHTML = `
+
+<div class="col-md-3">
+
+    <div class="card">
+
+        <div class="card-body text-center">
+
+            <h4>${flights.length}</h4>
+
+            Flights
+
+        </div>
+
+    </div>
+
+</div>
+
+<div class="col-md-3">
+
+    <div class="card">
+
+        <div class="card-body text-center">
+
+            <h4>${turnaround}</h4>
+
+            Turnaround
+
+        </div>
+
+    </div>
+
+</div>
+
+<div class="col-md-3">
+
+    <div class="card">
+
+        <div class="card-body text-center">
+
+            <h4>${boarding}</h4>
+
+            Boarding
+
+        </div>
+
+    </div>
+
+</div>
+
+<div class="col-md-3">
+
+    <div class="card">
+
+        <div class="card-body text-center">
+
+            <h4>${departed}</h4>
+
+            Departed
+
+        </div>
+
+    </div>
+
+</div>
+
+`;
+
         container.innerHTML = "";
 
         flights.forEach(flight => {
@@ -117,19 +212,26 @@ await fetch(
 
                         <div class="col-8">
 
-                            <h5>
+<h5
+    class="d-flex align-items-center">
 
-                            ${flight.arrivalFlight}
-                            /
-                            ${flight.departureFlight}
+    <img
 
-                            </h5>
+        src="logos/${flight.airline.toLowerCase()}.png"
 
-                            <div>
+        style="
+            height:32px;
+            width:auto;
+            margin-right:10px;
+        "
 
-                            ${flight.airline}
+        onerror="
+            this.style.display='none'
+        ">
 
-                            </div>
+    ${flight.arrivalFlight}/${flight.departureFlight}
+
+</h5>
 
 <div>
 

@@ -123,20 +123,27 @@ else if(
 
                 <div>
 
-                    <h3>
+<h5
+    class="d-flex align-items-center">
 
-                    ${flight.arrivalFlight}
-                    /
-                    ${flight.departureFlight}
-<a href="flights.html" class="btn btn-danger mb-3"> ← Flights</a>
+    <img
 
-                    </h3>
-                    <div>
+        src="logos/${flight.airline.toLowerCase()}.png"
 
-                        Airline:
-                        <strong>${flight.airline}</strong>
+        style="
+            height:32px;
+            width:auto;
+            margin-right:10px;
+        "
 
-                    </div>
+        onerror="
+            this.style.display='none'
+        ">
+
+    ${flight.arrivalFlight}/${flight.departureFlight}
+
+</h5>
+                 
 
                     <div>
 
@@ -781,11 +788,7 @@ function canCancelFlight(){
 
 async function saveFlightDetails(){
 
-<<<<<<< HEAD
 const cancelBtn =
-=======
-    const cancelBtn =
->>>>>>> c3b7d45ff302aa9950365d6373f9d54b81a84da6
 document.getElementById(
     "cancelFlightBtn"
 );
@@ -1313,144 +1316,6 @@ async function loadAssignmentEditor(){
 
     }
 
-<<<<<<< HEAD
-=======
-    const response =
-    await fetch(
-        `/api/assignments/${flightId}`
-    );
-
-    const assignments =
-    await response.json();
-
-    const panel =
-    document.getElementById(
-        "assignmentEditor"
-    );
-
-    panel.innerHTML = "";
-
-    visibleRoles.forEach(role=>{
-
-        const assigned =
-        assignments.find(
-            a => a.role === role.code
-        );
-
-        const eligibleUsers =
-        users.filter(user=>{
-
-            switch(role.code){
-
-                case "DISPATCH":
-
-                    return user.skills?.includes(
-                        "DISPATCH"
-                    );
-
-                case "CHECKIN":
-
-                    return user.skills?.includes(
-                        "CHECKIN"
-                    );
-
-                case "GATE":
-
-                    return user.skills?.includes(
-                        "GATE"
-                    );
-
-                case "ARRIVAL":
-
-                    return user.skills?.includes(
-                        "ARRIVAL"
-                    );
-
-                case "RAMP":
-
-                    return user.skills?.includes(
-                        "RAMP"
-                    );
-
-                case "SPUR":
-
-                    return user.skills?.includes(
-                        "SPUR"
-                    );
-
-                default:
-
-                    return false;
-
-            }
-
-        });
-
-        let options =
-
-        `<option value="">
-            -- Select --
-        </option>`;
-
-        eligibleUsers.forEach(user=>{
-
-            options += `
-
-            <option
-
-                value="${user._id}"
-
-                ${
-                    assigned &&
-                    assigned.userId &&
-                    assigned.userId._id ==
-                    user._id
-                    ?
-                    "selected"
-                    :
-                    ""
-                }
-
-            >
-
-                ${user.name}
-
-            </option>
-
-            `;
-
-        });
-
-        panel.innerHTML += `
-
-        <div class="mb-3">
-
-            <label
-                class="form-label">
-
-                ${role.name}
-
-            </label>
-
-            <select
-
-                class="form-select assignment"
-
-                data-role="${role.code}">
-
-                ${options}
-
-            </select>
-
-        </div>
-
-        `;
-
-    });
-
-}
-
->>>>>>> c3b7d45ff302aa9950365d6373f9d54b81a84da6
     const response =
     await fetch(
         `/api/assignments/${flightId}`
