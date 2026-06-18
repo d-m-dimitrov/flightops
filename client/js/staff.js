@@ -1,5 +1,7 @@
 checkAuth();
 
+let allUsers = [];
+
 const user =
 getCurrentUser();
 
@@ -55,6 +57,36 @@ let roles = [];
 document.addEventListener(
     "DOMContentLoaded",
     async ()=>{
+
+[
+    "searchUser",
+    "filterDepartment",
+    "filterSkill",
+    "filterStatus",
+    "sortUsers"
+]
+.forEach(id=>{
+
+    document
+    .getElementById(id)
+    ?.addEventListener(
+
+        "input",
+        loadUsers
+
+    );
+
+    document
+    .getElementById(id)
+    ?.addEventListener(
+
+        "change",
+        loadUsers
+
+    );
+
+});
+
 
         userModal =
         new bootstrap.Modal(
@@ -340,8 +372,165 @@ async function loadUsers(){
         "/api/users"
     );
 
-    const users =
-    await response.json();
+ allUsers =
+await response.json();
+
+let users =
+[...allUsers];
+
+
+const search =
+
+document
+.getElementById(
+    "searchUser"
+)
+?.value
+?.toLowerCase()
+|| "";
+
+const department =
+
+document
+.getElementById(
+    "filterDepartment"
+)
+?.value
+|| "";
+
+const skill =
+
+document
+.getElementById(
+    "filterSkill"
+)
+?.value
+|| "";
+
+const status =
+
+document
+.getElementById(
+    "filterStatus"
+)
+?.value
+|| "";
+
+const sort =
+
+document
+.getElementById(
+    "sortUsers"
+)
+?.value
+|| "NAME";
+
+
+users = users.filter(user=>{
+
+    const text =
+
+        `${user.name || ""}
+         ${user.email || ""}
+         ${user.phone || ""}
+         ${user.position || ""}`
+        .toLowerCase();
+
+    return text.includes(
+        search
+    );
+
+});
+
+if(department){
+
+    users =
+    users.filter(
+
+        user =>
+
+        user.department ===
+        department
+
+    );
+
+}
+
+if(skill){
+
+    users =
+    users.filter(
+
+        user =>
+
+        (user.skills || [])
+        .includes(skill)
+
+    );
+
+}if(status === "ACTIVE"){
+
+    users =
+    users.filter(
+
+        user =>
+
+        user.active !== false
+
+    );
+
+}
+
+if(status === "DISABLED"){
+
+    users =
+    users.filter(
+
+        user =>
+
+        user.active === false
+
+    );
+
+}
+if(sort === "NAME"){
+
+    users.sort((a,b)=>
+
+        (a.name || "")
+        .localeCompare(
+            b.name || ""
+        )
+
+    );
+
+}
+
+if(sort === "DEPARTMENT"){
+
+    users.sort((a,b)=>
+
+        (a.department || "")
+        .localeCompare(
+            b.department || ""
+        )
+
+    );
+
+}
+
+if(sort === "POSITION"){
+
+    users.sort((a,b)=>
+
+        (a.position || "")
+        .localeCompare(
+            b.position || ""
+        )
+
+    );
+
+}
 
     const panel =
     document.getElementById(
