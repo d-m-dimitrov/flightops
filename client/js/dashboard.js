@@ -9,6 +9,7 @@ let specialHandlingModal;
 let flightDetailsModal;
 let assignmentModal;
 let specialHandlingDetailsModal;
+let notificationsCleared = false;
 
 let specialHandlingDetails = {
 
@@ -67,6 +68,124 @@ socket.emit(
     flightId
 );
 
+
+socket.on(
+
+    "newChatMessage",
+
+    data=>{
+
+        showChatToast(
+
+            data.author,
+
+            data.message,
+
+            data.type
+
+        );
+
+    }
+
+);
+
+function showChatToast(
+    author,
+    message,
+    type
+){
+
+    let headerClass =
+"bg-primary text-white";
+
+
+
+let title =
+"💬 New Message";
+
+if(
+    type === "SYSTEM"
+){
+
+    headerClass =
+    "bg-info text-dark";
+
+    title =
+    "⚙ System Update";
+
+}
+
+if(
+    type === "EVENT"
+){
+
+    headerClass =
+    "bg-success text-white";
+
+    title =
+    "✅ Event Completed";
+
+}
+
+    const toast =
+    document.createElement(
+        "div"
+    );
+
+    toast.className =
+
+    "toast show position-fixed top-0 end-0 m-3";
+
+    toast.style.zIndex =
+    "9999";
+
+    toast.style.minWidth =
+    "320px";
+
+    toast.innerHTML = `
+
+    <div
+        class="toast-header
+               ${headerClass}">
+
+<strong>
+
+    ${title}
+
+</strong>
+
+    </div>
+
+    <div class="toast-body">
+
+        <strong>
+
+            ${author}
+
+        </strong>
+
+        <br>
+
+        ${message}
+
+    </div>
+
+    `;
+
+    document.body.appendChild(
+        toast
+    );
+
+    setTimeout(
+
+        ()=>toast.remove(),
+
+        5000
+
+    );
+
+}
+
 async function loadCompletedEvents(){
 
     const response =
@@ -112,155 +231,198 @@ else if(
 
 }
     document.getElementById(
-        "flightInfo"
-    ).innerHTML = `
+    "flightInfo"
+).innerHTML = `
 
-    <div class="card shadow-sm mb-3 sticky-flight-header">
+<div class="card shadow-sm mb-3 sticky-flight-header">
 
-        <div class="card-body">
+    <div class="card-body py-2">
 
-            <div class="d-flex justify-content-between">
+        <div
+            class="d-flex
+                   justify-content-between
+                   align-items-start">
 
-                <div>
+            <div>
 
-<h5
-    class="d-flex align-items-center">
+                <div
+                    class="d-flex
+                           align-items-center">
 
-    <img
+                    <img
 
-        src="logos/${flight.airline.toLowerCase()}.png"
+                        src="logos/${flight.airline.toLowerCase()}.png"
 
-        style="
-            height:32px;
-            width:auto;
-            margin-right:10px;
-        "
+                        style="
+                            height:28px;
+                            width:auto;
+                            margin-right:10px;
+                        "
 
-        onerror="
-            this.style.display='none'
-        ">
+                        onerror="
+                            this.style.display='none'
+                        ">
 
-    ${flight.arrivalFlight}/${flight.departureFlight}
+                    <h5 class="mb-0">
 
-</h5>
-                 
+                        ${flight.arrivalFlight}/${flight.departureFlight}
 
-                    <div>
+                    </h5>
 
-                        Aircraft:
-                        <strong>${flight.aircraft?.aircraftType || "-"}</strong>
-
-                    </div>
-
-                    <div>
-
-                        Registration:
-                        <strong>${flight.aircraft?.registration || "-"}</strong>
-
-                    </div>
-
-                    <div>
-
-                        Stand:
-                        <strong>${flight.aircraft?.stand || "-"}</strong>
-
-                    </div>
-
-                    <div>
-
-    STA:
-    <strong>
-    ${formatDateTime(
-        flight.arrival?.sta
-    )}
-    </strong>
-
-    |
-
-    ETA:
-    <strong>
-    ${formatDateTime(
-        flight.arrival?.eta
-    )}
-    </strong>
-
-</div>
-
-<div>
-
-    STD:
-    <strong>
-    ${formatDateTime(
-        flight.departure?.std
-    )}
-    </strong>
-
-    |
-
-    ETD:
-    <strong>
-    ${formatDateTime(
-        flight.departure?.etd
-    )}
-    </strong>
-
-</div>
-
-                </div>
-
-                <div>
-
-                    <span class="badge ${getStatusBadgeClass(
-    flight.status
-)}">
+                    <span
+                        class="badge ms-3 ${getStatusBadgeClass(
+                            flight.status
+                        )}">
 
                         ${flight.status}
 
                     </span>
-  <br>
 
-${
-canEdit(
-    "FLIGHT_DETAILS"
-)
-?
-`
-<button
-    class="btn btn-sm btn-outline-primary mt-2"
-    onclick="editFlightDetails()">
+                </div>
 
-    Edit Flight
+                <div
+                    class="small text-muted mt-2">
+                    Aircraft    
+                    <strong>
+                    ${flight.aircraft?.aircraftType || "-"}
+                    </strong>
 
-</button>
-`
-:
-""
-}
-    
-    
+                    |
+
+                    Reg
+                    <strong>
+                    ${flight.aircraft?.registration || "-"}
+                    </strong>
+
+                    |
+
+                    Stand
+                    <strong>
+                    ${flight.aircraft?.stand || "-"}
+                    </strong>
+
+                </div>
+
+                <div
+                    class="small mt-1">
+
+                    STA
+                    <strong>
+                    ${formatDateTime(
+                        flight.arrival?.sta
+                    )}
+                    </strong>
+
+                    |
+
+                    ETA
+                    <strong>
+                    ${formatDateTime(
+                        flight.arrival?.eta
+                    )}
+                    </strong>
+
+                    |
+
+                    STD
+                    <strong>
+                    ${formatDateTime(
+                        flight.departure?.std
+                    )}
+                    </strong>
+
+                    |
+
+                    ETD
+                    <strong>
+                    ${formatDateTime(
+                        flight.departure?.etd
+                    )}
+                    </strong>
 
                 </div>
 
             </div>
 
-            <div class="mt-3">
+            <div
+    class="d-flex
+           gap-2
+           align-items-center">
 
-                <div>
+                ${
+                canEdit(
+                    "FLIGHT_DETAILS"
+                )
+                ?
+                `
+                <button
+                    class="btn btn-sm btn-outline-primary"
+                    onclick="editFlightDetails()">
+
+                    Edit
+
+                </button>
+                `
+                :
+                ""
+                }
+
+                ${
+                flight.manual
+                ?
+                `
+                <button
+
+                    class="btn btn-sm btn-outline-danger"
+
+                    onclick="deleteFlight()">
+
+                    Delete
+
+                </button>
+                `
+                :
+                ""
+                }
+
+            </div>
+
+        </div>
+
+        <div class="mt-2">
+
+            <div
+                class="d-flex
+                       justify-content-between
+                       small">
+
+                <span>
 
                     Readiness
 
-                </div>
+                </span>
 
-                <div class="progress">
+                <strong>
 
-                    <div
-                        class="progress-bar ${readinessClass}"
-                        style="width:${flight.readiness || 0}%">
+                    ${flight.readiness || 0}%
 
-                        ${flight.readiness || 0}%
-                        
+                </strong>
 
-                    </div>
+            </div>
+
+            <div
+                class="progress"
+                style="height:8px;">
+
+                <div
+
+                    class="progress-bar
+                    ${readinessClass}"
+
+                    style="
+                        width:
+                        ${flight.readiness || 0}%;
+                    ">
 
                 </div>
 
@@ -270,10 +432,9 @@ canEdit(
 
     </div>
 
-    
-    </div>
+</div>
 
-    `;
+`;
     loadPassengerInfo(
     flight
 );
@@ -281,6 +442,19 @@ canEdit(
 loadSpecialHandling(
     flight
 );
+
+
+//await fetch(
+
+//    `/api/flights/${flightId}/mark-read`,
+
+//    {
+
+//        method:"POST"
+
+//    }
+
+//);
 
 }
 
@@ -606,6 +780,41 @@ new bootstrap.Modal(
                 "assignmentModal"
             )
         );
+
+        document
+.getElementById(
+    "chatMessages"
+)
+.addEventListener(
+
+    "click",
+
+    async ()=>{
+
+        if(
+            notificationsCleared
+        ){
+            return;
+        }
+
+        notificationsCleared =
+        true;
+
+        await fetch(
+
+            `/api/flights/${flightId}/mark-read`,
+
+            {
+
+                method:"POST"
+
+            }
+
+        );
+
+    }
+
+);
 
         const chatInput =
         document.getElementById(
@@ -1867,37 +2076,68 @@ async function loadChat(){
     messages.forEach(msg=>{
 
         if(
-            msg.messageType ===
-            "SYSTEM"
-        ){
+    msg.messageType ===
+    "SYSTEM"
+){
 
-            panel.innerHTML += `
+    panel.innerHTML += `
 
-            <div
-                class="alert alert-info py-1 mb-2">
+    <div
+        class="alert alert-info py-1 mb-2">
 
-                <small>
+        <small>
 
-                ${new Date(
-                    msg.createdAt
-                ).toLocaleTimeString(
-                    "en-GB"
-                )}
+        ${new Date(
+            msg.createdAt
+        ).toLocaleTimeString(
+            "en-GB"
+        )}
 
-                </small>
+        </small>
 
-                <br>
+        <br>
 
-                ⚙ ${msg.message}
+        ⚙ ${msg.message}
 
-            </div>
+    </div>
 
-            `;
+    `;
 
-            return;
+    return;
 
-        }
+}
 
+if(
+    msg.messageType ===
+    "EVENT"
+){
+
+    panel.innerHTML += `
+
+    <div
+        class="alert alert-success py-1 mb-2">
+
+        <small>
+
+        ${new Date(
+            msg.createdAt
+        ).toLocaleTimeString(
+            "en-GB"
+        )}
+
+        </small>
+
+        <br>
+
+        ✅ ${msg.message}
+
+    </div>
+
+    `;
+
+    return;
+
+}
         panel.innerHTML += `
 
         <div class="mb-2">
@@ -2857,6 +3097,50 @@ X
 `;
 
     });
+
+}
+
+
+async function deleteFlight(){
+
+    if(
+
+        !confirm(
+
+            "Delete this flight?"
+
+        )
+
+    ){
+        return;
+    }
+
+    await fetch(
+
+        `/api/flights/${flightId}/delete`,
+
+        {
+
+            method:"POST",
+
+            headers:{
+                "Content-Type":
+                "application/json"
+            },
+
+            body:JSON.stringify({
+
+                updatedByName:
+                CURRENT_USER.name
+
+            })
+
+        }
+
+    );
+
+    window.location =
+    "flights.html";
 
 }
 

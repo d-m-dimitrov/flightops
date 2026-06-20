@@ -64,7 +64,34 @@ connectDB().then(async () => {
 
 });
 
-generateTurnarounds();
+setInterval(
+
+    async()=>{
+
+        try{
+
+            console.log(
+                "Generating turnarounds..."
+            );
+
+            await generateTurnarounds();
+
+        }
+        catch(err){
+
+            console.error(
+                "Turnaround generation failed"
+            );
+
+            console.error(err);
+
+        }
+
+    },
+
+    60 * 60 * 1000
+
+);
 
 app.use(cors());
 app.use(express.json());

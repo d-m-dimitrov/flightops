@@ -2,6 +2,7 @@ checkAuth();
 
 
 let flightModal;
+let showDeparted = false;
 
 function getStatusBadge(
     status
@@ -66,6 +67,68 @@ function getStatusBadge(
 
 }
 
+
+function formatTime(value){
+
+    if(!value){
+        return "-";
+    }
+
+    const date =
+    new Date(value);
+
+    return date
+    .toLocaleTimeString(
+        "en-GB",
+        {
+
+            hour:"2-digit",
+
+            minute:"2-digit"
+
+        }
+    );
+
+}
+
+
+
+
+function getStatusBorderColor(status){
+
+    switch(status){
+
+        case "ARRIVING":
+            return "#6c757d";
+
+        case "TURNAROUND":
+            return "#0d6efd";
+
+        case "CHECKIN":
+            return "#0dcaf0";
+
+        case "BOARDING":
+            return "#ffc107";
+
+        case "READY":
+            return "#198754";
+
+        case "PUSHBACK":
+            return "#212529";
+
+        case "DEPARTED":
+            return "#6c757d";
+
+        case "CANCELLED":
+            return "#dc3545";
+
+        default:
+            return "#6c757d";
+
+    }
+
+}
+
 async function loadFlights() {
 
     const container =
@@ -93,91 +156,279 @@ await fetch(
         await response.json();
 
 
-        const arriving =
-
-flights.filter(
-    f => f.status === "ARRIVING"
-).length;
-
-const turnaround =
-
-flights.filter(
-    f => f.status === "TURNAROUND"
-).length;
-
-const boarding =
-
-flights.filter(
-    f => f.status === "BOARDING"
-).length;
-
 const departed =
 
 flights.filter(
     f => f.status === "DEPARTED"
 ).length;
 
+const cancelled =
+
+flights.filter(
+    f => f.status === "CANCELLED"
+).length;
+
+const active =
+
+flights.length -
+departed -
+cancelled;
+
+
+let visibleFlights =
+[...flights];
+
+if(!showDeparted){
+
+    visibleFlights =
+    visibleFlights.filter(
+
+        f =>
+
+        f.status !==
+        "DEPARTED"
+
+        &&
+
+        f.status !==
+        "CANCELLED"
+
+    );
+
+}
+
+
+
+        
+
 document.getElementById(
     "flightSummary"
 ).innerHTML = `
 
-<div class="col-md-3">
+<strong>
 
-    <div class="card">
+    Flights:
+    ${flights.length}
 
-        <div class="card-body text-center">
+</strong>
 
-            <h4>${flights.length}</h4>
+<span>
 
-            Flights
+    Active:
+    ${active}
+
+</span>
+
+<span>
+
+    Departed:
+    ${departed}
+
+</span>
+<span>
+
+    Cancelled:
+    ${cancelled}
+
+</span>
+
+
+<label
+    class="form-check
+           form-switch
+           ms-auto">
+
+    <input
+
+        class="form-check-input"
+
+        type="checkbox"
+
+        id="showDeparted"
+
+        ${
+            showDeparted
+            ?
+            "checked"
+            :
+            ""
+        }
+
+    >
+
+    <span
+        class="form-check-label">
+
+        Show Departed
+
+    </span>
+
+</label>
+
+`;
+
+document
+.getElementById(
+    "showDeparted"
+)
+?.addEventListener(
+    "change",
+    e=>{
+
+        showDeparted =
+        e.target.checked;
+
+        loadFlights();
+
+    }
+);
+
+
+
+        container.innerHTML = "";
+
+        visibleFlights.forEach(flight => {
+
+            const card =
+            document.createElement(
+                "div"
+            );
+
+card.className =
+"card shadow-sm mb-2";
+
+            card.innerHTML = `
+
+<div
+
+    class="card-body py-2"
+
+    style="
+        border-left:
+        6px solid
+        ${getStatusBorderColor(
+            flight.status
+        )};
+    "
+
+>
+
+    <div
+        class="d-flex
+               justify-content-between
+               align-items-center">
+
+        <div
+            class="d-flex
+                   align-items-center">
+
+            <img
+
+                src="logos/${flight.airline.toLowerCase()}.png"
+
+                style="
+                    height:28px;
+                    width:auto;
+                    margin-right:10px;
+                "
+
+                onerror="
+                    this.style.display='none'
+                ">
+
+<strong>
+
+    ${flight.arrivalFlight}/${flight.departureFlight}
+
+</strong>
+
+${
+flight.unreadNotifications > 0
+?
+`
+<span
+    class="badge bg-danger ms-2">
+
+    🔔
+    ${flight.unreadNotifications}
+
+</span>
+`
+:
+""
+}
+
+        </div>
+
+        <div>
+
+            ${getStatusBadge(
+                flight.status
+            )}
 
         </div>
 
     </div>
 
-</div>
+    <div
+        class="small
+               text-muted
+               mt-1">
 
-<div class="col-md-3">
+        Aircraft <strong>${flight.aircraft?.aircraftType || "-"}</strong>
+        |
 
-    <div class="card">
+        Reg <strong>${flight.aircraft?.registration || "-"}</strong>
 
-        <div class="card-body text-center">
+        |
 
-            <h4>${turnaround}</h4>
+        Stand
+        <strong>${flight.aircraft?.stand || "-"}</strong>
 
-            Turnaround
+        |
 
-        </div>
+        STA
+        <strong>${flight.arrival?.sta || "-"}</strong>
 
+        |
+
+        STD
+        <strong>${flight.departure?.std || "-"}</strong>
+
+        |
+
+       ETA
+       <strong>
+${formatTime(
+    flight.arrival?.eta
+)}
+</strong>
+
+        |
+
+     ETD
+     <strong>
+${formatTime(
+    flight.departure?.etd
+)}
+</strong>
     </div>
 
-</div>
+    <div
+        class="progress mt-2"
+        style="height:8px;">
 
-<div class="col-md-3">
+        <div
 
-    <div class="card">
+            class="progress-bar
+            ${getReadinessColor(
+                flight.readiness || 0
+            )}"
 
-        <div class="card-body text-center">
-
-            <h4>${boarding}</h4>
-
-            Boarding
-
-        </div>
-
-    </div>
-
-</div>
-
-<div class="col-md-3">
-
-    <div class="card">
-
-        <div class="card-body text-center">
-
-            <h4>${departed}</h4>
-
-            Departed
+            style="
+                width:
+                ${flight.readiness || 0}%;
+            ">
 
         </div>
 
@@ -186,112 +437,6 @@ document.getElementById(
 </div>
 
 `;
-
-        container.innerHTML = "";
-
-        flights.forEach(flight => {
-
-            const card =
-            document.createElement(
-                "div"
-            );
-
-           card.className =
-
-`card shadow-sm mb-3 flight-card
- border-3
- ${getStatusClass(
-    flight.status
- )}`;
-
-            card.innerHTML = `
-
-                <div class="card-body">
-
-                    <div class="row">
-
-                        <div class="col-8">
-
-<h5
-    class="d-flex align-items-center">
-
-    <img
-
-        src="logos/${flight.airline.toLowerCase()}.png"
-
-        style="
-            height:32px;
-            width:auto;
-            margin-right:10px;
-        "
-
-        onerror="
-            this.style.display='none'
-        ">
-
-    ${flight.arrivalFlight}/${flight.departureFlight}
-
-</h5>
-
-<div>
-
-Aircraft:
-${flight.aircraft?.aircraftType || "-"}
-
-</div>
-
-<div>
-
-STA:
-${flight.arrival?.sta || "-"}
-
-</div>
-
-<div>
-
-STD:
-${flight.departure?.std || "-"}
-
-</div>
-
-                        </div>
-
-                        <div class="col-4 text-end">
-
-${getStatusBadge(
-    flight.status
-)}
-
-                        </div>
-                        <div class="mt-2">
-
-    <div
-        class="progress">
-
-       <div
-    class="progress-bar
-    ${getReadinessColor(
-        flight.readiness || 0
-    )}"
-
-            style="
-            width:
-            ${flight.readiness || 0}%
-            ">
-
-            ${flight.readiness || 0}%
-
-        </div>
-
-    </div>
-
-</div>
-
-                    </div>
-
-                </div>
-
-            `;
 
             card.onclick = () => {
 
@@ -319,7 +464,44 @@ ${getStatusBadge(
 }
 
 
+function goToday(){
 
+    document.getElementById(
+        "flightDate"
+    ).value =
+
+    new Date()
+    .toISOString()
+    .substring(0,10);
+
+    loadFlights();
+
+}
+
+function changeDate(days){
+
+    const input =
+    document.getElementById(
+        "flightDate"
+    );
+
+    const date =
+    new Date(
+        input.value
+    );
+
+    date.setDate(
+        date.getDate() + days
+    );
+
+    input.value =
+    date
+    .toISOString()
+    .substring(0,10);
+
+    loadFlights();
+
+}
 
 function getStatusClass(
     status
@@ -391,20 +573,26 @@ document.addEventListener(
         .toISOString()
         .substring(0,10);
 
+        document.getElementById(
+            "flightDate"
+        ).addEventListener(
+            "change",
+            loadFlights
+        );
+
         flightModal =
-new bootstrap.Modal(
+        new bootstrap.Modal(
 
-    document.getElementById(
-        "flightModal"
-    )
+            document.getElementById(
+                "flightModal"
+            )
 
-);  
+        );
 
         await loadFlights();
 
     }
 );
-
 
 function newFlight(){
     if(

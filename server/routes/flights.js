@@ -17,6 +17,11 @@ require(
 const Event =
 require("../models/Event");
 
+const addSystemMessage =
+require(
+    "../services/systemMessage"
+);
+
 router.get(
 "/:id/readiness",
 async(req,res)=>{
@@ -44,13 +49,17 @@ async(req,res)=>{
     .toISOString()
     .substring(0,10);
 
-    const flights =
-    await Turnaround.find({
+const flights =
+await Turnaround.find({
 
-        operatingDate:
-        date
+    operatingDate:
+    date,
 
-    })
+    deleted:{
+            $ne:true
+        }
+
+})
 
     .sort({
 
@@ -253,6 +262,51 @@ req.app
 
 });
 
+router.post(
+"/:id/delete",
+async(req,res)=>{
+
+    const flight =
+    await Turnaround.findById(
+        req.params.id
+    );
+
+    if(!flight){
+
+        return res
+        .status(404)
+        .json({
+            error:"Flight not found"
+        });
+
+    }
+
+    flight.deleted =
+    true;
+
+    await flight.save();
+
+    await ChatMessage.create({
+
+        turnaroundId:
+        flight._id,
+
+        messageType:
+        "SYSTEM",
+
+        message:
+
+        `${req.body.updatedByName}
+        deleted flight`
+
+    });
+
+    res.json({
+        success:true
+    });
+
+});
+
 
 router.put(
 "/:id/passengers",
@@ -267,19 +321,16 @@ async(req,res)=>{
     req.body;
 
     await flight.save();
-await ChatMessage.create({
+await addSystemMessage(
 
-    turnaroundId:
+    req,
+
     flight._id,
 
-    messageType:"SYSTEM",
-
-    message:
-
     `${req.body.updatedByName}
-    updated passenger figures`
+     updated passenger figures`
 
-});
+);
 
 req.app
 .get("io")
@@ -338,19 +389,16 @@ async(req,res)=>{
 
     await flight.save();
 
-await ChatMessage.create({
+await addSystemMessage(
 
-    turnaroundId:
+    req,
+
     flight._id,
 
-    messageType:"SYSTEM",
-
-    message:
-
     `${req.body.updatedByName}
-    updated special handling`
+     updated special handling`
 
-});
+);
 req.app
 .get("io")
 .to(
@@ -395,19 +443,16 @@ async(req,res)=>{
 
     await flight.save();
 
-await ChatMessage.create({
+await addSystemMessage(
 
-    turnaroundId:
+    req,
+
     flight._id,
 
-    messageType:"SYSTEM",
-
-    message:
-
     `${req.body.updatedByName}
-    updated flight details`
+     updated flight details`
 
-});
+);
 req.app
 .get("io")
 .to(
@@ -437,19 +482,16 @@ async(req,res)=>{
 
     await flight.save();
 
-    await ChatMessage.create({
+await addSystemMessage(
 
-        turnaroundId:
-        flight._id,
+    req,
 
-        messageType:"SYSTEM",
+    flight._id,
 
-        message:
+    `${req.body.updatedByName}
+     updated special handling`
 
-        `${req.body.updatedByName}
-        updated special handling details`
-
-    });
+);
 
     req.app
 .get("io")
@@ -467,7 +509,31 @@ async(req,res)=>{
 
 });
 
+router.post(
+"/:id/mark-read",
+async(req,res)=>{
 
+    await Turnaround.findByIdAndUpdate(
+
+        req.params.id,
+
+        {
+
+            unreadNotifications:0
+
+        }
+
+    );
+
+    res.json({
+        success:true
+    });
+    console.log(
+    "MARK READ:",
+    req.params.id
+);
+
+});
 
 
 module.exports = router;

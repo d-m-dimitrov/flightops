@@ -24,6 +24,14 @@ const TurnaroundSchema = new mongoose.Schema({
         type: Number,
         default: 0
     },  
+    deleted:{
+    type:Boolean,
+    default:false
+},
+unreadNotifications:{
+    type:Number,
+    default:0
+},
 
     operatingDate:{
     type:String,

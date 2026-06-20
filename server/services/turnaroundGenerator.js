@@ -65,7 +65,11 @@ await Turnaround.findOne({
     schedule._id,
 
     operatingDate:
-    operatingDate
+    operatingDate,
+
+    deleted:false
+
+
 
 });
 

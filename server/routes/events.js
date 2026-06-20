@@ -139,22 +139,42 @@ require("../models/ChatMessage");
 const User =
 require("../models/User");
 
+console.log(
+    "EVENT BODY:",
+    req.body
+);
+
 const user =
 await User.findById(
     req.body.createdBy
 );
 
-await ChatMessage.create({
+console.log(
+    "CREATED BY:",
+    req.body.createdBy
+);
 
-    turnaroundId:
+console.log(
+    "USER FOUND:",
+    user
+);
+const addSystemMessage =
+require(
+    "../services/systemMessage"
+);
+
+await addSystemMessage(
+
+    req,
+
     req.body.turnaroundId,
 
-    messageType:"SYSTEM",
+    `${user.name}
+     completed ${req.body.eventType}`,
 
-    message:
-    `${user.name} completed ${req.body.eventType}`
+    "EVENT"
 
-});
+);
 
         await processEvent(
 

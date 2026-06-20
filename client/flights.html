@@ -106,61 +106,70 @@
 
 <div class="container py-3">
 
-    <div class="d-flex justify-content-between">
+    <div class="d-flex justify-content-between align-items-center mb-3">
 
-        <h2>Flights</h2>
+        <h2 class="mb-0">
+            Flights
+        </h2>
 
-      
+        <div class="d-flex align-items-center">
+
+            <div class="btn-group me-2">
+
+                <button
+                    class="btn btn-outline-secondary"
+                    onclick="changeDate(-1)">
+
+                    ◀ Yesterday
+
+                </button>
+
+                <button
+                    class="btn btn-outline-primary"
+                    onclick="goToday()">
+
+                    Today
+
+                </button>
+
+                <button
+                    class="btn btn-outline-secondary"
+                    onclick="changeDate(1)">
+
+                    Tomorrow ▶
+
+                </button>
+
+            </div>
+
+            <input
+                type="date"
+                id="flightDate"
+                class="form-control me-2"
+                style="width:180px;">
+
+            <button
+                id="addFlightBtn"
+                class="btn btn-warning"
+                onclick="newFlight()">
+
+                + Add Flight
+
+            </button>
+
+        </div>
 
     </div>
-
-<div class="row mb-3">
-
-    <div class="col-md-3">
-
-        <input
-            type="date"
-            class="form-control"
-            id="flightDate">
-
-    </div>
-
-    <div class="col-md-6">
-
-        <button
-            class="btn btn-primary"
-            onclick="loadFlights()">
-
-            Load
-
-        </button>
-          <button
-            class="btn btn-primary"
-            onclick="loadFlights()">
-
-            Refresh
-
-        </button>
-<button
-    id="addFlightBtn"
-    class="btn btn-warning ms-2"
-    onclick="newFlight()">
-
-    + Add Flight
-
-</button>
-
-    </div>
-
-</div>
-
-    <hr>
 
     <div
+        id="flightSummary"
+        class="d-flex align-items-center gap-4 mb-3">
 
-    id="flightSummary"
+    </div>
 
-    class="row mb-3">
+    <div id="flightContainer">
+
+    </div>
 
 </div>
 
