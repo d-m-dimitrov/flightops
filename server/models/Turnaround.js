@@ -20,6 +20,11 @@ const TurnaroundSchema = new mongoose.Schema({
     default:false
 },
 
+mgt:{
+    type:Number,
+    default:75
+},
+
     readiness: {
         type: Number,
         default: 0

@@ -1,5 +1,6 @@
 const FlightSchedule = require("../models/FlightSchedule");
 const Turnaround = require("../models/Turnaround");
+const TurnaroundRule = require("../models/TurnaroundRule");
 
 async function generateTurnarounds() {
 
@@ -73,65 +74,121 @@ await Turnaround.findOne({
 
 });
 
-                if (existing) {
+               if (existing) {
 
-                    console.log(
-                        `Already exists: ${schedule.arrivalFlight}/${schedule.departureFlight}`
-                    );
+    console.log(
+        `Already exists: ${schedule.arrivalFlight}/${schedule.departureFlight}`
+    );
 
-                    continue;
-                }
+    continue;
 
-                const turnaround = await Turnaround.create({
+}
 
-                    scheduleId: schedule._id,
+console.log("================================");
+console.log(
+    `Generating ${schedule.arrivalFlight}/${schedule.departureFlight}`
+);
 
-                    operatingDate: operatingDate,
+console.log(
+    "Searching rule for:",
+    schedule.airline,
+    schedule.aircraftType
+);
 
-                    airline: schedule.airline,
+const allRules =
+await TurnaroundRule.find();
 
-                    arrivalFlight: schedule.arrivalFlight,
+console.log("Rules in database:");
 
-                    departureFlight: schedule.departureFlight,
-                    arrival: {
+allRules.forEach(r => {
 
-    sta:
-    schedule.sta
+    console.log(
+        r.airline,
+        r.aircraftType,
+        r.minimumGroundTime
+    );
 
-},
+});
 
-departure: {
+const rule =
+await TurnaroundRule.findOne({
 
-    std:
-    schedule.std
+    airline: schedule.airline.trim(),
 
-},
+    aircraftType: schedule.aircraftType.trim()
 
-                    flightNumberDisplay:
-                        `${schedule.arrivalFlight}/${schedule.departureFlight}`,
+});
 
-                    flightDate: startOfDay,
+console.log("FOUND RULE:", rule);
 
-                    origin: schedule.origin,
+const mgt =
+rule?.minimumGroundTime ?? 75;
 
-                    destination: schedule.destination,
+console.log("Selected MGT:", mgt);
 
-                    status: "SCHEDULED",
+const turnaround =
+await Turnaround.create({
 
-                    readiness: 0,
+    scheduleId: schedule._id,
 
-                    aircraft: {
+    operatingDate: operatingDate,
 
-                        aircraftType:
-                            schedule.aircraftType || "",
+    airline: schedule.airline,
 
-                        registration: "",
+    arrivalFlight: schedule.arrivalFlight,
 
-                        stand: ""
+    departureFlight: schedule.departureFlight,
 
-                    }
+    arrival: {
 
-                });
+        sta: schedule.sta
+
+    },
+
+    departure: {
+
+        std: schedule.std
+
+    },
+
+    flightNumberDisplay:
+    `${schedule.arrivalFlight}/${schedule.departureFlight}`,
+
+    flightDate: startOfDay,
+
+    origin: schedule.origin,
+
+    destination: schedule.destination,
+
+    status: "SCHEDULED",
+
+    readiness: 0,
+
+    mgt: mgt,
+
+    aircraft: {
+
+        aircraftType:
+        schedule.aircraftType || "",
+
+        registration: "",
+
+        stand: ""
+
+    }
+
+});
+
+console.log(
+    `CREATED: ${turnaround.flightNumberDisplay}`
+);
+
+
+
+console.log(
+    "Stored MGT:",
+    turnaround.mgt
+);
 
                 console.log(
                     `CREATED: ${turnaround.flightNumberDisplay}`

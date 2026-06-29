@@ -11,6 +11,10 @@ let assignmentModal;
 let specialHandlingDetailsModal;
 let notificationsCleared = false;
 
+let countdownInterval;
+let currentFlight;
+let currentEvents = [];
+
 let specialHandlingDetails = {
 
     wclb:[],
@@ -210,6 +214,7 @@ async function loadFlight() {
     const flight =
     await response.json();
 
+    currentFlight = flight;
     
 let readinessClass =
 "bg-danger";
@@ -388,7 +393,44 @@ else if(
             </div>
 
         </div>
+<div class="mt-3 text-center">
 
+    <div
+        id="countdownTitle"
+        class="text-muted">
+
+        Operational Timer
+
+    </div>
+
+    <div
+
+        id="countdownValue"
+
+        class="fw-bold text-success"
+
+        style="
+            font-size:36px;
+            font-family:monospace;
+        ">
+
+        --:--:--
+
+    </div>
+    <div
+
+    id="countdownInfo"
+
+    class="small text-muted mt-2">
+
+</div>
+<div
+    id="predictionPanel"
+    class="mt-2 small">
+
+</div>
+
+</div>
         <div class="mt-2">
 
             <div
@@ -435,6 +477,9 @@ else if(
 </div>
 
 `;
+
+startCountdown();
+
     loadPassengerInfo(
     flight
 );
@@ -457,6 +502,8 @@ loadSpecialHandling(
 //);
 
 }
+
+
 
 
 function requiresNotoc(
@@ -534,6 +581,8 @@ async function loadTimeline(){
 
     const events =
     await response.json();
+
+currentEvents = events;
 
     const timeline =
     document.getElementById(
@@ -3180,6 +3229,638 @@ function getStatusBadgeClass(
 
 }
 
+
+function startCountdown(){
+
+    if(!currentFlight){
+
+        return;
+
+    }
+
+    if(countdownInterval){
+
+        clearInterval(
+            countdownInterval
+        );
+
+    }
+
+    updateCountdown();
+
+    countdownInterval =
+
+    setInterval(
+
+        updateCountdown,
+
+        1000
+
+    );
+
+}
+
+
+function updateCountdown(){
+
+    if(!currentFlight){
+
+        return;
+
+    }
+
+    const timer =
+    document.getElementById(
+        "countdownValue"
+    );
+
+    const title =
+    document.getElementById(
+        "countdownTitle"
+    );
+
+    const info =
+    document.getElementById(
+        "countdownInfo"
+    );
+
+    const now =
+    new Date();
+
+    timer.className =
+    "fw-bold";
+
+    info.innerHTML = "";
+
+    const landing =
+    currentEvents.find(
+        e=>e.eventType==="LANDING"
+    );
+
+    const onBlocks =
+    currentEvents.find(
+        e=>e.eventType==="ON_BLOCKS"
+    );
+
+    const offBlocks =
+    currentEvents.find(
+        e=>e.eventType==="OFF_BLOCKS"
+    );
+
+    // --------------------
+// Final flight states
+// --------------------
+
+switch(currentFlight.status){
+
+    case "PUSHBACK":
+
+        title.innerHTML =
+        "Flight";
+
+        timer.innerHTML =
+        "🛫 Pushback";
+
+        timer.className =
+        "fw-bold text-primary";
+
+        info.innerHTML =
+        "Aircraft leaving stand";
+
+        return;
+
+    case "DEPARTED":
+
+        title.innerHTML =
+        "Flight";
+
+        timer.innerHTML =
+        "✔ Departed";
+
+        timer.className =
+        "fw-bold text-success";
+
+        info.innerHTML =
+        "";
+
+        return;
+
+    case "CANCELLED":
+
+        title.innerHTML =
+        "Flight";
+
+        timer.innerHTML =
+        "✖ Cancelled";
+
+        timer.className =
+        "fw-bold text-danger";
+
+        info.innerHTML =
+        "";
+
+        return;
+
+}
+
+
+    //------------------------------------------------
+    // TAXI IN
+    //------------------------------------------------
+
+    if(landing && !onBlocks){
+
+        const taxiSeconds =
+        Math.floor(
+
+            (now -
+            new Date(
+                landing.eventTime
+            ))/1000
+
+        );
+
+        const h =
+        Math.floor(
+            taxiSeconds/3600
+        );
+
+        const m =
+        Math.floor(
+            (taxiSeconds%3600)/60
+        );
+
+        const s =
+        taxiSeconds%60;
+
+        title.innerHTML =
+        "Taxi In";
+
+        timer.innerHTML =
+
+`${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}`;
+
+        timer.classList.add(
+            "text-info"
+        );
+
+        return;
+
+    }
+
+    //------------------------------------------------
+    // ON BLOCKS
+    //------------------------------------------------
+
+    if(onBlocks){
+
+        const departure =
+        getDepartureTarget();
+
+        if(!departure){
+
+            return;
+
+        }
+
+updatePredictionPanel(
+    departure
+);
+
+        const diff =
+        departure.target - now;
+
+        const totalSeconds =
+        Math.floor(
+            Math.abs(diff)/1000
+        );
+
+        const h =
+        Math.floor(
+            totalSeconds/3600
+        );
+
+        const m =
+        Math.floor(
+            (totalSeconds%3600)/60
+        );
+
+        const s =
+        totalSeconds%60;
+
+        if(departure.mode==="STD"){
+
+            title.innerHTML =
+
+            diff>=0
+
+            ?
+
+            "STD Remaining"
+
+            :
+
+            "STD Overdue";
+
+            const buffer =
+
+            Math.floor(
+
+                (departure.target -
+                departure.ready)/60000
+
+            );
+
+            info.innerHTML =
+
+            `Ground Ready ${departure.ready.toLocaleTimeString("en-GB",{
+
+                hour:"2-digit",
+
+                minute:"2-digit"
+
+            })} • Buffer ${buffer} min`;
+
+        }
+
+        else{
+
+            title.innerHTML =
+
+            diff>=0
+
+            ?
+
+            "Ground Time Remaining"
+
+            :
+
+            "Ground Time Overdue";
+
+            info.innerHTML =
+            "STD cannot be achieved";
+
+        }
+
+        timer.innerHTML =
+
+`${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}`;
+
+        if(diff<0){
+
+            timer.classList.add(
+                "text-danger"
+            );
+
+        }
+        else if(diff<600000){
+
+            timer.classList.add(
+                "text-warning"
+            );
+
+        }
+        else{
+
+            timer.classList.add(
+                "text-success"
+            );
+
+        }
+
+        return;
+
+    }
+
+    //------------------------------------------------
+    // ETA
+    //------------------------------------------------
+
+    if(currentFlight.arrival?.eta){
+
+        const eta =
+        new Date(
+            currentFlight.arrival.eta
+        );
+
+        if(isNaN(eta)){
+
+            title.innerHTML =
+            "Arrival";
+
+            timer.innerHTML =
+            "--:--:--";
+
+            timer.classList.add(
+                "text-secondary"
+            );
+
+            return;
+
+        }
+
+        const diff =
+        eta - now;
+
+        const totalSeconds =
+        Math.floor(
+            Math.abs(diff)/1000
+        );
+
+        const h =
+        Math.floor(
+            totalSeconds/3600
+        );
+
+        const m =
+        Math.floor(
+            (totalSeconds%3600)/60
+        );
+
+        const s =
+        totalSeconds%60;
+
+        title.innerHTML =
+
+        diff>=0
+
+        ?
+
+        "ETA Remaining"
+
+        :
+
+        "ETA Overdue";
+
+        timer.innerHTML =
+
+`${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}`;
+
+        if(diff<0){
+
+            timer.classList.add(
+                "text-danger"
+            );
+
+        }
+        else if(diff<600000){
+
+            timer.classList.add(
+                "text-warning"
+            );
+
+        }
+        else{
+
+            timer.classList.add(
+                "text-success"
+            );
+
+        }
+
+        return;
+
+    }
+
+    //------------------------------------------------
+    // Waiting
+    //------------------------------------------------
+
+    title.innerHTML =
+    "Arrival";
+
+    timer.innerHTML =
+    "Awaiting ETA";
+
+    timer.classList.add(
+        "text-secondary");
+
+}
+
+function getDepartureTarget(){
+
+    if(!currentFlight.departure?.std){
+
+        return null;
+
+    }
+
+  const std =
+combineDateAndTime(
+
+    currentFlight.operatingDate,
+
+    currentFlight.departure.std
+
+);
+
+
+    const onBlocks =
+    currentEvents.find(
+
+        e=>e.eventType==="ON_BLOCKS"
+
+    );
+
+    if(!onBlocks){
+
+        return{
+
+            target:std,
+
+            mode:"ETA"
+
+        };
+
+    }
+
+    const ready =
+
+    new Date(
+
+        new Date(
+            onBlocks.eventTime
+        ).getTime()
+
+        +
+
+        (currentFlight.mgt||75)*60000
+
+    );
+
+    if(ready<=std){
+
+        return{
+
+            target:std,
+
+            ready,
+
+            mode:"STD"
+
+        };
+
+    }
+
+    return{
+
+        target:ready,
+
+        ready,
+
+        mode:"GROUND"
+
+    };
+
+}
+
+
+function updatePredictionPanel(departure){
+
+    const panel =
+    document.getElementById(
+        "predictionPanel"
+    );
+
+    if(!panel){
+
+        return;
+
+    }
+
+    if(!departure){
+
+        panel.innerHTML = "";
+
+        return;
+
+    }
+
+    const std =
+    combineDateAndTime(
+
+        currentFlight.operatingDate,
+
+        currentFlight.departure.std
+
+    );
+
+    const ready =
+    departure.ready;
+
+    const delay =
+
+    Math.round(
+
+        (ready - std)/60000
+
+    );
+
+    let colour =
+    "success";
+
+    let status =
+    "ON TIME";
+
+    if(delay>0){
+
+        colour =
+        "danger";
+
+        status =
+        `EXPECTED DELAY +${delay} min`;
+
+    }
+
+    else if(delay>-10){
+
+        colour =
+        "warning";
+
+        status =
+        `BUFFER ${Math.abs(delay)} min`;
+
+    }
+
+    panel.innerHTML = `
+
+    <div class="border-top pt-2">
+
+        <div>
+
+            <strong>
+
+                Predicted Off Blocks
+
+            </strong>
+
+        </div>
+
+        <div>
+
+            ${ready.toLocaleTimeString(
+
+                "en-GB",
+
+                {
+
+                    hour:"2-digit",
+
+                    minute:"2-digit"
+
+                }
+
+            )}
+
+        </div>
+
+        <div class="text-${colour}">
+
+            <strong>
+
+                ${status}
+
+            </strong>
+
+        </div>
+
+    </div>
+
+    `;
+
+}
+
+function combineDateAndTime(dateString,timeString){
+
+    if(!dateString || !timeString){
+
+        return null;
+
+    }
+
+    const [year,month,day] =
+    dateString.split("-").map(Number);
+
+    const [hour,minute] =
+    timeString.split(":").map(Number);
+
+    return new Date(
+
+        year,
+
+        month-1,
+
+        day,
+
+        hour,
+
+        minute,
+
+        0
+
+    );
+
+}
 
 
 loadFlight();

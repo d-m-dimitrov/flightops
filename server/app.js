@@ -26,6 +26,7 @@ const assignmentRoutes = require("./routes/assignments");
 const userRoutes = require("./routes/users");
 const userRoleRoutes = require("./routes/userRoles");
 
+const turnaroundRuleRoutes = require("./routes/turnaroundRules");
 
 
 const app = express();
@@ -46,15 +47,15 @@ app.set(
     io
 );
 
-connectDB();
-
 const seedEvents =
 require("./seed/eventDefinitions");
 
 const seedRoles =
 require("./seed/roleDefinitions");
 
-connectDB().then(async () => {
+(async()=>{
+
+    await connectDB();
 
     await seedRoles();
 
@@ -62,7 +63,7 @@ connectDB().then(async () => {
 
     await generateTurnarounds();
 
-});
+})();
 
 setInterval(
 
@@ -141,7 +142,13 @@ app.use(
     userRoutes
 );
 
+app.use(
 
+    "/api/turnaround-rules",
+
+    turnaroundRuleRoutes
+
+);
 
 
 app.use(
