@@ -19,6 +19,9 @@ new mongoose.Schema({
 
     std: String,
 
+    departureDayOffset: { type:Number, min:0, max:7, validate:Number.isInteger },
+    timeDisambiguation: { type:String, enum:["reject","earlier","later"], default:"reject" },
+
     daysOfWeek: [Number],
 
     active: {

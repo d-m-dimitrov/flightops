@@ -63,7 +63,7 @@ async function loadSchedules(){
                 ${schedule.sta}
 
                 STD:
-                ${schedule.std}
+                ${schedule.std} (+${schedule.departureDayOffset ?? Number(schedule.std < schedule.sta)}d, London)
 
                 </div>
 
@@ -106,6 +106,8 @@ async function loadSchedules(){
 
 
 function newSchedule(){
+    document.getElementById("departureDayOffset").value = "0";
+    document.getElementById("scheduleOccurrence").value = "reject";
 
     document.getElementById(
         "scheduleId"
@@ -171,6 +173,8 @@ async function saveSchedule(){
     });
 
     const payload = {
+        departureDayOffset:Number(document.getElementById("departureDayOffset").value),
+        timeDisambiguation:document.getElementById("scheduleOccurrence").value,
 
         airline:
         document.getElementById(
@@ -219,54 +223,12 @@ async function saveSchedule(){
 
     };
 
-    if(scheduleId){
-
-        await fetch(
-
-            `/api/schedules/${scheduleId}`,
-
-            {
-
-                method:"PUT",
-
-                headers:{
-                    "Content-Type":
-                    "application/json"
-                },
-
-                body:JSON.stringify(
-                    payload
-                )
-
-            }
-
-        );
-
-    }
-    else{
-
-        await fetch(
-
-            "/api/schedules",
-
-            {
-
-                method:"POST",
-
-                headers:{
-                    "Content-Type":
-                    "application/json"
-                },
-
-                body:JSON.stringify(
-                    payload
-                )
-
-            }
-
-        );
-
-    }
+    const response = await fetch(scheduleId ? `/api/schedules/${scheduleId}` : "/api/schedules", {
+        method:scheduleId ? "PUT" : "POST",
+        headers:{ "Content-Type":"application/json" },
+        body:JSON.stringify(payload)
+    });
+    if (!response.ok) { alert((await response.json()).error || "Save failed"); return; }
 
     scheduleModal.hide();
 
@@ -284,6 +246,9 @@ async function editSchedule(id){
 
     const schedule =
     await response.json();
+
+    document.getElementById("departureDayOffset").value = schedule.departureDayOffset ?? Number(schedule.std < schedule.sta);
+    document.getElementById("scheduleOccurrence").value = schedule.timeDisambiguation || "reject";
 
     document.getElementById(
         "scheduleId"

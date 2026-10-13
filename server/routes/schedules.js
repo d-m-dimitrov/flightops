@@ -1,3 +1,14 @@
+function validateSchedule(req, res, next) {
+    const { sta, std, departureDayOffset:offset, timeDisambiguation:occurrence } = req.body;
+    const validTime = value => /^([01]\d|2[0-3]):[0-5]\d$/.test(value);
+    if (!validTime(sta) || !validTime(std) ||
+        (offset != null && (!Number.isInteger(offset) || offset < 0 || offset > 7)) ||
+        (occurrence != null && !["reject","earlier","later"].includes(occurrence)) ||
+        (offset === 0 && std <= sta)) {
+        return res.status(400).json({ error:"Check STA/STD and departure day (London local time)" });
+    }
+    next();
+}
 const express = require("express");
 
 const router = express.Router();
@@ -39,6 +50,7 @@ async(req,res)=>{
 
 router.post(
 "/",
+validateSchedule,
 async(req,res)=>{
 
     const schedule =
@@ -55,6 +67,7 @@ async(req,res)=>{
 
 router.put(
 "/:id",
+validateSchedule,
 async(req,res)=>{
 
     const schedule =
@@ -65,7 +78,8 @@ async(req,res)=>{
         req.body,
 
         {
-            returnDocument:"after"
+            returnDocument:"after",
+            runValidators:true
         }
 
     );
@@ -91,7 +105,8 @@ async(req,res)=>{
         },
 
         {
-            returnDocument:"after"
+            returnDocument:"after",
+            runValidators:true
         }
 
     );

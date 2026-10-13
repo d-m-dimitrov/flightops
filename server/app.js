@@ -53,46 +53,20 @@ require("./seed/eventDefinitions");
 const seedRoles =
 require("./seed/roleDefinitions");
 
-(async()=>{
-
+async function startGenerator() {
     await connectDB();
-
     await seedRoles();
-
     await seedEvents();
-
+    await require("./services/ensureTurnaroundIndex")(require("./models/Turnaround"));
     await generateTurnarounds();
-
-})();
-
-setInterval(
-
-    async()=>{
-
-        try{
-
-            console.log(
-                "Generating turnarounds..."
-            );
-
-            await generateTurnarounds();
-
-        }
-        catch(err){
-
-            console.error(
-                "Turnaround generation failed"
-            );
-
-            console.error(err);
-
-        }
-
-    },
-
-    60 * 60 * 1000
-
-);
+    // Schedule the next run after completion, avoiding overlapping async intervals.
+    const run = async () => {
+        try { await generateTurnarounds(); }
+        catch (error) { console.error("Turnaround generation failed", error); }
+        setTimeout(run, 60000).unref();
+    };
+    setTimeout(run, 60000).unref();
+}
 
 app.use(cors());
 app.use(express.json());
@@ -190,13 +164,10 @@ io.on(
 
 const PORT = process.env.PORT || 3000;
 
-server.listen(
-    PORT,
-    ()=>{
-
-        console.log(
-            `Server running on port ${PORT}`
-        );
-
-    }
-);
+startGenerator().then(() => {
+    server.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+}).catch(async error => {
+    console.error("Startup failed; check database and duplicate schedule/date records", error);
+    await require("mongoose").disconnect();
+    process.exitCode = 1;
+});

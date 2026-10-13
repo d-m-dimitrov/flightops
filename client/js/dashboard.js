@@ -14,6 +14,8 @@ let notificationsCleared = false;
 let countdownInterval;
 let currentFlight;
 let currentEvents = [];
+let refreshVersion = 0;
+let dashboardActive = true;
 
 let specialHandlingDetails = {
 
@@ -205,17 +207,30 @@ async function loadCompletedEvents(){
 
 
 async function loadFlight() {
-
-    const response =
-    await fetch(
-        `/api/flights/${flightId}`
-    );
-
-    const flight =
-    await response.json();
-
+    const version = ++refreshVersion;
+    let snapshot;
+    try {
+        const response = await fetch(`/api/flights/${flightId}/operational`);
+        if (!response.ok) throw new Error("Operational data unavailable");
+        snapshot = await response.json();
+        if (!snapshot.flight || !Array.isArray(snapshot.events)) throw new Error("Invalid operational data");
+    } catch (error) {
+        if (version === refreshVersion && dashboardActive) {
+            stopCountdown();
+            currentFlight = null;
+            currentEvents = [];
+            const timer = document.getElementById("countdownValue");
+            if (timer) timer.textContent = "Data unavailable — refresh required";
+            const panel = document.getElementById("predictionPanel");
+            if (panel) panel.textContent = "";
+        }
+        return;
+    }
+    if (version !== refreshVersion || !dashboardActive) return;
+    const flight = snapshot.flight;
     currentFlight = flight;
-    
+    currentEvents = snapshot.events;
+
 let readinessClass =
 "bg-danger";
 
@@ -329,11 +344,11 @@ else if(
 
                     |
 
-                    STD
+                    STD (London)
                     <strong>
                     ${formatDateTime(
                         flight.departure?.std
-                    )}
+                    )} ${flight.departureDayOffset ? `(+${flight.departureDayOffset}d)` : ""}
                     </strong>
 
                     |
@@ -478,6 +493,7 @@ else if(
 
 `;
 
+renderTimeline(currentEvents);
 startCountdown();
 
     loadPassengerInfo(
@@ -563,8 +579,6 @@ await fetch(
 
 
     await loadFlight();
-
-    await loadTimeline();
     await loadEventButtons();
 
 }
@@ -572,17 +586,7 @@ await fetch(
 
 
 
-async function loadTimeline(){
-
-    const response =
-    await fetch(
-        `/api/events/${flightId}`
-    );
-
-    const events =
-    await response.json();
-
-currentEvents = events;
+function renderTimeline(events){
 
     const timeline =
     document.getElementById(
@@ -611,7 +615,7 @@ div.innerHTML = `
 <strong>
 
 ${time.toLocaleTimeString(
-    "en-GB"
+    "en-GB", { timeZone:"Europe/London" }
 )}
 
 </strong>
@@ -968,6 +972,7 @@ function formatRole(role){
 }
 
 async function editFlightDetails(){
+    document.getElementById("detailsOccurrence").value = "reject";
 
     const response =
     await fetch(
@@ -997,9 +1002,7 @@ async function editFlightDetails(){
     ).value =
     flight.arrival?.eta
     ?
-    new Date(
-        flight.arrival.eta
-    ).toISOString().substring(0,16)
+    OperationalTime.localInput(flight.arrival.eta).slice(0,16)
     :
     "";
 
@@ -1008,9 +1011,7 @@ async function editFlightDetails(){
     ).value =
     flight.arrival?.ata
     ?
-    new Date(
-        flight.arrival.ata
-    ).toISOString().substring(0,16)
+    OperationalTime.localInput(flight.arrival.ata).slice(0,16)
     :
     "";
 
@@ -1019,9 +1020,7 @@ async function editFlightDetails(){
     ).value =
     flight.departure?.etd
     ?
-    new Date(
-        flight.departure.etd
-    ).toISOString().substring(0,16)
+    OperationalTime.localInput(flight.departure.etd).slice(0,16)
     :
     "";
 
@@ -1062,7 +1061,7 @@ if(cancelBtn){
     "none";
 
 }
-    await fetch(
+    const saveResponse = await fetch(
 
         `/api/flights/${flightId}/details`,
 
@@ -1076,6 +1075,7 @@ if(cancelBtn){
             },
 
             body:JSON.stringify({
+                timeDisambiguation:document.getElementById("detailsOccurrence").value,
 
                 aircraftType:
                 document.getElementById(
@@ -1116,6 +1116,11 @@ CURRENT_USER.name
 
     );
 
+    if (!saveResponse.ok) {
+        const error = await saveResponse.json();
+        alert(error.error || "Save failed");
+        return;
+    }
     flightDetailsModal.hide();
 
     await loadFlight();
@@ -1321,17 +1326,14 @@ async function editEvent(
 
     document.getElementById(
         "modalEventTime"
-    ).value = new Date(
-        event.eventTime
-    )
-    .toISOString()
-    .substring(0,16);
+    ).value = OperationalTime.localInput(event.eventTime).slice(0,16);
 
     document.getElementById(
         "modalEventNotes"
     ).value =
     event.notes || "";
 
+    document.getElementById("eventOccurrence").value = "reject";
     eventModal.show();
 
 }
@@ -1354,7 +1356,7 @@ async function saveEventEdit(){
         "modalEventNotes"
     ).value;
 
-    await fetch(
+    const saveResponse = await fetch(
 
         `/api/events/${eventId}`,
 
@@ -1368,6 +1370,7 @@ async function saveEventEdit(){
             },
 
             body:JSON.stringify({
+                timeDisambiguation:document.getElementById("eventOccurrence").value,
 
                 eventTime,
                 notes
@@ -1378,11 +1381,14 @@ async function saveEventEdit(){
 
     );
 
+    if (!saveResponse.ok) {
+        const error = await saveResponse.json();
+        alert(error.error || "Save failed");
+        return;
+    }
     eventModal.hide();
 
     await loadFlight();
-
-    await loadTimeline();
 
     await loadEventButtons();
 
@@ -1802,6 +1808,7 @@ function formatDateTime(value){
     return date.toLocaleTimeString(
         "en-GB",
         {
+            timeZone:"Europe/London",
             hour:"2-digit",
             minute:"2-digit"
         }
@@ -2138,9 +2145,7 @@ async function loadChat(){
 
         ${new Date(
             msg.createdAt
-        ).toLocaleTimeString(
-            "en-GB"
-        )}
+        ).toLocaleTimeString("en-GB", { timeZone:"Europe/London" })}
 
         </small>
 
@@ -2170,9 +2175,7 @@ if(
 
         ${new Date(
             msg.createdAt
-        ).toLocaleTimeString(
-            "en-GB"
-        )}
+        ).toLocaleTimeString("en-GB", { timeZone:"Europe/London" })}
 
         </small>
 
@@ -2201,9 +2204,7 @@ if(
 
                 ${new Date(
                     msg.createdAt
-                ).toLocaleTimeString(
-                    "en-GB"
-                )}
+                ).toLocaleTimeString("en-GB", { timeZone:"Europe/London" })}
 
             </small>
 
@@ -3230,641 +3231,123 @@ function getStatusBadgeClass(
 }
 
 
-function startCountdown(){
-
-    if(!currentFlight){
-
-        return;
-
-    }
-
-    if(countdownInterval){
-
-        clearInterval(
-            countdownInterval
-        );
-
-    }
-
-    updateCountdown();
-
-    countdownInterval =
-
-    setInterval(
-
-        updateCountdown,
-
-        1000
-
-    );
-
+function stopCountdown() {
+    clearInterval(countdownInterval);
+    countdownInterval = null;
 }
 
-
-function updateCountdown(){
-
-    if(!currentFlight){
-
-        return;
-
+function startCountdown() {
+    stopCountdown();
+    // updateCountdown returns whether the displayed state needs another tick.
+    if (updateCountdown()) {
+        countdownInterval = setInterval(() => {
+            if (!updateCountdown()) stopCountdown();
+        }, 1000);
     }
-
-    const timer =
-    document.getElementById(
-        "countdownValue"
-    );
-
-    const title =
-    document.getElementById(
-        "countdownTitle"
-    );
-
-    const info =
-    document.getElementById(
-        "countdownInfo"
-    );
-
-    const now =
-    new Date();
-
-    timer.className =
-    "fw-bold";
-
-    info.innerHTML = "";
-
-    const landing =
-    currentEvents.find(
-        e=>e.eventType==="LANDING"
-    );
-
-    const onBlocks =
-    currentEvents.find(
-        e=>e.eventType==="ON_BLOCKS"
-    );
-
-    const offBlocks =
-    currentEvents.find(
-        e=>e.eventType==="OFF_BLOCKS"
-    );
-
-    // --------------------
-// Final flight states
-// --------------------
-
-switch(currentFlight.status){
-
-    case "PUSHBACK":
-
-        title.innerHTML =
-        "Flight";
-
-        timer.innerHTML =
-        "🛫 Pushback";
-
-        timer.className =
-        "fw-bold text-primary";
-
-        info.innerHTML =
-        "Aircraft leaving stand";
-
-        return;
-
-    case "DEPARTED":
-
-        title.innerHTML =
-        "Flight";
-
-        timer.innerHTML =
-        "✔ Departed";
-
-        timer.className =
-        "fw-bold text-success";
-
-        info.innerHTML =
-        "";
-
-        return;
-
-    case "CANCELLED":
-
-        title.innerHTML =
-        "Flight";
-
-        timer.innerHTML =
-        "✖ Cancelled";
-
-        timer.className =
-        "fw-bold text-danger";
-
-        info.innerHTML =
-        "";
-
-        return;
-
 }
 
-
-    //------------------------------------------------
-    // TAXI IN
-    //------------------------------------------------
-
-    if(landing && !onBlocks){
-
-        const taxiSeconds =
-        Math.floor(
-
-            (now -
-            new Date(
-                landing.eventTime
-            ))/1000
-
-        );
-
-        const h =
-        Math.floor(
-            taxiSeconds/3600
-        );
-
-        const m =
-        Math.floor(
-            (taxiSeconds%3600)/60
-        );
-
-        const s =
-        taxiSeconds%60;
-
-        title.innerHTML =
-        "Taxi In";
-
-        timer.innerHTML =
-
-`${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}`;
-
-        timer.classList.add(
-            "text-info"
-        );
-
-        return;
-
-    }
-
-    //------------------------------------------------
-    // ON BLOCKS
-    //------------------------------------------------
-
-    if(onBlocks){
-
-        const departure =
-        getDepartureTarget();
-
-        if(!departure){
-
-            return;
-
-        }
-
-updatePredictionPanel(
-    departure
-);
-
-        const diff =
-        departure.target - now;
-
-        const totalSeconds =
-        Math.floor(
-            Math.abs(diff)/1000
-        );
-
-        const h =
-        Math.floor(
-            totalSeconds/3600
-        );
-
-        const m =
-        Math.floor(
-            (totalSeconds%3600)/60
-        );
-
-        const s =
-        totalSeconds%60;
-
-        if(departure.mode==="STD"){
-
-            title.innerHTML =
-
-            diff>=0
-
-            ?
-
-            "STD Remaining"
-
-            :
-
-            "STD Overdue";
-
-            const buffer =
-
-            Math.floor(
-
-                (departure.target -
-                departure.ready)/60000
-
-            );
-
-            info.innerHTML =
-
-            `Ground Ready ${departure.ready.toLocaleTimeString("en-GB",{
-
-                hour:"2-digit",
-
-                minute:"2-digit"
-
-            })} • Buffer ${buffer} min`;
-
-        }
-
-        else{
-
-            title.innerHTML =
-
-            diff>=0
-
-            ?
-
-            "Ground Time Remaining"
-
-            :
-
-            "Ground Time Overdue";
-
-            info.innerHTML =
-            "STD cannot be achieved";
-
-        }
-
-        timer.innerHTML =
-
-`${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}`;
-
-        if(diff<0){
-
-            timer.classList.add(
-                "text-danger"
-            );
-
-        }
-        else if(diff<600000){
-
-            timer.classList.add(
-                "text-warning"
-            );
-
-        }
-        else{
-
-            timer.classList.add(
-                "text-success"
-            );
-
-        }
-
-        return;
-
-    }
-
-    //------------------------------------------------
-    // ETA
-    //------------------------------------------------
-
-    if(currentFlight.arrival?.eta){
-
-        const eta =
-        new Date(
-            currentFlight.arrival.eta
-        );
-
-        if(isNaN(eta)){
-
-            title.innerHTML =
-            "Arrival";
-
-            timer.innerHTML =
-            "--:--:--";
-
-            timer.classList.add(
-                "text-secondary"
-            );
-
-            return;
-
-        }
-
-        const diff =
-        eta - now;
-
-        const totalSeconds =
-        Math.floor(
-            Math.abs(diff)/1000
-        );
-
-        const h =
-        Math.floor(
-            totalSeconds/3600
-        );
-
-        const m =
-        Math.floor(
-            (totalSeconds%3600)/60
-        );
-
-        const s =
-        totalSeconds%60;
-
-        title.innerHTML =
-
-        diff>=0
-
-        ?
-
-        "ETA Remaining"
-
-        :
-
-        "ETA Overdue";
-
-        timer.innerHTML =
-
-`${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}`;
-
-        if(diff<0){
-
-            timer.classList.add(
-                "text-danger"
-            );
-
-        }
-        else if(diff<600000){
-
-            timer.classList.add(
-                "text-warning"
-            );
-
-        }
-        else{
-
-            timer.classList.add(
-                "text-success"
-            );
-
-        }
-
-        return;
-
-    }
-
-    //------------------------------------------------
-    // Waiting
-    //------------------------------------------------
-
-    title.innerHTML =
-    "Arrival";
-
-    timer.innerHTML =
-    "Awaiting ETA";
-
-    timer.classList.add(
-        "text-secondary");
-
+function duration(ms) {
+    const seconds = Math.floor(Math.abs(ms) / 1000);
+    return [Math.floor(seconds / 3600), Math.floor(seconds / 60) % 60, seconds % 60]
+        .map(value => String(value).padStart(2, "0")).join(":");
 }
 
-function getDepartureTarget(){
-
-    if(!currentFlight.departure?.std){
-
-        return null;
-
-    }
-
-  const std =
-combineDateAndTime(
-
-    currentFlight.operatingDate,
-
-    currentFlight.departure.std
-
-);
-
-
-    const onBlocks =
-    currentEvents.find(
-
-        e=>e.eventType==="ON_BLOCKS"
-
-    );
-
-    if(!onBlocks){
-
-        return{
-
-            target:std,
-
-            mode:"ETA"
-
-        };
-
-    }
-
-    const ready =
-
-    new Date(
-
-        new Date(
-            onBlocks.eventTime
-        ).getTime()
-
-        +
-
-        (currentFlight.mgt||75)*60000
-
-    );
-
-    if(ready<=std){
-
-        return{
-
-            target:std,
-
-            ready,
-
-            mode:"STD"
-
-        };
-
-    }
-
-    return{
-
-        target:ready,
-
-        ready,
-
-        mode:"GROUND"
-
-    };
-
+function operationalDisplay(value) {
+    return new Date(value).toLocaleString("en-GB", {
+        timeZone:"Europe/London", day:"2-digit", month:"short",
+        hour:"2-digit", minute:"2-digit", timeZoneName:"short"
+    });
 }
 
-
-function updatePredictionPanel(departure){
-
-    const panel =
-    document.getElementById(
-        "predictionPanel"
-    );
-
-    if(!panel){
-
-        return;
-
-    }
-
-    if(!departure){
-
-        panel.innerHTML = "";
-
-        return;
-
-    }
-
-    const std =
-    combineDateAndTime(
-
-        currentFlight.operatingDate,
-
-        currentFlight.departure.std
-
-    );
-
-    const ready =
-    departure.ready;
-
-    const delay =
-
-    Math.round(
-
-        (ready - std)/60000
-
-    );
-
-    let colour =
-    "success";
-
-    let status =
-    "ON TIME";
-
-    if(delay>0){
-
-        colour =
-        "danger";
-
-        status =
-        `EXPECTED DELAY +${delay} min`;
-
-    }
-
-    else if(delay>-10){
-
-        colour =
-        "warning";
-
-        status =
-        `BUFFER ${Math.abs(delay)} min`;
-
-    }
-
-    panel.innerHTML = `
-
-    <div class="border-top pt-2">
-
-        <div>
-
-            <strong>
-
-                Predicted Off Blocks
-
-            </strong>
-
-        </div>
-
-        <div>
-
-            ${ready.toLocaleTimeString(
-
-                "en-GB",
-
-                {
-
-                    hour:"2-digit",
-
-                    minute:"2-digit"
-
-                }
-
-            )}
-
-        </div>
-
-        <div class="text-${colour}">
-
-            <strong>
-
-                ${status}
-
-            </strong>
-
-        </div>
-
-    </div>
-
-    `;
-
+function getDepartureTarget() {
+    const onBlocks = currentEvents.find(e => e.eventType === "ON_BLOCKS");
+    return onBlocks ? OperationalTime.departurePlan(
+        currentFlight.departure?.stdAt, onBlocks.eventTime, currentFlight.mgt
+    ) : null;
 }
 
-function combineDateAndTime(dateString,timeString){
-
-    if(!dateString || !timeString){
-
-        return null;
-
+function updateCountdown() {
+    const timer = document.getElementById("countdownValue");
+    const title = document.getElementById("countdownTitle");
+    const info = document.getElementById("countdownInfo");
+    const panel = document.getElementById("predictionPanel");
+    if (!dashboardActive || !currentFlight || !timer || !title || !info || !panel) return false;
+    timer.className = "fw-bold text-secondary";
+    info.textContent = "";
+    panel.textContent = "";
+    const event = type => currentEvents.find(e => e.eventType === type);
+    const terminal = currentFlight.status === "CANCELLED" ? "Cancelled" :
+        event("AIRBORNE") || currentFlight.status === "DEPARTED" ? "Departed" :
+        event("PUSHBACK") || currentFlight.status === "PUSHBACK" ? "Pushback" : null;
+    if (terminal) {
+        title.textContent = "Flight";
+        timer.textContent = terminal;
+        return false;
     }
-
-    const [year,month,day] =
-    dateString.split("-").map(Number);
-
-    const [hour,minute] =
-    timeString.split(":").map(Number);
-
-    return new Date(
-
-        year,
-
-        month-1,
-
-        day,
-
-        hour,
-
-        minute,
-
-        0
-
-    );
-
+    const now = Date.now();
+    const landing = event("LANDED")?.eventTime || currentFlight.arrival?.ata;
+    const onBlocks = event("ON_BLOCKS");
+    let target, label;
+    if (onBlocks) {
+        const departure = getDepartureTarget();
+        if (currentFlight.operationalTimeError || !departure || Date.parse(onBlocks.eventTime) > now) {
+            title.textContent = "Departure";
+            timer.textContent = "Time / MGT unavailable";
+            info.textContent = currentFlight.operationalTimeError || "Check STD, On Blocks and MGT";
+            return false;
+        }
+        target = departure.target.getTime();
+        label = departure.mode === "STD" ? "STD" : "Ground Time";
+        info.textContent = `Ground Ready ${operationalDisplay(departure.ready)} • MGT ${currentFlight.mgt} min`;
+        const warning = currentFlight.mgtSource === "fallback" ? " • Default MGT: verify rule" : "";
+        panel.textContent = now > target
+            ? `STD/MGT target passed at ${operationalDisplay(target)} — awaiting actual departure${warning}`
+            : `Earliest Off Blocks (STD/MGT): ${operationalDisplay(target)} • ` +
+              (departure.delay > 0 ? `Minimum delay +${Math.ceil(departure.delay)} min` :
+                `Buffer ${Math.floor(departure.buffer)} min`) + warning;
+    } else if (landing) {
+        const landedAt = Date.parse(landing);
+        title.textContent = "Taxi In";
+        if (!Number.isFinite(landedAt) || landedAt > now) {
+            timer.textContent = "Check landing time";
+            return false;
+        }
+        timer.textContent = duration(now - landedAt);
+        timer.className = "fw-bold text-info";
+        return true;
+    } else {
+        target = Date.parse(currentFlight.arrival?.eta);
+        label = "ETA";
+        if (!Number.isFinite(target)) {
+            title.textContent = "Arrival";
+            timer.textContent = "Awaiting valid ETA";
+            return false;
+        }
+    }
+    const diff = target - now;
+    title.textContent = `${label} ${diff >= 0 ? "Remaining" : "Overdue"}`;
+    timer.textContent = duration(diff);
+    timer.className = "fw-bold " + (diff < 0 ? "text-danger" : diff < 600000 ? "text-warning" : "text-success");
+    return true;
 }
+
+window.addEventListener("pagehide", () => {
+    dashboardActive = false;
+    ++refreshVersion;
+    stopCountdown();
+});
+window.addEventListener("pageshow", event => {
+    dashboardActive = true;
+    if (event.persisted) loadFlight();
+});
+// Rejoin the room and refresh after reconnect, including missed events.
+socket.on("connect", () => {
+    socket.emit("joinFlight", flightId);
+    if (dashboardActive) loadFlight();
+});
 
 
 loadFlight();
-loadTimeline();
 loadEventButtons();
 loadAssignments();
 loadChat();
@@ -3878,8 +3361,6 @@ socket.on(
         );
 
         await loadFlight();
-
-        await loadTimeline();
 
         await loadEventButtons();
 
@@ -3896,8 +3377,6 @@ setInterval(
     async ()=>{
 
         await loadFlight();
-
-        await loadTimeline();
 
         await loadEventButtons();
 

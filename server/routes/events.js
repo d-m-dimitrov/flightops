@@ -1,3 +1,5 @@
+const time = require("../../client/js/operationalTime");
+const Turnaround = require("../models/Turnaround");
 const express = require("express");
 
 const router = express.Router();
@@ -51,29 +53,34 @@ router.get("/:turnaroundId/existing", async (req, res) => {
 
 });
 
-router.put("/:id", async(req,res)=>{
-
-    const event =
-    await Event.findByIdAndUpdate(
-
-        req.params.id,
-
-        {
-           eventTime:
-req.body.eventTime,
-
-notes:
-req.body.notes
-        },
-
-        {
-            new:true
-        }
-
-    );
-
+router.put("/:id", async (req, res) => {
+    const event = await Event.findById(req.params.id);
+    if (!event) return res.status(404).json({ error:"Event not found" });
+    let eventTime;
+    try {
+        eventTime = time.editedTime(req.body.eventTime, event.eventTime, req.body.timeDisambiguation);
+        if (!eventTime) throw new Error("Event time is required");
+        if (eventTime.getTime() > Date.now()) throw new Error("An actual event cannot be in the future");
+    } catch (error) { return res.status(400).json({ error:error.message }); }
+    const paths = {
+        LANDED:"arrival.ata", ON_BLOCKS:"arrival.onBlocks", FIRST_PAX_OFF:"arrival.firstPaxOff",
+        LAST_PAX_OFF:"arrival.lastPaxOff", FIRST_BAG:"arrival.firstBag", LAST_BAG:"arrival.lastBag",
+        CHECKIN_OPEN:"departure.checkinOpen", CHECKIN_CLOSE:"departure.checkinClose",
+        BOARDING_START:"departure.boardingStart", BOARDING_COMPLETE:"departure.boardingComplete",
+        LOAD_COMPLETE:"departure.loadComplete", LOADING_COMPLETE:"departure.loadComplete",
+        DOORS_CLOSED:"departure.doorsClosed", PUSHBACK:"departure.pushback", AIRBORNE:"departure.airborne"
+    };
+    // Event is the authoritative timestamp. Await both writes before notifying clients.
+    event.eventTime = eventTime;
+    event.notes = req.body.notes || "";
+    await event.save();
+    if (paths[event.eventType]) {
+        const update = { [paths[event.eventType]]:eventTime };
+        if (event.eventType === "AIRBORNE") update["departure.atd"] = eventTime;
+        await Turnaround.updateOne({ _id:event.turnaroundId }, { $set:update }, { runValidators:true });
+    }
+    req.app.get("io").to(event.turnaroundId.toString()).emit("flightUpdated");
     res.json(event);
-
 });
 router.get(
 "/:turnaroundId/:eventType",
