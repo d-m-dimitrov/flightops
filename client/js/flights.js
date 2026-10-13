@@ -82,6 +82,7 @@ function formatTime(value){
         "en-GB",
         {
 
+            timeZone:"Europe/London",
             hour:"2-digit",
 
             minute:"2-digit"
@@ -393,7 +394,7 @@ flight.unreadNotifications > 0
         |
 
         STD
-        <strong>${flight.departure?.std || "-"}</strong>
+        <strong>${flight.departure?.std || "-"} ${flight.departureDayOffset ? `(+${flight.departureDayOffset}d)` : ""}</strong>
 
         |
 
@@ -470,9 +471,7 @@ function goToday(){
         "flightDate"
     ).value =
 
-    new Date()
-    .toISOString()
-    .substring(0,10);
+    OperationalTime.operatingDate();
 
     loadFlights();
 
@@ -485,19 +484,7 @@ function changeDate(days){
         "flightDate"
     );
 
-    const date =
-    new Date(
-        input.value
-    );
-
-    date.setDate(
-        date.getDate() + days
-    );
-
-    input.value =
-    date
-    .toISOString()
-    .substring(0,10);
+    input.value = OperationalTime.addDays(input.value, days);
 
     loadFlights();
 
@@ -569,9 +556,7 @@ document.addEventListener(
         document.getElementById(
             "flightDate"
         ).value =
-        new Date()
-        .toISOString()
-        .substring(0,10);
+        OperationalTime.operatingDate();
 
         document.getElementById(
             "flightDate"
@@ -595,6 +580,8 @@ document.addEventListener(
 );
 
 function newFlight(){
+    document.getElementById("newDepartureDayOffset").value = "0";
+    document.getElementById("newFlightOccurrence").value = "reject";
     if(
         !canCreateFlight()
     ){
@@ -635,7 +622,7 @@ function newFlight(){
 
 async function saveNewFlight(){
 
-    await fetch(
+    const response = await fetch(
 
         "/api/flights",
 
@@ -649,6 +636,8 @@ async function saveNewFlight(){
             },
 
             body:JSON.stringify({
+                departureDayOffset:Number(document.getElementById("newDepartureDayOffset").value),
+                timeDisambiguation:document.getElementById("newFlightOccurrence").value,
 
                 operatingDate:
                 document.getElementById(
@@ -691,6 +680,7 @@ async function saveNewFlight(){
 
     );
 
+    if (!response.ok) { alert((await response.json()).error || "Save failed"); return; }
     flightModal.hide();
 
     await loadFlights();

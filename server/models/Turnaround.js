@@ -22,8 +22,14 @@ const TurnaroundSchema = new mongoose.Schema({
 
 mgt:{
     type:Number,
-    default:75
+    min:1,
+    validate:Number.isInteger
 },
+
+    departureDayOffset: { type:Number, min:0, max:7, validate:Number.isInteger },
+    timeDisambiguation: { type:String, enum:["reject","earlier","later"], default:"reject" },
+    mgtSource: String,
+    mgtRuleId: { type:mongoose.Schema.Types.ObjectId, ref:"TurnaroundRule" },
 
     readiness: {
         type: Number,
@@ -66,6 +72,7 @@ aircraft: {
     arrival: {
 
         sta: String,
+        staAt: Date,
         eta: Date,
         ata: Date,
 
@@ -82,6 +89,7 @@ aircraft: {
     departure: {
 
         std: String,
+        stdAt: Date,
 
         etd: Date,
 

@@ -1,230 +1,42 @@
 const FlightSchedule = require("../models/FlightSchedule");
 const Turnaround = require("../models/Turnaround");
-const TurnaroundRule = require("../models/TurnaroundRule");
+const resolveMgt = require("./getTurnaroundRule");
+const time = require("../../client/js/operationalTime");
+let running = false;
 
-async function generateTurnarounds() {
-
-    try {
-
-        const today = new Date();
-
-        const startOfDay = new Date(today);
-        startOfDay.setHours(0, 0, 0, 0);
-
-        const endOfDay = new Date(today);
-        endOfDay.setHours(23, 59, 59, 999);
-
-        const jsDay = today.getDay();
-
-        // Sunday=7 вместо 0
-        const day = jsDay === 0 ? 7 : jsDay;
-
-        console.log("=================================");
-        console.log("TURNAROUND GENERATOR");
-        console.log("Date:", today.toISOString());
-        console.log("Day:", day);
-        console.log("=================================");
-
-        const schedules = await FlightSchedule.find({
-            active: true
-        });
-
-        console.log(`Schedules found: ${schedules.length}`);
-
-        for (const schedule of schedules) {
-
-            try {
-
-                console.log(
-                    `Checking ${schedule.arrivalFlight}/${schedule.departureFlight}`
-                );
-
-                if (
-                    !schedule.daysOfWeek ||
-                    !schedule.daysOfWeek.includes(day)
-                ) {
-
-                    console.log(
-                        `Skipping ${schedule.arrivalFlight}/${schedule.departureFlight} - not scheduled today`
-                    );
-
-                    continue;
-                }
-
-
-
-                const operatingDate =
-today.toISOString()
-     .substring(0,10);
-
-
-
-const existing =
-await Turnaround.findOne({
-
-    scheduleId:
-    schedule._id,
-
-    operatingDate:
-    operatingDate,
-
-    deleted:false
-
-
-
-});
-
-               if (existing) {
-
-    console.log(
-        `Already exists: ${schedule.arrivalFlight}/${schedule.departureFlight}`
-    );
-
-    continue;
-
+async function generateTurnarounds(now = new Date()) {
+  if (running) return;
+  running = true;
+  try {
+    const operatingDate = time.operatingDate(now);
+    const weekday = new Date(operatingDate + "T12:00:00Z").getUTCDay() || 7;
+    const schedules = await FlightSchedule.find({ active:true });
+    for (const schedule of schedules) {
+      if (!schedule.daysOfWeek?.includes(weekday)) continue;
+      try {
+        const key = { scheduleId:schedule._id, operatingDate };
+        // A deleted generated flight is a tombstone, not permission to recreate it.
+        if (await Turnaround.exists(key)) continue;
+        const times = time.scheduleTimes(operatingDate, schedule.sta, schedule.std,
+          schedule.departureDayOffset, schedule.timeDisambiguation);
+        const mgt = await resolveMgt(schedule.airline, schedule.aircraftType);
+        await Turnaround.updateOne(key, { $setOnInsert: {
+          ...key, ...mgt, departureDayOffset:times.departureDayOffset,
+          timeDisambiguation:schedule.timeDisambiguation || "reject",
+          airline:schedule.airline, arrivalFlight:schedule.arrivalFlight,
+          departureFlight:schedule.departureFlight,
+          arrival:{ sta:schedule.sta, staAt:times.staAt },
+          departure:{ std:schedule.std, stdAt:times.stdAt },
+          flightNumberDisplay:`${schedule.arrivalFlight}/${schedule.departureFlight}`,
+          flightDate:time.fromLocal(operatingDate + "T00:00"),
+          origin:schedule.origin, destination:schedule.destination,
+          status:"SCHEDULED", readiness:0,
+          aircraft:{ aircraftType:schedule.aircraftType, registration:"", stand:"" }
+        } }, { upsert:true, runValidators:true });
+      } catch (error) {
+        if (error.code !== 11000) console.error(`Schedule ${schedule._id}: ${error.message}`);
+      }
+    }
+  } finally { running = false; }
 }
-
-console.log("================================");
-console.log(
-    `Generating ${schedule.arrivalFlight}/${schedule.departureFlight}`
-);
-
-console.log(
-    "Searching rule for:",
-    schedule.airline,
-    schedule.aircraftType
-);
-
-const allRules =
-await TurnaroundRule.find();
-
-console.log("Rules in database:");
-
-allRules.forEach(r => {
-
-    console.log(
-        r.airline,
-        r.aircraftType,
-        r.minimumGroundTime
-    );
-
-});
-
-const rule =
-await TurnaroundRule.findOne({
-
-    airline: schedule.airline.trim(),
-
-    aircraftType: schedule.aircraftType.trim()
-
-});
-
-console.log("FOUND RULE:", rule);
-
-const mgt =
-rule?.minimumGroundTime ?? 75;
-
-console.log("Selected MGT:", mgt);
-
-const turnaround =
-await Turnaround.create({
-
-    scheduleId: schedule._id,
-
-    operatingDate: operatingDate,
-
-    airline: schedule.airline,
-
-    arrivalFlight: schedule.arrivalFlight,
-
-    departureFlight: schedule.departureFlight,
-
-    arrival: {
-
-        sta: schedule.sta
-
-    },
-
-    departure: {
-
-        std: schedule.std
-
-    },
-
-    flightNumberDisplay:
-    `${schedule.arrivalFlight}/${schedule.departureFlight}`,
-
-    flightDate: startOfDay,
-
-    origin: schedule.origin,
-
-    destination: schedule.destination,
-
-    status: "SCHEDULED",
-
-    readiness: 0,
-
-    mgt: mgt,
-
-    aircraft: {
-
-        aircraftType:
-        schedule.aircraftType || "",
-
-        registration: "",
-
-        stand: ""
-
-    }
-
-});
-
-console.log(
-    `CREATED: ${turnaround.flightNumberDisplay}`
-);
-
-
-
-console.log(
-    "Stored MGT:",
-    turnaround.mgt
-);
-
-                console.log(
-                    `CREATED: ${turnaround.flightNumberDisplay}`
-                );
-
-            }
-            catch (err) {
-
-                console.error(
-                    `Error processing schedule ${schedule._id}:`,
-                    err.message
-                );
-
-            }
-
-        }
-
-        const totalTurnarounds =
-            await Turnaround.countDocuments();
-
-        console.log(
-            `Total turnarounds in database: ${totalTurnarounds}`
-        );
-
-        console.log("Generator completed.");
-
-    }
-    catch (err) {
-
-        console.error(
-            "Generator failed:",
-            err
-        );
-
-    }
-
-}
-
 module.exports = generateTurnarounds;

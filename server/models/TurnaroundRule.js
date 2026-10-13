@@ -6,6 +6,8 @@ new mongoose.Schema({
     airline:{
 
         type:String,
+        trim:true,
+        uppercase:true,
 
         required:true
 
@@ -14,12 +16,16 @@ new mongoose.Schema({
     aircraftType:{
 
         type:String,
+        trim:true,
+        uppercase:true,
 
         required:true
 
     },
 
     minimumGroundTime:{
+        min:1,
+        validate:Number.isInteger,
 
         type:Number,
 

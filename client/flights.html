@@ -205,7 +205,10 @@
 
             </div>
 
-            <div class="modal-body">
+            <div class="modal-body"><p class="small text-muted">STA/STD: London local (GMT/BST)</p><div class="mb-3"><label for="newDepartureDayOffset">Departure day</label>
+<select id="newDepartureDayOffset" class="form-select"><option value="0">Same day</option><option value="1">+1 day(s)</option><option value="2">+2 day(s)</option><option value="3">+3 day(s)</option><option value="4">+4 day(s)</option><option value="5">+5 day(s)</option><option value="6">+6 day(s)</option><option value="7">+7 day(s)</option></select></div><div class="mb-3"><label for="newFlightOccurrence">Repeated time when clocks go back</label>
+<select id="newFlightOccurrence" class="form-select"><option value="reject">Ask if time is ambiguous</option>
+<option value="earlier">First occurrence (BST)</option><option value="later">Second occurrence (GMT)</option></select></div>
 
                 <div class="mb-2">
 
@@ -310,6 +313,7 @@
 
 <script src="js/common.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.7/dist/js/bootstrap.bundle.min.js"></script>
+<script src="js/operationalTime.js"></script>
 <script src="js/flights.js"></script>
 
 </body>
