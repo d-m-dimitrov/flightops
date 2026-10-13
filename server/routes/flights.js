@@ -456,8 +456,19 @@ async(req,res)=>{
         req.params.id
     );
 
-    flight.specialHandlingDetails =
-    req.body.details;
+    if (!flight) return res.status(404).json({ error:"Flight not found" });
+    const details = req.body.details;
+    if (!details || typeof details !== "object" || Array.isArray(details)) {
+        return res.status(400).json({ error:"Special handling details are required" });
+    }
+    if (details.depa !== undefined && (!Array.isArray(details.depa) || details.depa.some(item =>
+        !item || typeof item.seat !== "string" || !item.seat.trim() || item.seat.trim().length > 10 ||
+        (item.passengerName != null && (typeof item.passengerName !== "string" || item.passengerName.trim().length > 120))
+    ))) {
+        return res.status(400).json({ error:"Each DEPA passenger needs a seat (max 10 characters); names may be up to 120 characters" });
+    }
+    const previous = flight.specialHandlingDetails?.toObject?.() || flight.specialHandlingDetails || {};
+    flight.specialHandlingDetails = { ...previous, ...details };
 
     await flight.save();
 

@@ -19,6 +19,8 @@ let dashboardActive = true;
 
 let specialHandlingDetails = {
 
+    depa:[],
+
     wclb:[],
 
     wcbd:[],
@@ -2108,6 +2110,13 @@ function loadSpecialHandling(
 
     `;
 
+    const depa = Array.isArray(details.depa) ? details.depa : [];
+    const summary = document.createElement("div");
+    summary.className = "mt-2";
+    summary.textContent = `DEPA: ${depa.length}` +
+        (depa.length ? ` • Seats: ${depa.map(item => item.seat || "Unassigned").join(", ")}` : "");
+    document.getElementById("specialHandlingPanel").appendChild(summary);
+
 }
 
 async function loadChat(){
@@ -2287,12 +2296,11 @@ async function editSpecialHandlingDetails(){
     const flight =
     await response.json();
 
-    specialHandlingDetails =
-    flight.specialHandlingDetails ||
-
-    {
-        avih:[]
-    };
+    specialHandlingDetails = flight.specialHandlingDetails || {};
+    for (const category of ["wclb", "wcbd", "avih", "petc", "cbbg", "weap", "depa"]) {
+        if (!Array.isArray(specialHandlingDetails[category])) specialHandlingDetails[category] = [];
+    }
+    renderDepaList();
 
     renderWclbList();
 renderWcbdList();
@@ -2501,7 +2509,11 @@ function deleteAvih(index){
 
 async function saveSpecialHandlingDetails(){
 
-    await fetch(
+    if ((specialHandlingDetails.depa || []).some(item => !item.seat?.trim())) {
+        alert("Enter a seat for each DEPA passenger, or remove the unused row.");
+        return;
+    }
+    const response = await fetch(
 
         `/api/flights/${flightId}/special-handling-details`,
 
@@ -2528,6 +2540,11 @@ async function saveSpecialHandlingDetails(){
 
     );
 
+    if (!response.ok) {
+        const error = await response.json().catch(() => ({}));
+        alert(error.error || "Special handling could not be saved");
+        return;
+    }
     specialHandlingDetailsModal.hide();
 
     await loadFlight();
@@ -2801,6 +2818,56 @@ specialHandlingDetails.wcbd[${index}].bagTag=this.value
 
 }
 
+
+function addDepa() {
+    specialHandlingDetails.depa ||= [];
+    specialHandlingDetails.depa.push({ passengerName:"", seat:"" });
+    renderDepaList();
+}
+
+function renderDepaList() {
+    const list = document.getElementById("depaList");
+    list.replaceChildren();
+    (specialHandlingDetails.depa || []).forEach((item, index) => {
+        const row = document.createElement("div");
+        row.className = "row g-2 align-items-end border rounded p-2 mb-2";
+        for (const [key, label, limit] of [["passengerName", "Passenger name (optional)", 120], ["seat", "Seat", 10]]) {
+            const column = document.createElement("div");
+            column.className = key === "seat" ? "col-md-3" : "col-md-6";
+            const fieldLabel = document.createElement("label");
+            fieldLabel.className = "form-label";
+            fieldLabel.htmlFor = `depa-${index}-${key}`;
+            fieldLabel.textContent = label;
+            const input = document.createElement("input");
+            input.className = "form-control";
+            input.id = fieldLabel.htmlFor;
+            input.type = "text";
+            input.maxLength = limit;
+            input.value = item[key] || "";
+            input.required = key === "seat";
+            if (key === "seat") input.placeholder = "e.g. 24A";
+            input.addEventListener("input", () => {
+                item[key] = key === "seat" ? input.value.trim().toUpperCase() : input.value;
+            });
+            input.addEventListener("blur", () => { input.value = item[key] || ""; });
+            column.append(fieldLabel, input);
+            row.appendChild(column);
+        }
+        const removeColumn = document.createElement("div");
+        removeColumn.className = "col-md-3";
+        const remove = document.createElement("button");
+        remove.type = "button";
+        remove.className = "btn btn-outline-danger";
+        remove.textContent = "Remove";
+        remove.addEventListener("click", () => {
+            specialHandlingDetails.depa.splice(index, 1);
+            renderDepaList();
+        });
+        removeColumn.appendChild(remove);
+        row.appendChild(removeColumn);
+        list.appendChild(row);
+    });
+}
 
 function addPetc(){
 
