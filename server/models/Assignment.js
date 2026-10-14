@@ -14,6 +14,8 @@ new mongoose.Schema({
     },
 
     role:String,
+    acceptedAt:Date,
+    acceptedByName:String,
 
     userId:{
 

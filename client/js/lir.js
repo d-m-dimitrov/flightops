@@ -219,6 +219,7 @@ async function renderPage() {
   redraw();drawSignature();controls();
 }
 async function openDocument(doc) {
+  receiptContext=null;++receiptRequest;$('receiveBtn').hidden=true;
   releaseLive();
   state.ready=false;state.stale=false;state.doc=doc;state.annotations=structuredClone(doc?.annotations || []);state.signature=structuredClone(doc?.signature || []);historyInit();controls();
   if(state.pdf)await state.pdf.destroy();state.pdf=null;state.fileBuffer=null;state.textPages=[];
@@ -236,7 +237,7 @@ async function openDocument(doc) {
     for(let i=0;i<lines.length;i+=60)state.textPages.push(lines.slice(i,i+60));
     state.pages=state.textPages.length;
   }
-  state.page=1;await renderPage();watchLive();await checkAssignment();
+  state.page=1;await renderPage();watchLive();await checkAssignment();await loadReceipt();
   message(doc._id!==state.latestId?'Historical version — read only.':doc.status==='COMPLETED'?'Completed LIR — read only.':state.permissions.annotate?'RAMP: select a tool and annotate the document, then save.':'Read only: only the RAMP agent assigned to this flight can annotate or sign.');
 }
 async function refresh() {
@@ -351,8 +352,34 @@ async function checkAssignment() {
     controls();
   }catch(error){state.permissions.annotate=false;controls();message(error.message,'warning');}
 }
-socket.on('assignmentsUpdated',()=>{accessCheckedAt=0;controls();return checkAssignment();});
+socket.on('assignmentsUpdated',async()=>{accessCheckedAt=0;controls();await checkAssignment();await loadReceipt();});
 const accessTimer=setInterval(()=>{if(!sessionInvalid)checkAssignment();},5000);
 window.addEventListener('focus',()=>{accessCheckedAt=0;controls();checkAssignment();});
 window.addEventListener('pagehide',()=>clearInterval(accessTimer));
+let receiptRequest=0, receiptContext=null;
+async function loadReceipt(){
+  const id=state.doc?._id, check=++receiptRequest;
+  $('receiveBtn').hidden=true;receiptContext=null;
+  if(!id)return;
+  try{
+    const data=await (await request(`/api/acknowledgements/${flightId}/lir/${id}`)).json();
+    if(check!==receiptRequest || state.doc?._id!==id)return;
+    receiptContext=data;
+    $('receiptStatus').textContent=data.receipt ? `✓ Received / read by ${data.receipt.name} · ${london(data.receipt.receivedAt)}`
+      : data.agentName ? `Awaiting receipt from ${data.agentName} for this LIR version` : 'No unambiguous RAMP assignment — receipt pending';
+    $('receiveBtn').hidden=!data.canReceive || Boolean(data.receipt) || !state.ready;
+    $('receiveBtn').disabled=false;
+    $('receiptHistory').textContent=(data.history || []).filter(r=>String(r.assignmentId)!==String(data.assignmentId)).map(r=>`Previous acknowledgement: ${r.name} · ${london(r.receivedAt)}`).join(' | ');
+  }catch(error){if(check===receiptRequest)$('receiptStatus').textContent=error.message;}
+}
+$('receiveBtn').onclick=async()=>{
+  if(!sameSession() || state.busy || !state.ready || !receiptContext?.canReceive || !state.doc)return;
+  const id=state.doc._id,assignmentId=receiptContext.assignmentId;
+  $('receiveBtn').disabled=true;
+  try{
+    await request(`/api/acknowledgements/${flightId}/lir/${id}`,{method:'POST',body:JSON.stringify({assignmentId})});
+    await loadReceipt();
+  }catch(error){$('receiptStatus').textContent=error.message;$('receiveBtn').disabled=false;}
+};
+socket.on('lirReceiptUpdated',loadReceipt);
 if(!/^[a-f\d]{24}$/i.test(flightId||''))message('Open eLIR from a flight dashboard.','danger');else refresh();

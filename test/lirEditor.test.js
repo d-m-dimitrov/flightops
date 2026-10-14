@@ -4,14 +4,16 @@ for (const mobile of [false,true]) test(`editor zoom, read gestures and conflict
  const context2d=new Proxy({measureText:t=>({width:t.length*7})},{get:(o,k)=>k in o?o[k]:()=>{}});
  function element(){return {style:{},setAttribute(){},clientWidth:450,clientHeight:550,scrollLeft:0,scrollTop:0,textContent:'',hidden:false,disabled:false,value:'',classList:{toggle(){},add(){}},getContext:()=>context2d,querySelectorAll:()=>[],replaceChildren(){},addEventListener(){},getBoundingClientRect:()=>({left:0,top:0,width:450,height:550}),setPointerCapture(){}};}
  const elements=Object.fromEntries([...html.matchAll(/id="([^"]+)"/g)].map(m=>[m[1],element()]));
- const socketListeners={},liveListeners={},windowListeners={},calls=[];let token='token';let allowAnnotation=true;let doc={_id:'b'.repeat(24),revision:1,annotationVersion:0,status:'UPLOADED',kind:'text',filename:'LIR.txt',createdAt:'2026-06-29T09:00:00Z',annotations:[],signature:[]};
+ const socketListeners={},liveListeners={},windowListeners={},calls=[];let token='token',received=false;let allowAnnotation=true;let doc={_id:'b'.repeat(24),revision:1,annotationVersion:0,status:'UPLOADED',kind:'text',filename:'LIR.txt',createdAt:'2026-06-29T09:00:00Z',annotations:[],signature:[]};
  const context={console,URLSearchParams,TextDecoder,structuredClone,queueMicrotask,setTimeout,clearTimeout,setInterval:()=>0,clearInterval(){},checkAuth(){},location:{search:'?id='+ 'a'.repeat(24)},localStorage:{getItem:()=> token},document:{getElementById:id=>{assert.ok(elements[id],id);return elements[id];},createElement:()=>element(),querySelectorAll:()=>[],querySelector:()=>element()},window:{matchMedia:()=>({matches:mobile}),addEventListener:(n,fn)=>windowListeners[n]=fn},io:namespace=>({on:(n,fn)=>(namespace?liveListeners:socketListeners)[n]=fn,emit(){},disconnect(){}}),confirm:()=>true,
- fetch:async(url,opts)=>{calls.push({url,opts});if(url.endsWith('/source'))return {ok:true,arrayBuffer:async()=>new TextEncoder().encode('HOLD 1\nAKE12345').buffer};
+ fetch:async(url,opts)=>{calls.push({url,opts});
+ if(url.includes('/api/acknowledgements/')){if(opts.method==='POST')received=true;return {ok:true,json:async()=>({assignmentId:'assignment1',agentName:'Ramp One',canReceive:true,receipt:received?{name:'Ramp One',receivedAt:'2026-06-29T09:01:00Z'}:null,history:[]})};}
+if(url.endsWith('/source'))return {ok:true,arrayBuffer:async()=>new TextEncoder().encode('HOLD 1\nAKE12345').buffer};
  if(opts.method==='PUT'){const body=JSON.parse(opts.body);doc={...doc,annotations:body.annotations,signature:body.signature,annotationVersion:doc.annotationVersion+1};return {ok:true,json:async()=>structuredClone(doc)};}
  return {ok:true,json:async()=>({user:{id:'u1',name:'Ramp One'},permissions:{annotate:allowAnnotation,upload:false},sequence:1,revisions:[doc],document:structuredClone(doc),flight:{display:'TEST',operatingDate:'2026-06-29'}})};}};
  vm.createContext(context);vm.runInContext(fs.readFileSync(path.join(__dirname,'../client/js/lir.js'),'utf8')+'\nthis.readState=()=>state;this.saveDraft=()=>save(false);',context);
  await new Promise(resolve=>setImmediate(resolve));
- const state=context.readState();assert.equal(state.ready,true);assert.equal(elements.uploadSection.hidden,true);
+ const state=context.readState();assert.equal(state.ready,true);assert.equal(elements.receiveBtn.hidden,false);await elements.receiveBtn.onclick();assert.equal(received,true);assert.equal(elements.receiveBtn.hidden,true);assert.equal(state.dirty,false);assert.equal(elements.uploadSection.hidden,true);
  if(mobile){
    assert.equal(elements.documentCanvas.style.width,'900px');
    elements.documentCanvas.onpointerdown({preventDefault(){assert.fail('Mobile starts in read mode');}});

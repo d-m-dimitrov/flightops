@@ -72,6 +72,7 @@ async function startGenerator() {
 app.use(cors());
 app.use("/api/lir", require("./routes/lir"));
 app.use(express.json());
+app.use("/api/acknowledgements", require("./routes/acknowledgements"));
 
 
 

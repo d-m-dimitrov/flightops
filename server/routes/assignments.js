@@ -91,14 +91,19 @@ async(req,res)=>{
 
     });
 
+    const unchangedRoles = assignments.filter(item => {
+        const matches=existing.filter(a=>a.role===item.role);
+        return matches.length===1 && String(matches[0].userId?._id)===item.userId;
+    }).map(item=>item.role);
     await Assignment.deleteMany({
 
-        turnaroundId, role:{$in:allowed}
+        turnaroundId, role:{$in:allowed.filter(role=>!unchangedRoles.includes(role))}
 
     });
 
     for(const item of assignments){
 
+        if(unchangedRoles.includes(item.role)){delete oldMap[item.role];continue;}
         await Assignment.create({
 
             turnaroundId,

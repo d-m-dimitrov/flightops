@@ -1397,57 +1397,33 @@ async function saveEventEdit(){
 }
 
 async function loadAssignments(){
-
-    const response =
-    await fetch(
-        `/api/assignments/${flightId}`, {headers:{Authorization:`Bearer ${localStorage.getItem("token") || ""}`}}
-    );
-
-    const assignments =
-    await response.json();
-
-    const panel =
-    document.getElementById(
-        "staffPanel"
-    );
-
-    panel.innerHTML = "";
-
-    assignments.forEach(a=>{
-
-        panel.innerHTML += `
-
-<div class="border-bottom pb-2 mb-2">
-
-    <strong>
-
-    ${formatRole(a.role)}
-
-    </strong>
-
-    <br>
-
-    ${a.userId?.name || "-"}
-
-    <br>
-
-      📞
-
-
-
-<a href="tel:${a.userId?.phone}">
-
-    ${a.userId?.phone || "-"}
-
-</a>
-
-</div>
-
-`;
-
-    });
-
+    const panel=document.getElementById('staffPanel');
+    const response=await fetch(`/api/assignments/${flightId}`,{headers:{Authorization:`Bearer ${localStorage.getItem('token') || ''}`}});
+    if(!response.ok){panel.textContent='Unable to load assignments. Please sign in again.';return;}
+    const assignments=await response.json();
+    panel.replaceChildren();
+    for(const a of assignments){
+        const row=document.createElement('div');row.className='border-bottom pb-2 mb-2';
+        const role=document.createElement('strong');role.textContent=formatRole(a.role);row.append(role);
+        const name=document.createElement('div');name.textContent=a.userId?.name || '—';row.append(name);
+        if(a.userId?.phone){const phone=document.createElement('a');phone.href=`tel:${a.userId.phone.replace(/[^+0-9]/g,'')}`;phone.textContent=`📞 ${a.userId.phone}`;row.append(phone);}
+        const status=document.createElement('div');status.className='small mt-1';
+        status.textContent=a.acceptedAt ? `✓ Accepted by ${a.acceptedByName || a.userId?.name} · ${new Date(a.acceptedAt).toLocaleString('en-GB',{timeZone:'Europe/London',timeZoneName:'short'})}` : 'Awaiting acceptance';row.append(status);
+        if(!a.acceptedAt && a.userId?._id===CURRENT_USER._id){
+            const button=document.createElement('button');button.className='btn btn-sm btn-success mt-2';button.textContent='Accept flight';
+            button.onclick=async()=>{
+                button.disabled=true;
+                try{
+                    const result=await fetch(`/api/acknowledgements/${flightId}/assignments/${a._id}/accept`,{method:'POST',headers:{Authorization:`Bearer ${localStorage.getItem('token') || ''}`}});
+                    if(!result.ok)throw new Error((await result.json()).error || 'Unable to accept flight');
+                    await loadAssignments();
+                }catch(error){status.textContent=error.message;button.disabled=false;}
+            };row.append(button);
+        }
+        panel.append(row);
+    }
 }
+socket.on('assignmentAccepted',loadAssignments);
 
 
 async function loadUsers(){
@@ -3491,8 +3467,19 @@ async function loadLirSummary() {
         card.hidden = false;
         document.getElementById('lirSummary').textContent = data.document ? `v${data.document.revision} · ${data.document.status}` : 'Awaiting OPS upload';
         document.getElementById('lirLink').href = `lir.html?id=${encodeURIComponent(flightId)}`;
+        if(data.document){
+            const receiptResponse=await fetch(`/api/acknowledgements/${flightId}/lir/${data.document._id}`,{headers:{Authorization:`Bearer ${localStorage.getItem('token') || ''}`}});
+            if(receiptResponse.ok){
+                const acknowledgement=await receiptResponse.json();
+                if(requestId!==lirRequestId)return;
+                document.getElementById('lirSummary').textContent += acknowledgement.receipt ? ` · Received / read by ${acknowledgement.receipt.name}` : ' · Awaiting RAMP receipt';
+            }
+        }
     } catch(error) { card.hidden=false; document.getElementById('lirSummary').textContent=error.message; }
 }
 socket.on('lirUpdated', loadLirSummary);
 socket.on('connect', loadLirSummary);
 loadLirSummary();
+
+socket.on('lirReceiptUpdated',loadLirSummary);
+socket.on('assignmentsUpdated',loadLirSummary);

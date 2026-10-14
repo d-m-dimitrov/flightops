@@ -8,6 +8,7 @@ const schema = new mongoose.Schema({
   original:{ type:Buffer, required:true, select:false },
   uploadedBy:{ type:mongoose.Schema.Types.ObjectId, ref:'User', required:true },
   uploadedByName:String,
+  receipts:{ type:[new mongoose.Schema({ assignmentId:{type:mongoose.Schema.Types.ObjectId,required:true}, userId:{type:mongoose.Schema.Types.ObjectId,ref:'User',required:true}, name:String, receivedAt:{type:Date,required:true} }, {_id:false})], default:[] },
   annotationVersion:{ type:Number, default:0 },
   annotations:{ type:[mongoose.Schema.Types.Mixed], default:[] },
   signature:{ type:[mongoose.Schema.Types.Mixed], default:[] },
