@@ -1400,7 +1400,7 @@ async function loadAssignments(){
 
     const response =
     await fetch(
-        `/api/assignments/${flightId}`
+        `/api/assignments/${flightId}`, {headers:{Authorization:`Bearer ${localStorage.getItem("token") || ""}`}}
     );
 
     const assignments =
@@ -1584,7 +1584,7 @@ async function loadAssignmentEditor(){
 
     const response =
     await fetch(
-        `/api/assignments/${flightId}`
+        `/api/assignments/${flightId}`, {headers:{Authorization:`Bearer ${localStorage.getItem("token") || ""}`}}
     );
 
     const assignments =
@@ -1635,7 +1635,7 @@ async function loadAssignmentEditor(){
 
                 case "RAMP":
 
-                    return user.skills?.includes(
+                    return user.active && user.department === "RAMP" && user.skills?.includes(
                         "RAMP"
                     );
 
@@ -1745,7 +1745,7 @@ async function saveAssignments(){
 
     });
 
-    await fetch(
+    const response = await fetch(
 
         `/api/assignments/${flightId}`,
 
@@ -1754,6 +1754,7 @@ async function saveAssignments(){
             method:"POST",
 
             headers:{
+                Authorization:`Bearer ${localStorage.getItem("token") || ""}`,
                 "Content-Type":
                 "application/json"
             },
@@ -1770,6 +1771,8 @@ async function saveAssignments(){
         }
 
     );
+
+    if (!response.ok) { alert((await response.json()).error || "Unable to save assignments"); return; }
 
     alert(
         "Assignments saved"

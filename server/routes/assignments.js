@@ -15,6 +15,10 @@ require("../models/ChatMessage");
 
 
 
+const mongoose = require('mongoose');
+const assignmentRoles = require('../services/assignmentAccess');
+router.use(require('../middleware/requireUser'));
+
 router.get(
 "/:turnaroundId",
 async(req,res)=>{
@@ -27,7 +31,7 @@ async(req,res)=>{
 
     })
     .populate(
-        "userId"
+        "userId", "name phone email department position skills active"
     );
 
     res.json(
@@ -43,17 +47,27 @@ async(req,res)=>{
     const turnaroundId =
     req.params.turnaroundId;
 
-    const {
-
-        assignments,
-        updatedByName
-
-    } = req.body;
+    const allowed = assignmentRoles(req.user);
+    if (!allowed.length) return res.status(403).json({error:'You cannot manage flight assignments'});
+    if (!mongoose.isObjectIdOrHexString(turnaroundId)) return res.status(400).json({error:'Invalid flight'});
+    const assignments = req.body.assignments;
+    if (!Array.isArray(assignments) || assignments.length > allowed.length ||
+        assignments.some(item => !item || !allowed.includes(item.role) || !mongoose.isObjectIdOrHexString(item.userId)) ||
+        new Set(assignments.map(item => item.role)).size !== assignments.length) {
+        return res.status(400).json({error:'Invalid or unauthorized assignment roles'});
+    }
+    for (const item of assignments) {
+        const target = await User.findById(item.userId);
+        if (!target?.active || !target.skills?.includes(item.role) || (item.role === 'RAMP' && target.department !== 'RAMP')) {
+            return res.status(400).json({error:'Select an active, qualified agent for each role'});
+        }
+    }
+    const updatedByName = req.user.name;
 
     const existing =
     await Assignment.find({
 
-        turnaroundId
+        turnaroundId, role:{$in:allowed}
 
     })
     .populate(
@@ -79,7 +93,7 @@ async(req,res)=>{
 
     await Assignment.deleteMany({
 
-        turnaroundId
+        turnaroundId, role:{$in:allowed}
 
     });
 
@@ -163,6 +177,8 @@ async(req,res)=>{
         });
 
     }
+    require('../services/lirLive').clearFlight(req.app.get('io'), turnaroundId);
+    req.app.get('io').to(turnaroundId).emit('assignmentsUpdated');
     req.app
 .get("io")
 .to(

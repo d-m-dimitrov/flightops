@@ -26,8 +26,9 @@ test('signature required for completion; invalid coordinates/pages rejected',()=
  for(const mark of [{...payload.annotations[0],x:NaN},{...payload.annotations[0],page:51},{type:'strike',page:1,x:0,y:0,x2:2}]) assert.throws(()=>validate.annotations({...payload,annotations:[mark]}));
 });
 test('two RAMP operators cannot overwrite each other; completion and superseded versions lock',async()=>{
+ let assigned=true;
  let doc={_id:'d1',revision:1,annotationVersion:0,status:'UPLOADED'},notices=0;
- const router=load('server/routes/lir.js',{'../models/Lir':{
+ const router=load('server/routes/lir.js',{'../services/lirAccess':async()=>assigned,'../models/Lir':{
  findOne:()=>({sort:async()=>doc}),
  findOneAndUpdate:async(filter,update)=>{if(filter.annotationVersion!==doc.annotationVersion||doc.status==='COMPLETED')return null;doc={...doc,...update.$set,annotationVersion:doc.annotationVersion+1};return doc;}
  },'../services/systemMessage':async()=>{notices++;}});
@@ -38,7 +39,7 @@ test('two RAMP operators cannot overwrite each other; completion and superseded 
  req.body={...payload,expectedVersion:1,complete:true,signature};r=res();await save(req,r);assert.equal(doc.status,'COMPLETED');assert.equal(doc.signedByName,'Ramp Test');
  req.body={...payload,expectedVersion:2};r=res();await save(req,r);assert.equal(r.statusCode,409);
  doc={_id:'d2',revision:2,status:'UPLOADED',annotationVersion:0};r=res();await save(req,r);assert.equal(r.statusCode,409);assert.equal(notices,2);
- req.lirPermissions.annotate=false;r=res();await save(req,r);assert.equal(r.statusCode,403);
+ assigned=false;r=res();await save(req,r);assert.equal(r.statusCode,403);
 });
 test('concurrent OPS uploads reject a stale sequence; RAMP cannot upload',async()=>{
  let sequence=0,created=[];

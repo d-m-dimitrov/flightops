@@ -4,6 +4,7 @@ const Turnaround = require('../models/Turnaround');
 const Lir = require('../models/Lir');
 const requireUser = require('../middleware/requireUser');
 const validate = require('../services/lirValidation');
+const canAnnotate = require('../services/lirAccess');
 const addSystemMessage = require('../services/systemMessage');
 const router = express.Router();
 router.use(requireUser);
@@ -34,6 +35,7 @@ async function notify(req, doc, message) {
   req.app.get('io').to(String(req.flight._id)).emit('lirUpdated', { revision:doc.revision, status:doc.status });
 }
 router.get('/:flightId', async (req,res) => {
+  req.lirPermissions.annotate = await canAnnotate(req.user, req.flight._id);
   const revisions = await Lir.find({ turnaroundId:req.flight._id })
     .select('-annotations -signature').sort({ revision:-1 });
   const doc = revisions.length ? await Lir.findById(revisions[0]._id) : null;
@@ -69,7 +71,7 @@ router.post('/:flightId', async (req,res) => {
   res.status(201).json({ document:await Lir.findById(doc._id), sequence:flight.lirSequence });
 });
 router.put('/:flightId/:documentId/annotations', async (req,res) => {
-  if (!req.lirPermissions.annotate) return res.status(403).json({ error:'Only RAMP can annotate a LIR' });
+  if (!await canAnnotate(req.user, req.flight._id)) return res.status(403).json({ error:'Only the RAMP agent assigned to this flight can annotate or sign its LIR' });
   let data;
   try { data = validate.annotations(req.body); }
   catch (error) { return res.status(400).json({ error:error.message }); }

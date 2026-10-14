@@ -222,7 +222,7 @@ async function openDocument(doc) {
     state.pages=state.textPages.length;
   }
   state.page=1;await renderPage();watchLive();
-  message(doc._id!==state.latestId?'Historical version — read only.':doc.status==='COMPLETED'?'Completed LIR — read only.':state.permissions.annotate?'RAMP: select a tool and annotate the document, then save.':'OPS: RAMP can now annotate this LIR.');
+  message(doc._id!==state.latestId?'Historical version — read only.':doc.status==='COMPLETED'?'Completed LIR — read only.':state.permissions.annotate?'RAMP: select a tool and annotate the document, then save.':'Read only: only the RAMP agent assigned to this flight can annotate or sign.');
 }
 async function refresh() {
   if(state.busy)return;
@@ -300,7 +300,7 @@ async function save(complete){
     const doc=await (await request(`${base}/${state.doc._id}/annotations`,{method:'PUT',body:JSON.stringify({expectedVersion:state.doc.annotationVersion,annotations:state.annotations,signature:state.signature,complete})})).json();
     state.doc=doc;state.dirty=false;historyInit();
     message(complete?'LIR signed and completed.':'Annotations saved.','success');
-  }catch(error){if(error.status===409)state.stale=true;message(error.message,'danger');}finally{state.busy=false;controls();}
+  }catch(error){if(error.status===409 || error.status===403)state.stale=true;message(error.message,'danger');}finally{state.busy=false;controls();}
 }
 $('saveBtn').onclick=()=>save(false);$('completeBtn').onclick=()=>save(true);
 async function changePage(delta){if(state.busy||!state.ready)return;state.busy=true;state.page+=delta;try{await renderPage();}catch(error){state.ready=false;message(error.message,'danger');}finally{state.busy=false;controls();}}
@@ -318,4 +318,20 @@ function serverChanged() {
 }
 socket.on('connect',()=>{socket.emit('joinFlight',flightId);serverChanged();});
 socket.on('lirUpdated',serverChanged);
+let assignmentCheck=0;
+async function checkAssignment() {
+  const check=++assignmentCheck;
+  try {
+    const data=await (await request(base)).json();
+    if(check!==assignmentCheck)return;
+    state.permissions=data.permissions;
+    if(!data.permissions.annotate){
+      if(state.dirty)state.stale=true;
+      if(live.connected)live.emit('release',{});
+      message('Read only: only the RAMP agent assigned to this flight can annotate or sign. Your unsaved work, if any, is preserved for export.');
+    } else if(!state.stale)message('You are assigned as RAMP for this flight and can annotate its latest LIR.');
+    controls();
+  }catch(error){state.permissions.annotate=false;controls();message(error.message,'warning');}
+}
+socket.on('assignmentsUpdated',checkAssignment);
 if(!/^[a-f\d]{24}$/i.test(flightId||''))message('Open eLIR from a flight dashboard.','danger');else refresh();

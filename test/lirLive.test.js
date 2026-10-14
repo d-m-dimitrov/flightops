@@ -2,11 +2,11 @@ const test=require('node:test'),assert=require('node:assert/strict'),fs=require(
 const {createRequire}=require('node:module');
 test('live LIR authenticates viewers, isolates documents, protects RAMP ownership and clears ephemeral drafts',async()=>{
  const filename=path.join(__dirname,'../server/services/lirLive.js'),module={exports:{}},real=createRequire(filename);
- let now=100000,expiredSweep;
+ let now=100000,expiredSweep,assigned=true;
  const docs={['a'.repeat(24)]:{_id:'a'.repeat(24),turnaroundId:'f1',annotationVersion:0,status:'UPLOADED'},['b'.repeat(24)]:{_id:'b'.repeat(24),turnaroundId:'f2',annotationVersion:0,status:'UPLOADED'}};
  const users={['1'.repeat(24)]:{active:true,department:'RAMP',name:'Ramp One'},['2'.repeat(24)]:{active:true,department:'OPERATIONS',name:'Ops'},['3'.repeat(24)]:{active:true,department:'RAMP',name:'Ramp Two'},['4'.repeat(24)]:{active:true,department:'PASSENGER_HANDLING'}};
  const query=value=>({select:async()=>value});
- const mocks={'jsonwebtoken':{verify:token=>{if(!users[token])throw Error();return {id:token,exp:100000};}},'../models/User':{findById:id=>query(users[id])},'../models/Lir':{findById:id=>query(docs[id]),findOne:filter=>({sort:()=>query(Object.values(docs).find(d=>d.turnaroundId===filter.turnaroundId))})},'../models/Turnaround':{exists:async()=>true}};
+ const mocks={'./lirAccess':async()=>assigned,'jsonwebtoken':{verify:token=>{if(!users[token])throw Error();return {id:token,exp:100000};}},'../models/User':{findById:id=>query(users[id])},'../models/Lir':{findById:id=>query(docs[id]),findOne:filter=>({sort:()=>query(Object.values(docs).find(d=>d.turnaroundId===filter.turnaroundId))})},'../models/Turnaround':{exists:async()=>true}};
  vm.runInNewContext(fs.readFileSync(filename,'utf8'),{module,process:{env:{JWT_SECRET:"test"}},require:n=>n in mocks?mocks[n]:real(n),Date:{now:()=>now},setTimeout:()=>({unref(){}}),clearTimeout(){},setInterval:fn=>{expiredSweep=fn;return {unref(){}};},clearInterval(){}},{filename});
  const sockets=[],events=[];let authenticate,connect;
  const ns={use:fn=>authenticate=fn,on:(name,fn)=>connect=fn,to:room=>({emit:(name,data)=>{events.push({room,name,data});for(const s of sockets)if(s.rooms.has(room))s.received.push({name,data});}})};
@@ -31,6 +31,7 @@ test('live LIR authenticates viewers, isolates documents, protects RAMP ownershi
  now+=200;assert.equal((await send(other,'draft',payload)).ok,true);
  module.exports.clearFlight(io,'f1');assert.equal(ops.received.at(-1).name,'draftCleared');
  now+=200;await send(other,'draft',payload);now+=31000;expiredSweep();assert.equal(ops.received.at(-1).name,'draftCleared');
+ assigned=false;now+=200;assert.equal((await send(other,'draft',payload)).ok,false);assigned=true;
  docs[id].annotationVersion=1;now+=200;assert.equal((await send(other,'draft',payload)).ok,false);
  docs[id].status='COMPLETED';now+=200;assert.equal((await send(other,'draft',{...payload,expectedVersion:1})).ok,false);
  assert.equal(events.some(e=>e.name==='draftCleared'),true);

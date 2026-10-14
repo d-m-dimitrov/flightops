@@ -3,6 +3,7 @@ const User = require('../models/User');
 const Lir = require('../models/Lir');
 const Turnaround = require('../models/Turnaround');
 const validate = require('./lirValidation');
+const canAnnotate = require('./lirAccess');
 const instances = new WeakMap();
 const validId = id => typeof id === 'string' && /^[a-f\d]{24}$/i.test(id);
 const room = id => `document:${id}`;
@@ -71,6 +72,7 @@ function attach(io) {
       if (!doc || doc.status === 'COMPLETED' || doc.annotationVersion !== body.expectedVersion) throw new Error('Saved LIR changed. Export your local draft, then refresh.');
       const latest = await Lir.findOne({ turnaroundId:doc.turnaroundId }).sort({ revision:-1 }).select('_id');
       if (String(latest?._id) !== joined || !await Turnaround.exists({ _id:doc.turnaroundId, deleted:{ $ne:true } })) throw new Error('LIR was replaced or removed');
+      if (!await canAnnotate(currentUser, doc.turnaroundId)) { release(); throw new Error('Only the RAMP agent assigned to this flight can share annotations'); }
       if (!socket.connected) return;
       if (drafts.get(joined)?.payload.expectedVersion !== doc.annotationVersion) clear(joined);
       const existing = drafts.get(joined);

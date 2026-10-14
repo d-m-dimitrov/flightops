@@ -3,8 +3,8 @@
 Open a flight dashboard and choose **LIR → Open eLIR**.
 
 - An active OPERATIONS user uploads a PDF (up to 5 MB, renderer supports 50 pages) or plain text. Text keeps spaces and line breaks; limits are 120,000 characters, 3,000 lines, 200 characters per line.
-- An active RAMP user selects Tick, NIL, ULD Details, vertical ULD Number, PCs, or Blue Strike and marks the page. Blue Strike is drawn by dragging horizontally. Save annotations stores a draft. Draw a signature and choose Sign & complete LIR to lock the version.
-- ADMIN can perform both actions. Permissions are checked against the current database user, not localStorage or stale JWT department claims.
+- The active RAMP user assigned to this flight selects Tick, NIL, ULD Details, vertical ULD Number, PCs, or Blue Strike and marks the page. Blue Strike is drawn by dragging horizontally. Save annotations stores a draft. Draw a signature and choose Sign & complete LIR to lock the version.
+- ADMIN may upload/view; annotation and signing require the current RAMP assignment even for administrators. Permissions are checked against the current database user, not localStorage or stale JWT department claims.
 - Upload, draft save and completion add a system notice to the flight chat and update open dashboards. These are in-app notices, not email or push delivery.
 - New uploads start an empty annotation set. Earlier originals, annotations and signatures remain available through Version. PNG exports contain the selected page, signature and completion/draft status; Download original retrieves the original PDF/text.
 - Concurrent stale saves/uploads return 409. Unsaved edits remain in the browser after a conflict or reconnect; export each affected page before Refresh. Closing the page discards unsaved edits after the browser warning.
@@ -41,3 +41,13 @@ Save still persists the annotations; signature completion still locks the revisi
 The authenticated `/lir-live` Socket.IO namespace checks active database users, OPS/RAMP viewing permissions, RAMP editing permissions and current document/version. Live drafts exist only in server memory with a 30-second lease renewed every 10 seconds; no new database fields or environment variables are needed. This implementation targets one Render instance. Multiple instances would require a shared draft/lease store and Socket.IO adapter before enabling horizontal scaling. Persisted LIR documents remain in MongoDB.
 
 To test after deployment: open the same revision in an OPS browser and a RAMP phone. Add a tick, NIL, ULD, then undo: OPS should see each change without Refresh and with an UNSAVED banner. Save and verify the banner clears and the saved marks remain. Open another flight/revision and confirm it receives no preview. Disconnect the editor and confirm the preview clears; reconnect and refresh before continuing. Automated tests cover authentication, room isolation, ownership, late joins, stale/completed versions, expiry and clearing, using socket/database mocks; live devices still require this smoke test.
+
+## Assigned RAMP agent only
+
+The authoritative assignment is Assigned Staff → RAMP (`Assignment.turnaroundId`, role `RAMP`, `userId` matching the authenticated active RAMP user). Being in the RAMP department, having a skill or being ADMIN does not by itself grant annotation/signing access. If the RAMP slot is empty, all viewers are read-only. OPS upload and OPS/RAMP viewing remain available.
+
+The server checks assignment at each draft save/completion and live update. Reassignment clears the live preview and notifies open eLIR clients to reload their permissions; a former agent's unsaved local draft remains available for PNG export, with further saving disabled. The new assignee can continue from saved annotations. Completed documents stay locked.
+
+Assignment writes now require an authenticated authorized manager/coordinator. Existing duty-manager permissions are retained; coordinators may update only their supported roles, preserving other departments' assignments. RAMP targets must be active RAMP users with the RAMP skill. An ordinary ramp supervisor cannot self-assign through the API.
+
+After deployment, assign agent A to RAMP, then open the LIR as A and B. Only A should edit/sign/share live. Reassign to B while A has an unsaved mark: A should become read-only, B should gain edit access, and A's local mark must remain exportable. Remove RAMP assignment and verify neither can save. The tests use database/socket/DOM mocks; verify this handover on the deployed site.
