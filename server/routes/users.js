@@ -10,12 +10,19 @@ express.Router();
 const User =
 require("../models/User");
 
+router.use(require('../middleware/requireUser'));
+router.use((req,res,next) => {
+    if (req.method === 'GET' || req.user.role === 'ADMIN' ||
+        (req.user.department === 'OPERATIONS' && req.user.position === 'OPERATIONS_DM')) return next();
+    res.status(403).json({error:'Only the Operations duty manager can manage staff accounts'});
+});
+
 router.get(
 "/",
 async(req,res)=>{
 
     const users =
-    await User.find()
+    await User.find().select("-passwordHash")
     .sort({
         name:1
     });
@@ -73,7 +80,9 @@ const updateData = {
 
     );
 
-    res.json(user);
+    const safeUser = user ? user.toObject() : null;
+    if (safeUser) delete safeUser.passwordHash;
+    res.json(safeUser);
 
 });
 
@@ -86,7 +95,9 @@ async(req,res)=>{
         req.params.id
     );
 
-    res.json(user);
+    const safeUser = user ? user.toObject() : null;
+    if (safeUser) delete safeUser.passwordHash;
+    res.json(safeUser);
 
 }); 
 
@@ -132,7 +143,9 @@ await User.create({
 
 });
 
-    res.json(user);
+    const safeUser = user ? user.toObject() : null;
+    if (safeUser) delete safeUser.passwordHash;
+    res.json(safeUser);
 
 });
 

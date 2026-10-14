@@ -292,6 +292,7 @@ async function saveUser(){
                 method:"PUT",
 
                 headers:{
+                    Authorization:`Bearer ${localStorage.getItem("token") || ""}`,
                     "Content-Type":
                     "application/json"
                 },
@@ -315,6 +316,7 @@ async function saveUser(){
 
         );
 
+        if (!response.ok) { alert((await response.json()).error || "Unable to save staff"); return; }
         user =
         await response.json();
 
@@ -331,6 +333,7 @@ async function saveUser(){
                 method:"POST",
 
                 headers:{
+                    Authorization:`Bearer ${localStorage.getItem("token") || ""}`,
                     "Content-Type":
                     "application/json"
                 },
@@ -354,6 +357,7 @@ async function saveUser(){
 
         );
 
+        if (!response.ok) { alert((await response.json()).error || "Unable to save staff"); return; }
         user =
         await response.json();
 
@@ -369,7 +373,7 @@ async function loadUsers(){
 
     const response =
     await fetch(
-        "/api/users"
+        "/api/users", {headers:{Authorization:`Bearer ${localStorage.getItem("token") || ""}`}}
     );
 
  allUsers =
@@ -731,7 +735,7 @@ async function editUser(
 
     const userResponse =
     await fetch(
-        `/api/users/${userId}`
+        `/api/users/${userId}`, {headers:{Authorization:`Bearer ${localStorage.getItem("token") || ""}`}}
     );
 
     const user =

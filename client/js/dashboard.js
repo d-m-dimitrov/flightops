@@ -1454,7 +1454,7 @@ async function loadUsers(){
 
     const response =
     await fetch(
-        "/api/users"
+        "/api/users", {headers:{Authorization:`Bearer ${localStorage.getItem("token") || ""}`}}
     );
 
     users =
@@ -3473,3 +3473,23 @@ setInterval(
 
 
 applyDashboardPermissions();
+
+let lirRequestId = 0;
+async function loadLirSummary() {
+    const requestId = ++lirRequestId;
+    const card = document.getElementById('lirCard');
+    try {
+        const response = await fetch(`/api/lir/${flightId}`, {headers:{Authorization:`Bearer ${localStorage.getItem('token') || ''}`}});
+        if (requestId !== lirRequestId) return;
+        if (response.status === 403) { card.hidden = true; return; }
+        if (!response.ok) throw new Error('LIR unavailable — reopen the page or sign in again');
+        const data = await response.json();
+        if (requestId !== lirRequestId) return;
+        card.hidden = false;
+        document.getElementById('lirSummary').textContent = data.document ? `v${data.document.revision} · ${data.document.status}` : 'Awaiting OPS upload';
+        document.getElementById('lirLink').href = `lir.html?id=${encodeURIComponent(flightId)}`;
+    } catch(error) { card.hidden=false; document.getElementById('lirSummary').textContent=error.message; }
+}
+socket.on('lirUpdated', loadLirSummary);
+socket.on('connect', loadLirSummary);
+loadLirSummary();

@@ -2,6 +2,8 @@ const mongoose = require("mongoose");
 
 const TurnaroundSchema = new mongoose.Schema({
 
+    lirSequence: { type:Number, default:0 },
+
     airline: String,
 
     arrivalFlight: String,

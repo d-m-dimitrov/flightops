@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>FlightOps — eLIR</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.7/dist/css/bootstrap.min.css" rel="stylesheet">
+<link href="css/lir.css" rel="stylesheet">
+</head>
+<body>
+<main class="container py-4">
+<header class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-3">
+<div><a id="backLink" href="flights.html">← Flight dashboard</a><h1 class="h3 mt-2">📋 eLIR</h1><p id="flightLabel" class="text-muted mb-0"></p></div>
+<span id="status" class="badge text-bg-secondary">Loading</span>
+</header>
+<div id="message" role="status" class="alert alert-info">Loading LIR…</div>
+<section id="uploadSection" class="card mb-3" hidden>
+<div class="card-header">OPS — upload loading instructions</div>
+<div class="card-body">
+<label for="sourceFile" class="form-label">PDF or text file (maximum 5 MB; 50 PDF pages)</label>
+<input id="sourceFile" type="file" accept="application/pdf,text/plain,.pdf,.txt" class="form-control mb-3">
+<label for="sourceText" class="form-label">Or paste LIR text</label>
+<textarea id="sourceText" class="form-control font-monospace mb-3" rows="5" placeholder="Paste loading instructions here"></textarea>
+<button id="uploadBtn" class="btn btn-primary">Upload new LIR version</button>
+<p class="small text-muted mt-2 mb-0">A new version starts with no annotations. Earlier versions remain available below.</p>
+</div></section>
+<section class="card mb-3">
+<div class="card-body d-flex flex-wrap align-items-center gap-2">
+<label for="revisionSelect">Version</label><select id="revisionSelect" class="form-select w-auto" disabled></select>
+<button id="refreshBtn" class="btn btn-outline-secondary">Refresh</button>
+<button id="sourceDownloadBtn" class="btn btn-outline-primary" disabled>Download original</button>
+<span id="documentInfo" class="small text-muted"></span>
+</div></section>
+<section id="editor" class="card" hidden>
+<div id="annotationTools" class="card-body toolbar" hidden>
+<button type="button" class="btn btn-outline-primary" data-tool="tick">✓ Tick</button>
+<button type="button" class="btn btn-outline-primary" data-tool="nil">NIL</button>
+<button type="button" class="btn btn-outline-primary" data-tool="uld">ULD Details</button>
+<button type="button" class="btn btn-outline-primary" data-tool="uldonly">ULD Number</button>
+<button type="button" class="btn btn-outline-primary" data-tool="pcs">PCs</button>
+<button type="button" class="btn btn-outline-primary" data-tool="strike">━ Blue Strike</button>
+<button id="undoBtn" class="btn btn-outline-secondary">↶ Undo</button>
+<button id="redoBtn" class="btn btn-outline-secondary">↷ Redo</button>
+<button id="clearPageBtn" class="btn btn-outline-danger">Clear page annotations</button>
+<span id="toolStatus" class="small">Tool: Tick</span>
+</div>
+<div class="card-body border-top d-flex flex-wrap align-items-center gap-2">
+<button id="prevBtn" class="btn btn-outline-secondary">← Previous</button><span id="pageLabel"></span><button id="nextBtn" class="btn btn-outline-secondary">Next →</button>
+<button id="pngBtn" class="btn btn-outline-success ms-auto">Download this page as PNG</button>
+</div>
+<div class="canvas-wrapper"><canvas id="documentCanvas" width="900" height="1100" aria-label="Loading instruction document"></canvas></div>
+<div class="card-body border-top">
+<h2 class="h5">RAMP signature</h2>
+<p id="signatureInfo" class="small text-muted"></p>
+<canvas id="signatureCanvas" width="600" height="150" aria-label="RAMP signature"></canvas>
+<div id="signActions" class="mt-2" hidden>
+<button id="clearSignatureBtn" class="btn btn-outline-secondary">Clear signature</button>
+<button id="saveBtn" class="btn btn-primary">Save annotations</button>
+<button id="completeBtn" class="btn btn-success">Sign &amp; complete LIR</button>
+<p class="small text-muted mt-2">Completion locks this version. Your signed-in name and completion time are recorded.</p>
+</div></div>
+</section>
+<dialog id="annotationDialog">
+<form method="dialog" id="annotationForm">
+<h2 id="dialogTitle" class="h5">Annotation</h2>
+<label for="annotationText" id="textLabel" class="form-label">Text</label>
+<input id="annotationText" class="form-control mb-3" maxlength="80" required>
+<div id="piecesGroup"><label for="piecesText" class="form-label">Pieces (optional)</label><input id="piecesText" class="form-control mb-3" maxlength="20"></div>
+<div class="d-flex justify-content-end gap-2"><button value="cancel" formnovalidate class="btn btn-secondary">Cancel</button><button id="addAnnotationBtn" value="add" class="btn btn-primary">Add</button></div>
+</form></dialog>
+</main>
+<script src="js/common.js"></script>
+<script src="/socket.io/socket.io.js"></script>
+<script type="module" src="js/lir.js"></script>
+</body></html>
