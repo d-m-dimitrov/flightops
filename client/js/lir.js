@@ -37,6 +37,55 @@ window.addEventListener('resize', () => { if(view.fit) applyZoom(); });
 let pendingServerChange = false;
 let pendingAnnotation = null, strikeStart = null, signatureStroke = null;
 const socket = io();
+const live = io('/lir-live', { auth:callback => callback({ token:localStorage.getItem('token') || '' }) });
+let remoteDraft = null, liveTimer = null;
+function liveStatus(text) { $('liveStatus').textContent=text; }
+function watchLive() {
+  if (!live.connected || !state.doc) return;
+  const id=state.doc._id;
+  live.emit('watch',{documentId:id}, result => {
+    if(state.doc?._id!==id)return;
+    if(!result.ok)liveStatus(result.error);
+    else if(!remoteDraft)liveStatus('Live connected · annotations appear here before Save.');
+  });
+}
+function publishLive() {
+  liveTimer=null;
+  if(!live.connected || state.busy || !state.dirty || state.stale || !state.doc || remoteDraft)return;
+  const id=state.doc._id, version=state.doc.annotationVersion;
+  live.emit('draft',{documentId:id,expectedVersion:state.doc.annotationVersion,annotations:state.annotations}, result=>{
+    if(state.doc?._id!==id || state.doc.annotationVersion!==version || !state.dirty)return;
+    if(result.retry){queueLive();return;}
+    if(!result.ok){state.stale=true;liveStatus(result.error);controls();}
+    else liveStatus('LIVE · Sharing your unsaved annotations. Use Save to keep them.');
+  });
+}
+function queueLive() { if(liveTimer)clearTimeout(liveTimer);liveTimer=setTimeout(publishLive,150); }
+function releaseLive() {
+  if(liveTimer)clearTimeout(liveTimer);liveTimer=null;
+  if(live.connected)live.emit('leave',{});
+  remoteDraft=null;
+}
+live.on('connect',watchLive);
+live.on('connect_error',()=>liveStatus('Live unavailable. You can still save normally; reconnect or sign in again.'));
+live.on('disconnect',()=>{
+  remoteDraft=null;redraw();controls();
+  liveStatus('Live disconnected · displaying saved or local annotations.');
+});
+live.on('draft',draft=>{
+  if(draft.documentId!==state.doc?._id || draft.expectedVersion!==state.doc.annotationVersion || draft.owner===live.id || state.doc.status==='COMPLETED')return;
+  if(state.dirty){state.stale=true;liveStatus(`${draft.author} is editing live. Your own draft is preserved; export it before refreshing.`);controls();return;}
+  remoteDraft=draft;redraw();controls();
+  liveStatus(`LIVE · ${draft.author} · UNSAVED preview. Editing pauses while this operator works.`);
+});
+live.on('draftCleared',data=>{
+  if(data.documentId!==state.doc?._id)return;
+  remoteDraft=null;redraw();controls();
+  liveStatus('Live preview ended · displaying saved or local annotations.');
+});
+const liveHeartbeat=setInterval(publishLive,10000);
+window.addEventListener('pagehide',()=>{clearInterval(liveHeartbeat);releaseLive();live.disconnect();});
+window.addEventListener('pageshow',event=>{if(event.persisted)location.reload();});
 $('backLink').href = `dashboard.html?id=${encodeURIComponent(flightId || '')}`;
 function message(text, kind = 'info') {
   $('message').textContent = text;
@@ -54,7 +103,7 @@ async function request(url, options = {}) {
   }
   return response;
 }
-function editable() { return state.ready && state.permissions.annotate && !state.busy && !state.stale && state.doc?.status !== 'COMPLETED' && state.doc?._id === state.latestId; }
+function editable() { return !remoteDraft && state.ready && state.permissions.annotate && !state.busy && !state.stale && state.doc?.status !== 'COMPLETED' && state.doc?._id === state.latestId; }
 function controls() {
   if (!state.busy && pendingServerChange) { pendingServerChange=false; queueMicrotask(serverChanged); }
   const canEdit = editable();
@@ -93,6 +142,7 @@ function historySave() {
   if (state.history.length > 50) state.history.shift();
   state.historyIndex = state.history.length-1;
   state.dirty = true;
+  queueLive();
   controls();
 }
 function historyInit() {
@@ -118,7 +168,7 @@ function drawMark(c, item, width, height) {
 function redraw(preview) {
   if(!state.ready)return;
   ctx.clearRect(0,0,canvas.width,canvas.height);ctx.drawImage(background,0,0);
-  state.annotations.filter(mark=>mark.page===state.page).forEach(mark=>drawMark(ctx,mark,canvas.width,canvas.height));
+  (remoteDraft?.annotations || state.annotations).filter(mark=>mark.page===state.page).forEach(mark=>drawMark(ctx,mark,canvas.width,canvas.height));
   if(preview)drawMark(ctx,preview,canvas.width,canvas.height);
 }
 function drawSignature() {
@@ -154,6 +204,7 @@ async function renderPage() {
   redraw();drawSignature();controls();
 }
 async function openDocument(doc) {
+  releaseLive();
   state.ready=false;state.stale=false;state.doc=doc;state.annotations=structuredClone(doc?.annotations || []);state.signature=structuredClone(doc?.signature || []);historyInit();controls();
   if(state.pdf)await state.pdf.destroy();state.pdf=null;state.fileBuffer=null;state.textPages=[];
   if(!doc){message('No LIR yet. OPS can upload PDF or paste text.');return;}
@@ -170,7 +221,7 @@ async function openDocument(doc) {
     for(let i=0;i<lines.length;i+=60)state.textPages.push(lines.slice(i,i+60));
     state.pages=state.textPages.length;
   }
-  state.page=1;await renderPage();
+  state.page=1;await renderPage();watchLive();
   message(doc._id!==state.latestId?'Historical version — read only.':doc.status==='COMPLETED'?'Completed LIR — read only.':state.permissions.annotate?'RAMP: select a tool and annotate the document, then save.':'OPS: RAMP can now annotate this LIR.');
 }
 async function refresh() {
@@ -233,7 +284,7 @@ canvas.onpointermove=event=>{if(strikeStart&&editable()){event.preventDefault();
 canvas.onpointerup=event=>{if(!strikeStart)return;const start=strikeStart;strikeStart=null;if(editable()&&Math.abs(coords(event,canvas).x-start.x)>.004)addMark({page:state.page,type:'strike',...start,x2:coords(event,canvas).x});else redraw();};
 canvas.onpointercancel=()=>{strikeStart=null;redraw();};
 $('annotationDialog').addEventListener('close',()=>{if($('annotationDialog').returnValue==='add'&&pendingAnnotation&&$('annotationText').value.trim()){addMark({...pendingAnnotation,text:$('annotationText').value.trim().toUpperCase(),pieces:$('piecesText').value.trim()});}pendingAnnotation=null;});
-function restoreHistory(delta){if(!editable())return;const index=state.historyIndex+delta;if(index<0||index>=state.history.length)return;state.historyIndex=index;Object.assign(state,JSON.parse(state.history[index]));state.dirty=true;redraw();drawSignature();controls();}
+function restoreHistory(delta){if(!editable())return;const index=state.historyIndex+delta;if(index<0||index>=state.history.length)return;state.historyIndex=index;Object.assign(state,JSON.parse(state.history[index]));state.dirty=true;queueLive();redraw();drawSignature();controls();}
 $('undoBtn').onclick=()=>restoreHistory(-1);$('redoBtn').onclick=()=>restoreHistory(1);
 $('clearPageBtn').onclick=()=>{if(editable()&&confirm('Clear annotations on this page?')){state.annotations=state.annotations.filter(mark=>mark.page!==state.page);historySave();redraw();}};
 signatureCanvas.onpointerdown=event=>{if(!editable())return;event.preventDefault();signatureStroke=[coords(event,signatureCanvas)];signatureCanvas.setPointerCapture(event.pointerId);};
@@ -257,7 +308,7 @@ $('prevBtn').onclick=()=>changePage(-1);$('nextBtn').onclick=()=>changePage(1);
 function download(blob,filename){const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=filename;a.click();setTimeout(()=>URL.revokeObjectURL(url),30000);}
 $('sourceDownloadBtn').onclick=async()=>{try{const response=await request(`${base}/${state.doc._id}/source`);download(await response.blob(),state.doc.filename);}catch(error){message(error.message,'danger');}};
 $('pngBtn').onclick=()=>{
-  if(!state.ready)return;const out=document.createElement('canvas');out.width=canvas.width;out.height=canvas.height+230;const c=out.getContext('2d');c.fillStyle='#fff';c.fillRect(0,0,out.width,out.height);c.drawImage(canvas,0,0);c.fillStyle='#000';c.font='14px Arial';c.fillText(`LIR v${state.doc.revision} · Page ${state.page}/${state.pages} · ${state.doc.status}${state.dirty?' · UNSAVED DRAFT':''}`,20,canvas.height+25);c.drawImage(signatureCanvas,20,canvas.height+40);c.fillText(state.doc.signedAt?`Signed: ${state.doc.signedByName} · ${london(state.doc.signedAt)}`:'Draft — not completed',20,canvas.height+215);out.toBlob(blob=>{if(blob)download(blob,`LIR-v${state.doc.revision}-page-${state.page}.png`);},'image/png');
+  if(!state.ready)return;const out=document.createElement('canvas');out.width=canvas.width;out.height=canvas.height+230;const c=out.getContext('2d');c.fillStyle='#fff';c.fillRect(0,0,out.width,out.height);c.drawImage(canvas,0,0);c.fillStyle='#000';c.font='14px Arial';c.fillText(`LIR v${state.doc.revision} · Page ${state.page}/${state.pages} · ${state.doc.status}${remoteDraft?' · LIVE UNSAVED PREVIEW':state.dirty?' · UNSAVED DRAFT':''}`,20,canvas.height+25);c.drawImage(signatureCanvas,20,canvas.height+40);c.fillText(state.doc.signedAt?`Signed: ${state.doc.signedByName} · ${london(state.doc.signedAt)}`:'Draft — not completed',20,canvas.height+215);out.toBlob(blob=>{if(blob)download(blob,`LIR-v${state.doc.revision}-page-${state.page}.png`);},'image/png');
 };
 window.addEventListener('beforeunload',event=>{if(state.dirty){event.preventDefault();event.returnValue='';}});
 function serverChanged() {

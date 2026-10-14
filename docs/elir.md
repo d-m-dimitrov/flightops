@@ -31,3 +31,13 @@ An upload and an old-version save may overlap: edits remain attached to that old
 ## Phone view
 
 Touch devices open at 100% in Move / read mode. Swipe across the document to scroll and use the browser pinch gesture to zoom. The + / − controls change document size from 25% to 300%; Fit width fits the page to the available width. Select an annotation tool to enter marking mode; use Move / read to resume scrolling and pinch gestures. Zoom changes display size only: stored coordinates and PNG export remain unchanged.
+
+## Live annotation preview
+
+OPS and RAMP with the same eLIR revision open see new marks, edits, undo/redo and deletions as an unsaved live preview (updates are debounced by 150 ms). The banner identifies the RAMP operator. Other viewers temporarily cannot edit that revision while the live editor is active. Preview data never overwrites another operator's local unsaved work. Simultaneous first edits are resolved by the server; the losing operator keeps their local draft for export and must refresh.
+
+Save still persists the annotations; signature completion still locks the revision. Signatures are not broadcast while being drawn. Live preview clears on save, replacement upload, editor departure or connection timeout. A late viewer receives the current preview. Preview PNG exports explicitly say LIVE UNSAVED PREVIEW. A lost live connection does not prevent normal REST saves.
+
+The authenticated `/lir-live` Socket.IO namespace checks active database users, OPS/RAMP viewing permissions, RAMP editing permissions and current document/version. Live drafts exist only in server memory with a 30-second lease renewed every 10 seconds; no new database fields or environment variables are needed. This implementation targets one Render instance. Multiple instances would require a shared draft/lease store and Socket.IO adapter before enabling horizontal scaling. Persisted LIR documents remain in MongoDB.
+
+To test after deployment: open the same revision in an OPS browser and a RAMP phone. Add a tick, NIL, ULD, then undo: OPS should see each change without Refresh and with an UNSAVED banner. Save and verify the banner clears and the saved marks remain. Open another flight/revision and confirm it receives no preview. Disconnect the editor and confirm the preview clears; reconnect and refresh before continuing. Automated tests cover authentication, room isolation, ownership, late joins, stale/completed versions, expiry and clearing, using socket/database mocks; live devices still require this smoke test.

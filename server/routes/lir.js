@@ -27,6 +27,7 @@ router.param('documentId', (req,res,next,id) => {
 });
 const latest = flightId => Lir.findOne({ turnaroundId:flightId }).sort({ revision:-1 });
 async function notify(req, doc, message) {
+  require("../services/lirLive").clearFlight(req.app.get("io"), req.flight._id);
   // Save success must remain success even if the optional chat notification fails.
   try { await addSystemMessage(req, req.flight._id, message); }
   catch (error) { console.error('LIR notification failed:', error.message); }

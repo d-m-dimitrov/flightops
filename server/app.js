@@ -137,6 +137,8 @@ app.use(
     require("./routes/auth")
 );
 
+require("./services/lirLive").attach(io);
+
 io.on(
     "connection",
     socket=>{
