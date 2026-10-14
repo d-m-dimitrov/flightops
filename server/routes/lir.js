@@ -34,6 +34,9 @@ async function notify(req, doc, message) {
   catch (error) { console.error('LIR notification failed:', error.message); }
   req.app.get('io').to(String(req.flight._id)).emit('lirUpdated', { revision:doc.revision, status:doc.status });
 }
+router.get('/:flightId/access', async (req,res) => {
+  res.json({ user:{id:req.user._id,name:req.user.name}, permissions:{ ...req.lirPermissions, annotate:await canAnnotate(req.user,req.flight._id) } });
+});
 router.get('/:flightId', async (req,res) => {
   req.lirPermissions.annotate = await canAnnotate(req.user, req.flight._id);
   const revisions = await Lir.find({ turnaroundId:req.flight._id })

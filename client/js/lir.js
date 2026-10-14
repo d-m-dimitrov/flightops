@@ -1,5 +1,7 @@
 checkAuth();
 const $ = id => document.getElementById(id);
+const sessionToken = localStorage.getItem('token') || '';
+let sessionInvalid = false, accessCheckedAt = 0;
 const flightId = new URLSearchParams(location.search).get('id');
 const base = `/api/lir/${encodeURIComponent(flightId || '')}`;
 const canvas = $('documentCanvas'), ctx = canvas.getContext('2d');
@@ -37,7 +39,7 @@ window.addEventListener('resize', () => { if(view.fit) applyZoom(); });
 let pendingServerChange = false;
 let pendingAnnotation = null, strikeStart = null, signatureStroke = null;
 const socket = io();
-const live = io('/lir-live', { auth:callback => callback({ token:localStorage.getItem('token') || '' }) });
+const live = io('/lir-live', { auth:{ token:sessionToken } });
 let remoteDraft = null, liveTimer = null;
 function liveStatus(text) { $('liveStatus').textContent=text; }
 function watchLive() {
@@ -50,8 +52,9 @@ function watchLive() {
   });
 }
 function publishLive() {
+  if(!sameSession())return;
   liveTimer=null;
-  if(!live.connected || state.busy || !state.dirty || state.stale || !state.doc || remoteDraft)return;
+  if(!state.permissions.annotate || !live.connected || state.busy || !state.dirty || state.stale || !state.doc || remoteDraft)return;
   const id=state.doc._id, version=state.doc.annotationVersion;
   live.emit('draft',{documentId:id,expectedVersion:state.doc.annotationVersion,annotations:state.annotations}, result=>{
     if(state.doc?._id!==id || state.doc.annotationVersion!==version || !state.dirty)return;
@@ -92,8 +95,20 @@ function message(text, kind = 'info') {
   $('message').className = `alert alert-${kind}`;
 }
 function london(value) { return new Date(value).toLocaleString('en-GB', { timeZone:'Europe/London', timeZoneName:'short' }); }
+function sameSession() {
+  if (!sessionInvalid && localStorage.getItem('token') === sessionToken) return true;
+  if(!sessionInvalid){
+    sessionInvalid=true;state.permissions={};state.stale=true;
+    releaseLive();live.disconnect();
+    message('Account changed in another tab. Reload this LIR before continuing. Export any unsaved work first.','warning');
+    controls();
+  }
+  return false;
+}
+window.addEventListener('storage',event=>{if(event.key==='token' || event.key===null)sameSession();});
 async function request(url, options = {}) {
-  const response = await fetch(url, { ...options, headers:{ Authorization:`Bearer ${localStorage.getItem('token') || ''}`,
+  if(!sameSession())throw new Error('Account changed. Reload the LIR.');
+  const response = await fetch(url, { ...options, headers:{ Authorization:`Bearer ${sessionToken}`,
     ...(options.body ? { 'Content-Type':'application/json' } : {}), ...options.headers } });
   if (!response.ok) {
     const error = await response.json().catch(() => ({}));
@@ -103,7 +118,7 @@ async function request(url, options = {}) {
   }
   return response;
 }
-function editable() { return !remoteDraft && state.ready && state.permissions.annotate && !state.busy && !state.stale && state.doc?.status !== 'COMPLETED' && state.doc?._id === state.latestId; }
+function editable() { return sameSession() && Date.now()-accessCheckedAt < 15000 && !remoteDraft && state.ready && state.permissions.annotate && !state.busy && !state.stale && state.doc?.status !== 'COMPLETED' && state.doc?._id === state.latestId; }
 function controls() {
   if (!state.busy && pendingServerChange) { pendingServerChange=false; queueMicrotask(serverChanged); }
   const canEdit = editable();
@@ -221,7 +236,7 @@ async function openDocument(doc) {
     for(let i=0;i<lines.length;i+=60)state.textPages.push(lines.slice(i,i+60));
     state.pages=state.textPages.length;
   }
-  state.page=1;await renderPage();watchLive();
+  state.page=1;await renderPage();watchLive();await checkAssignment();
   message(doc._id!==state.latestId?'Historical version — read only.':doc.status==='COMPLETED'?'Completed LIR — read only.':state.permissions.annotate?'RAMP: select a tool and annotate the document, then save.':'Read only: only the RAMP agent assigned to this flight can annotate or sign.');
 }
 async function refresh() {
@@ -230,7 +245,7 @@ async function refresh() {
   state.busy=true;controls();
   try {
     const data=await (await request(base)).json();
-    state.permissions=data.permissions;state.sequence=data.sequence;state.revisions=data.revisions;state.latestId=data.document?._id;
+    state.permissions=data.permissions;accessCheckedAt=Date.now();state.sequence=data.sequence;state.revisions=data.revisions;state.latestId=data.document?._id;
     $('flightLabel').textContent=`${data.flight.display} · ${data.flight.operatingDate}`;
     $('revisionSelect').replaceChildren(...data.revisions.map(doc=>{const option=document.createElement('option');option.value=doc._id;option.textContent=`v${doc.revision} — ${doc.status}`;return option;}));
     await openDocument(data.document);
@@ -322,16 +337,22 @@ let assignmentCheck=0;
 async function checkAssignment() {
   const check=++assignmentCheck;
   try {
-    const data=await (await request(base)).json();
-    if(check!==assignmentCheck)return;
+    const data=await (await request(`${base}/access`)).json();
+    if(check!==assignmentCheck || !sameSession())return;
+    accessCheckedAt=Date.now();
+    $('accessStatus').textContent=`Signed in as ${data.user.name} · ${data.permissions.annotate ? 'Assigned RAMP — can annotate' : 'Read only'}`;
+    const previouslyAllowed=state.permissions.annotate;
     state.permissions=data.permissions;
     if(!data.permissions.annotate){
       if(state.dirty)state.stale=true;
       if(live.connected)live.emit('release',{});
       message('Read only: only the RAMP agent assigned to this flight can annotate or sign. Your unsaved work, if any, is preserved for export.');
-    } else if(!state.stale)message('You are assigned as RAMP for this flight and can annotate its latest LIR.');
+    } else if(!previouslyAllowed && !state.stale)message('You are the assigned RAMP agent and can annotate this LIR.');
     controls();
   }catch(error){state.permissions.annotate=false;controls();message(error.message,'warning');}
 }
-socket.on('assignmentsUpdated',checkAssignment);
+socket.on('assignmentsUpdated',()=>{accessCheckedAt=0;controls();return checkAssignment();});
+const accessTimer=setInterval(()=>{if(!sessionInvalid)checkAssignment();},5000);
+window.addEventListener('focus',()=>{accessCheckedAt=0;controls();checkAssignment();});
+window.addEventListener('pagehide',()=>clearInterval(accessTimer));
 if(!/^[a-f\d]{24}$/i.test(flightId||''))message('Open eLIR from a flight dashboard.','danger');else refresh();

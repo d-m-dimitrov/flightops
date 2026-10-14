@@ -3,8 +3,8 @@ const {createRequire}=require('node:module');
 function load(file,mocks){const filename=path.join(__dirname,'..',file),module={exports:{}},real=createRequire(filename);vm.runInNewContext(fs.readFileSync(filename,'utf8'),{module,require:n=>n in mocks?mocks[n]:real(n),console},{filename});return module.exports;}
 function response(){return {statusCode:200,status(n){this.statusCode=n;return this;},json(body){this.body=body;return this;}};}
 test('only current RAMP assignment grants LIR edits, with no admin or skill bypass',async()=>{
- let assigned='u1';
- const can=load('server/services/lirAccess.js',{'../models/Assignment':{exists:async q=>q.turnaroundId==='f1'&&q.role==='RAMP'&&q.userId===assigned}});
+ let assigned='u1',duplicate=false;
+ const can=load('server/services/lirAccess.js',{'../models/Assignment':{find:q=>({select:()=>({limit:()=>({lean:async()=>q.turnaroundId==='f1'&&q.role==='RAMP'&&assigned ? (duplicate ? [{userId:assigned},{userId:'u2'}] : [{userId:assigned}]) : []})})})}});
  const user={_id:'u1',department:'RAMP',active:true};
  assert.equal(await can(user,'f1'),true);
  assert.equal(await can(user,'f2'),false);
@@ -12,6 +12,7 @@ test('only current RAMP assignment grants LIR edits, with no admin or skill bypa
  assert.equal(await can({...user,department:'OPERATIONS',role:'ADMIN'},'f1'),false);
  assert.equal(await can({...user,active:false},'f1'),false);
  assigned='u2';assert.equal(await can(user,'f1'),false);assert.equal(await can({...user,_id:'u2'},'f1'),true);
+ assigned='u1';duplicate=true;assert.equal(await can(user,'f1'),false);duplicate=false;
  assigned=null;assert.equal(await can(user,'f1'),false);
 });
 test('ordinary RAMP agent cannot self-assign through the API; allocator preserves other departments',async()=>{

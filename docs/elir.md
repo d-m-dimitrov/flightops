@@ -51,3 +51,7 @@ The server checks assignment at each draft save/completion and live update. Reas
 Assignment writes now require an authenticated authorized manager/coordinator. Existing duty-manager permissions are retained; coordinators may update only their supported roles, preserving other departments' assignments. RAMP targets must be active RAMP users with the RAMP skill. An ordinary ramp supervisor cannot self-assign through the API.
 
 After deployment, assign agent A to RAMP, then open the LIR as A and B. Only A should edit/sign/share live. Reassign to B while A has an unsaved mark: A should become read-only, B should gain edit access, and A's local mark must remain exportable. Remove RAMP assignment and verify neither can save. The tests use database/socket/DOM mocks; verify this handover on the deployed site.
+
+### Session and stale-permission handling
+
+The editor binds REST and live access to the account that opened the page. A token change in another tab immediately stops editing and disconnects the old live session; export unsaved work, then reload. The page displays the authenticated name returned by the server. Assignment rights refresh every five seconds and on window focus; local editing expires after 15 seconds without a successful access check. Save/sign/live updates still check the database on the server. Ambiguous duplicate RAMP rows deny editing until an authorized allocator reassigns the role. Test different accounts in separate browser profiles or a private window: ordinary tabs share localStorage login state.
