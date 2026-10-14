@@ -1994,6 +1994,8 @@ function loadSpecialHandling(
     const details =
     flight.specialHandlingDetails || {};
 
+    const depa = Array.isArray(details.depa) ? details.depa : [];
+
     const wclbCount =
     details.wclb?.length || 0;
 
@@ -2072,6 +2074,14 @@ function loadSpecialHandling(
 
         </div>
 
+        <div class="col-md-4 mt-2">
+
+            🛂 DEPA:
+            <strong>${depa.length}</strong>
+            <div id="depaSeatSummary" class="small text-muted"></div>
+
+        </div>
+
     </div>
 
     ${
@@ -2110,12 +2120,9 @@ function loadSpecialHandling(
 
     `;
 
-    const depa = Array.isArray(details.depa) ? details.depa : [];
-    const summary = document.createElement("div");
-    summary.className = "mt-2";
-    summary.textContent = `DEPA: ${depa.length}` +
-        (depa.length ? ` • Seats: ${depa.map(item => item.seat || "Unassigned").join(", ")}` : "");
-    document.getElementById("specialHandlingPanel").appendChild(summary);
+    document.getElementById("depaSeatSummary").textContent = depa.length
+        ? `Seats: ${depa.map(item => item.seat || "Unassigned").join(", ")}`
+        : "";
 
 }
 
@@ -2829,13 +2836,16 @@ function renderDepaList() {
     const list = document.getElementById("depaList");
     list.replaceChildren();
     (specialHandlingDetails.depa || []).forEach((item, index) => {
+        const card = document.createElement("div");
+        card.className = "card mb-3";
+        const body = document.createElement("div");
+        body.className = "card-body";
         const row = document.createElement("div");
-        row.className = "row g-2 align-items-end border rounded p-2 mb-2";
+        row.className = "row";
         for (const [key, label, limit] of [["passengerName", "Passenger name (optional)", 120], ["seat", "Seat", 10]]) {
             const column = document.createElement("div");
-            column.className = key === "seat" ? "col-md-3" : "col-md-6";
+            column.className = "col-md-4";
             const fieldLabel = document.createElement("label");
-            fieldLabel.className = "form-label";
             fieldLabel.htmlFor = `depa-${index}-${key}`;
             fieldLabel.textContent = label;
             const input = document.createElement("input");
@@ -2854,18 +2864,21 @@ function renderDepaList() {
             row.appendChild(column);
         }
         const removeColumn = document.createElement("div");
-        removeColumn.className = "col-md-3";
+        removeColumn.className = "col-md-1";
         const remove = document.createElement("button");
         remove.type = "button";
-        remove.className = "btn btn-outline-danger";
-        remove.textContent = "Remove";
+        remove.className = "btn btn-danger mt-4";
+        remove.textContent = "X";
+        remove.setAttribute("aria-label", `Remove DEPA passenger ${index + 1}`);
         remove.addEventListener("click", () => {
             specialHandlingDetails.depa.splice(index, 1);
             renderDepaList();
         });
         removeColumn.appendChild(remove);
         row.appendChild(removeColumn);
-        list.appendChild(row);
+        body.appendChild(row);
+        card.appendChild(body);
+        list.appendChild(card);
     });
 }
 
