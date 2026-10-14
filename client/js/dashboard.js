@@ -3483,3 +3483,5 @@ loadLirSummary();
 
 socket.on('lirReceiptUpdated',loadLirSummary);
 socket.on('assignmentsUpdated',loadLirSummary);
+
+document.getElementById('handoverLink').href=`handover.html?id=${encodeURIComponent(flightId)}`;

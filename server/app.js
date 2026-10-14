@@ -59,6 +59,7 @@ async function startGenerator() {
     await seedEvents();
     await require("./services/ensureTurnaroundIndex")(require("./models/Turnaround"));
     await require("./models/Lir").init();
+    await require("./models/Handover").init();
     await generateTurnarounds();
     // Schedule the next run after completion, avoiding overlapping async intervals.
     const run = async () => {
@@ -72,6 +73,8 @@ async function startGenerator() {
 app.use(cors());
 app.use("/api/lir", require("./routes/lir"));
 app.use(express.json());
+app.use("/api/my-flights", require("./routes/myFlights"));
+app.use("/api/handovers", require("./routes/handovers"));
 app.use("/api/acknowledgements", require("./routes/acknowledgements"));
 
 

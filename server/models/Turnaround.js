@@ -2,6 +2,7 @@ const mongoose = require("mongoose");
 
 const TurnaroundSchema = new mongoose.Schema({
 
+    handoverSequence:{type:Number,default:0},
     lirSequence: { type:Number, default:0 },
 
     airline: String,
