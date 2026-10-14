@@ -47,7 +47,16 @@
 <button id="prevBtn" class="btn btn-outline-secondary">← Previous</button><span id="pageLabel"></span><button id="nextBtn" class="btn btn-outline-secondary">Next →</button>
 <button id="pngBtn" class="btn btn-outline-success ms-auto">Download this page as PNG</button>
 </div>
-<div class="canvas-wrapper"><canvas id="documentCanvas" width="900" height="1100" aria-label="Loading instruction document"></canvas></div>
+<div class="lir-view-controls border-top p-2" role="group" aria-label="Document view">
+<button id="panBtn" class="btn btn-outline-primary" aria-pressed="false">✋ Move / read</button>
+<button id="zoomOutBtn" class="btn btn-outline-secondary" aria-label="Zoom out">−</button>
+<output id="zoomLabel" aria-live="polite">100%</output>
+<button id="zoomInBtn" class="btn btn-outline-secondary" aria-label="Zoom in">+</button>
+<button id="fitBtn" class="btn btn-outline-secondary">Fit width</button>
+<button id="actualSizeBtn" class="btn btn-outline-secondary">100%</button>
+<span id="viewHint" class="small text-muted"></span>
+</div>
+<div id="documentViewport" class="canvas-wrapper" tabindex="0" aria-label="Scrollable LIR document"><canvas id="documentCanvas" width="900" height="1100" aria-label="Loading instruction document"></canvas></div>
 <div class="card-body border-top">
 <h2 class="h5">RAMP signature</h2>
 <p id="signatureInfo" class="small text-muted"></p>

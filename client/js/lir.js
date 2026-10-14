@@ -8,6 +8,32 @@ const background = document.createElement('canvas'), backgroundCtx = background.
 const state = { permissions:{}, sequence:0, revisions:[], doc:null, latestId:null, page:1, pages:0,
   annotations:[], signature:[], history:[], historyIndex:0, dirty:false, busy:false, stale:false,
   tool:'tick', pdf:null, textPages:[], ready:false, renderVersion:0, fileBuffer:null };
+const touchView = window.matchMedia?.('(pointer: coarse)').matches || false;
+const view = { zoom:1, fit:!touchView, pan:touchView };
+function applyZoom() {
+  const viewport = $('documentViewport');
+  if (view.fit) view.zoom = Math.min(1, Math.max(0.1, (viewport.clientWidth - 24) / canvas.width));
+  canvas.style.width = `${Math.round(canvas.width * view.zoom)}px`;
+  $('zoomLabel').textContent = `${Math.round(view.zoom * 100)}%`;
+  $('zoomOutBtn').disabled = view.zoom <= 0.25;
+  $('zoomInBtn').disabled = view.zoom >= 3;
+}
+function setZoom(zoom) {
+  const viewport = $('documentViewport');
+  const oldWidth = canvas.getBoundingClientRect().width || canvas.width;
+  const centerX = (viewport.scrollLeft + viewport.clientWidth / 2) / oldWidth;
+  const centerY = (viewport.scrollTop + viewport.clientHeight / 2) / oldWidth;
+  view.fit = false; view.zoom = Math.min(3, Math.max(0.25, zoom));
+  applyZoom();
+  viewport.scrollLeft = centerX * canvas.width * view.zoom - viewport.clientWidth / 2;
+  viewport.scrollTop = centerY * canvas.width * view.zoom - viewport.clientHeight / 2;
+}
+$('zoomInBtn').onclick = () => setZoom(view.zoom * 1.25);
+$('zoomOutBtn').onclick = () => setZoom(view.zoom / 1.25);
+$('actualSizeBtn').onclick = () => setZoom(1);
+$('fitBtn').onclick = () => { view.fit=true; applyZoom(); };
+$('panBtn').onclick = () => { view.pan=!view.pan; strikeStart=null; controls(); redraw(); };
+window.addEventListener('resize', () => { if(view.fit) applyZoom(); });
 let pendingServerChange = false;
 let pendingAnnotation = null, strikeStart = null, signatureStroke = null;
 const socket = io();
@@ -49,7 +75,12 @@ function controls() {
   $('sourceDownloadBtn').disabled = !state.doc || state.busy;
   $('refreshBtn').disabled = state.busy;
   $('revisionSelect').disabled = state.busy || !state.revisions.length;
-  canvas.classList.toggle('editable',canEdit);
+  canvas.classList.toggle('editable',canEdit && !view.pan);
+  $('panBtn').setAttribute('aria-pressed', String(view.pan));
+  $('panBtn').classList.toggle('active',view.pan);
+  $('viewHint').textContent = view.pan || !canEdit
+    ? 'Move / read: swipe to scroll; pinch with two fingers to zoom. Select an annotation tool to mark the LIR.'
+    : 'Annotation mode: tap to mark. Use + / − to zoom, or Move / read to scroll and pinch.';
   signatureCanvas.classList.toggle('editable',canEdit);
   $('status').textContent = state.doc ? `v${state.doc.revision} · ${state.doc.status}${state.dirty ? ' · Unsaved' : ''}` : 'No LIR uploaded';
   $('signatureInfo').textContent = state.doc?.signedAt
@@ -118,7 +149,7 @@ async function renderPage() {
   }
   if(generation!==state.renderVersion)return;
   canvas.width=background.width=pageCanvas.width;canvas.height=background.height=pageCanvas.height;
-  backgroundCtx.drawImage(pageCanvas,0,0);state.ready=true;
+  backgroundCtx.drawImage(pageCanvas,0,0);state.ready=true;applyZoom();
   $('pageLabel').textContent=`Page ${state.page} of ${state.pages}`;
   redraw();drawSignature();controls();
 }
@@ -185,12 +216,12 @@ $('uploadBtn').onclick=async()=>{
   }catch(error){message(error.message,'danger');}finally{state.busy=false;controls();}
 };
 document.querySelectorAll('[data-tool]').forEach(button=>button.onclick=()=>{
-  state.tool=button.dataset.tool;document.querySelectorAll('[data-tool]').forEach(b=>b.classList.toggle('active',b===button));$('toolStatus').textContent=`Tool: ${button.textContent}`;
+  view.pan=false;controls();state.tool=button.dataset.tool;document.querySelectorAll('[data-tool]').forEach(b=>b.classList.toggle('active',b===button));$('toolStatus').textContent=`Tool: ${button.textContent}`;
 });
 document.querySelector('[data-tool="tick"]').classList.add('active');
 function addMark(mark){if(!editable())return;if(state.annotations.length>=1000){message('Maximum 1,000 annotations reached.','warning');return;}state.annotations.push(mark);historySave();redraw();}
 canvas.onpointerdown=event=>{
-  if(!editable())return;event.preventDefault();const pos=coords(event,canvas);
+  if(!editable() || view.pan)return;event.preventDefault();const pos=coords(event,canvas);
   if(state.tool==='strike'){strikeStart=pos;canvas.setPointerCapture(event.pointerId);return;}
   const mark={page:state.page,type:state.tool,...pos};
   if(['tick','nil'].includes(state.tool)){addMark(mark);return;}

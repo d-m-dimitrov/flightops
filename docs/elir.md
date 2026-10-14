@@ -27,3 +27,7 @@ After the main deployment is Live in Render, use a test flight:
 6. Attempt upload with RAMP and annotation save with OPS: API must return 403. A signed-out request must return 401. Restart Render and verify stored originals and annotations still load.
 
 An upload and an old-version save may overlap: edits remain attached to that old document, never to the replacement. A failed document write after reserving a revision can leave a numbering gap; refresh and retry. Chat delivery failure does not roll back a successfully saved LIR.
+
+## Phone view
+
+Touch devices open at 100% in Move / read mode. Swipe across the document to scroll and use the browser pinch gesture to zoom. The + / − controls change document size from 25% to 300%; Fit width fits the page to the available width. Select an annotation tool to enter marking mode; use Move / read to resume scrolling and pinch gestures. Zoom changes display size only: stored coordinates and PNG export remain unchanged.
