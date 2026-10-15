@@ -61,6 +61,7 @@ async function startGenerator() {
     await require("./models/Lir").init();
     await require("./models/Handover").init();
     await require("./models/GateItems").init();
+    await require("./models/ChatReadState").init();
     await generateTurnarounds();
     // Schedule the next run after completion, avoiding overlapping async intervals.
     const run = async () => {

@@ -130,7 +130,9 @@ function getStatusBorderColor(status){
 
 }
 
+let flightsLoadVersion = 0;
 async function loadFlights() {
+    const version = ++flightsLoadVersion;
 
     const container =
     document.getElementById(
@@ -141,20 +143,16 @@ async function loadFlights() {
     const date =
 getSelectedDate();
 
-const response =
-await fetch(
-    `/api/flights?date=${date}`
-);
-
-    container.innerHTML =
-    "<p>Loading...</p>";
-
     try {
-
- 
+        const response = await fetch(`/api/flights?date=${date}`, {
+            headers:{Authorization:`Bearer ${localStorage.getItem('token') || ''}`}
+        });
+        if (version !== flightsLoadVersion) return;
 
         const flights =
         await response.json();
+        if (version !== flightsLoadVersion) return;
+        if (!response.ok) throw new Error(flights.error || "Could not load flights");
 
 
 const departed =
@@ -700,3 +698,9 @@ if(
     addFlightBtn.remove();
 
 }
+
+// Refresh on return (including browser back cache) and when another tab reads chat.
+window.addEventListener('pageshow', event => { if (event.persisted) loadFlights(); });
+window.addEventListener('focus', () => loadFlights());
+window.addEventListener('storage', event => { if (event.key === 'flightChatReadChanged') loadFlights(); });
+setInterval(() => { if (!document.hidden) loadFlights(); }, 30000);

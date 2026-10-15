@@ -9,7 +9,25 @@ let specialHandlingModal;
 let flightDetailsModal;
 let assignmentModal;
 let specialHandlingDetailsModal;
-let notificationsCleared = false;
+const chatSessionToken = localStorage.getItem('token');
+let displayedChatMessageIds = [];
+let chatLoadVersion = 0;
+async function markDisplayedChatRead(ids = displayedChatMessageIds.slice()) {
+    try {
+        if (!chatSessionToken || chatSessionToken !== localStorage.getItem('token')) return;
+        for (let i = 0; i < ids.length; i += 500) {
+            const response = await fetch(`/api/flights/${flightId}/mark-read`, {
+                method:'POST', headers:{'Content-Type':'application/json', Authorization:`Bearer ${chatSessionToken}`},
+                body:JSON.stringify({messageIds:ids.slice(i, i + 500)})
+            });
+            if (!response.ok) throw new Error('Could not mark chat as read');
+        }
+        localStorage.setItem('flightChatReadChanged', JSON.stringify({flightId, at:Date.now()}));
+    } catch (error) {
+        console.error(error);
+        showChatToast('System', 'Could not clear notifications. Click the chat to retry.', 'SYSTEM');
+    }
+}
 
 let countdownInterval;
 let currentFlight;
@@ -837,40 +855,8 @@ new bootstrap.Modal(
             )
         );
 
-        document
-.getElementById(
-    "chatMessages"
-)
-.addEventListener(
-
-    "click",
-
-    async ()=>{
-
-        if(
-            notificationsCleared
-        ){
-            return;
-        }
-
-        notificationsCleared =
-        true;
-
-        await fetch(
-
-            `/api/flights/${flightId}/mark-read`,
-
-            {
-
-                method:"POST"
-
-            }
-
-        );
-
-    }
-
-);
+        document.getElementById('chatMessages').addEventListener('click', () => markDisplayedChatRead());
+        document.getElementById('chatText').addEventListener('focus', () => markDisplayedChatRead());
 
         const chatInput =
         document.getElementById(
@@ -2001,170 +1987,57 @@ function loadSpecialHandling(
 
 }
 
-async function loadChat(){
-
-    const response =
-    await fetch(
-
-        `/api/chat/${flightId}`
-
-    );
-
-    const messages =
-    await response.json();
-
-    const panel =
-    document.getElementById(
-        "chatMessages"
-    );
-
-    panel.innerHTML = "";
-
-    messages.forEach(msg=>{
-
-        if(
-    msg.messageType ===
-    "SYSTEM"
-){
-
-    panel.innerHTML += `
-
-    <div
-        class="alert alert-info py-1 mb-2">
-
-        <small>
-
-        ${new Date(
-            msg.createdAt
-        ).toLocaleTimeString("en-GB", { timeZone:"Europe/London" })}
-
-        </small>
-
-        <br>
-
-        ⚙ ${msg.message}
-
-    </div>
-
-    `;
-
-    return;
-
-}
-
-if(
-    msg.messageType ===
-    "EVENT"
-){
-
-    panel.innerHTML += `
-
-    <div
-        class="alert alert-success py-1 mb-2">
-
-        <small>
-
-        ${new Date(
-            msg.createdAt
-        ).toLocaleTimeString("en-GB", { timeZone:"Europe/London" })}
-
-        </small>
-
-        <br>
-
-        ✅ ${msg.message}
-
-    </div>
-
-    `;
-
-    return;
-
-}
-        panel.innerHTML += `
-
-        <div class="mb-2">
-
-            <strong>
-
-            ${msg.userId?.name || "Unknown"}
-
-            </strong>
-
-            <small class="text-muted">
-
-                ${new Date(
-                    msg.createdAt
-                ).toLocaleTimeString("en-GB", { timeZone:"Europe/London" })}
-
-            </small>
-
-            <br>
-
-            ${msg.message}
-
-        </div>
-
-        `;
-
-    });
-
-    panel.scrollTop =
-    panel.scrollHeight;
-
+async function loadChat({markRead = false} = {}) {
+    const version = ++chatLoadVersion;
+    try {
+        if (chatSessionToken !== localStorage.getItem('token')) return;
+        const response = await fetch(`/api/chat/${flightId}`, {headers:{Authorization:`Bearer ${chatSessionToken}`}});
+        if (!response.ok) throw new Error('Could not load chat');
+        const messages = await response.json();
+        if (chatSessionToken !== localStorage.getItem('token')) return;
+        const ids = messages.map(m => m._id);
+        if (version === chatLoadVersion) {
+            const panel = document.getElementById('chatMessages');
+            panel.replaceChildren();
+            for (const msg of messages) {
+                const row = document.createElement('div');
+                row.className = msg.messageType === 'SYSTEM' ? 'alert alert-info py-1 mb-2'
+                    : msg.messageType === 'EVENT' ? 'alert alert-success py-1 mb-2' : 'mb-2';
+                const heading = document.createElement('strong');
+                heading.textContent = msg.messageType === 'SYSTEM' ? '⚙ System ' : msg.messageType === 'EVENT' ? '✅ Event ' : `${msg.userId?.name || 'Unknown'} `;
+                const time = document.createElement('small');
+                time.textContent = new Date(msg.createdAt).toLocaleTimeString('en-GB', {timeZone:'Europe/London'});
+                const body = document.createElement('div');
+                body.textContent = msg.message;
+                row.append(heading, time, body);
+                panel.append(row);
+            }
+            displayedChatMessageIds = ids;
+            panel.scrollTop = panel.scrollHeight;
+        }
+        // Only the opening snapshot is automatic. Background refreshes never clear new arrivals.
+        if (markRead) await markDisplayedChatRead(ids);
+    } catch (error) {
+        console.error(error);
+        showChatToast('System', 'Chat could not load. Reload the flight to retry.', 'SYSTEM');
+    }
 }
 
 async function sendChatMessage(){
-
-    const text =
-    document.getElementById(
-        "chatText"
-    ).value;
-
-    if(!text){
-        return;
-    }
-
-    await fetch(
-
-        `/api/chat/${flightId}`,
-
-        {
-
-            method:"POST",
-
-            headers:{
-                "Content-Type":
-                "application/json"
-            },
-
-            body:JSON.stringify({
-
-                userId:
-                CURRENT_USER_ID,
-
-                message:
-                text
-
-            })
-
-        }
-
-    );
-
-    document.getElementById(
-        "chatText"
-    ).value = "";
-
-    await loadChat();
-    const panel =
-document.getElementById(
-    "chatMessages"
-);
-
-panel.scrollTop =
-panel.scrollHeight;
-
+    const input = document.getElementById('chatText');
+    const text = input.value.trim();
+    if (!text) return;
+    try {
+        if (!chatSessionToken || chatSessionToken !== localStorage.getItem('token')) throw new Error('Account changed. Reload the flight.');
+        const response = await fetch(`/api/chat/${flightId}`, {
+            method:'POST', headers:{'Content-Type':'application/json', Authorization:`Bearer ${chatSessionToken}`},
+            body:JSON.stringify({message:text})
+        });
+        if (!response.ok) throw new Error('Message could not be sent. Please retry.');
+        if (input.value.trim() === text) input.value = '';
+        await markDisplayedChatRead();
+        await loadChat();
+    } catch (error) { alert(error.message); }
 }
 
 
@@ -3335,7 +3208,7 @@ socket.on("connect", () => {
 loadFlight();
 loadEventButtons();
 loadAssignments();
-loadChat();
+loadChat({markRead:true});
 
 socket.on(
     "flightUpdated",

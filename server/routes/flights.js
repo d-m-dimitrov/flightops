@@ -1,3 +1,5 @@
+const requireUser = require('../middleware/requireUser');
+const chatReadState = require('../services/chatReadState');
 const time = require("../../client/js/operationalTime");
 const resolveMgt = require("../services/getTurnaroundRule");
 const turnaroundView = require("../services/turnaroundView");
@@ -42,7 +44,7 @@ async(req,res)=>{
 });
 
 router.get(
-"/",
+"/", requireUser,
 async(req,res)=>{
 
     const date =
@@ -69,6 +71,7 @@ await Turnaround.find({
     });
 
    const result = [];
+const unread = await chatReadState.unreadCounts(flights.map(f => f._id), req.user._id);
 
 for(const flight of flights){
 
@@ -83,6 +86,7 @@ await calculateReadiness(
 item.readiness =
 readiness.percentage;
 
+    item.unreadNotifications = unread.get(String(flight._id)) || 0;
     result.push(item);
 
 }
@@ -481,31 +485,17 @@ await addSystemMessage(
 
 });
 
-router.post(
-"/:id/mark-read",
-async(req,res)=>{
-
-    await Turnaround.findByIdAndUpdate(
-
-        req.params.id,
-
-        {
-
-            unreadNotifications:0
-
-        }
-
-    );
-
-    res.json({
-        success:true
-    });
-    console.log(
-    "MARK READ:",
-    req.params.id
-);
-
+router.post('/:id/mark-read', requireUser, async (req, res) => {
+    if (!/^[a-f\d]{24}$/i.test(req.params.id)) return res.status(400).json({error:'Invalid flight'});
+    const flight = await Turnaround.findOne({_id:req.params.id, deleted:{$ne:true}});
+    if (!flight) return res.status(404).json({error:'Flight not found'});
+    try {
+        await chatReadState.markRead(flight._id, req.user._id, req.body?.messageIds);
+        res.json({success:true});
+    } catch (error) {
+        if (error.status) return res.status(error.status).json({error:error.message});
+        throw error;
+    }
 });
-
 
 module.exports = router;

@@ -7,8 +7,14 @@ express.Router();
 const ChatMessage =
 require("../models/ChatMessage");
 
-const User =
-require("../models/User");
+const requireUser = require('../middleware/requireUser');
+router.use(requireUser);
+router.use('/:turnaroundId', async (req, res, next) => {
+    if (!/^[a-f\d]{24}$/i.test(req.params.turnaroundId)) return res.status(400).json({error:'Invalid flight'});
+    const flight = await require('../models/Turnaround').findOne({_id:req.params.turnaroundId, deleted:{$ne:true}});
+    if (!flight) return res.status(404).json({error:'Flight not found'});
+    next();
+});
 
 router.get(
 "/:turnaroundId",
@@ -23,7 +29,7 @@ async(req,res)=>{
     })
 
     .populate(
-        "userId"
+        "userId", "name"
     )
 
     .sort({
@@ -40,6 +46,9 @@ router.post(
 "/:turnaroundId",
 async(req,res)=>{
 
+    if (typeof req.body?.message !== 'string' || !req.body.message.trim() || req.body.message.length > 10000) {
+        return res.status(400).json({error:'Enter a message (maximum 10000 characters)'});
+    }
     const message =
     await ChatMessage.create({
 
@@ -47,7 +56,7 @@ async(req,res)=>{
         req.params.turnaroundId,
 
         userId:
-        req.body.userId,
+        req.user._id,
 
         message:
         req.body.message
@@ -77,7 +86,7 @@ await Turnaround.findByIdAndUpdate(
         message._id
     )
     .populate(
-        "userId"
+        "userId", "name"
     );
 
     const io =
