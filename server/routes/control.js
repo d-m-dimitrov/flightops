@@ -48,6 +48,6 @@ router.get('/', async (req, res) => {
         loaded:activeItems.filter(i => i.status === 'LOADED').length}
     });
   }
-  res.set('Cache-Control','no-store').json({user:{name:req.user.name,position:req.user.position},roles,staff,flights:output});
+  res.set('Cache-Control','no-store').json({user:{name:req.user.name,position:req.user.position},roles,staff:staff.map(u=>({...u,canManageShift:require('../services/staffShifts').canManage(req.user,u)})),flights:output});
 });
 module.exports = router;

@@ -57,11 +57,14 @@ function render() {
     $('team').append(card);
   }
   if(!workload.length)$('team').append(el('p','No staff assigned to open flights.','muted'));
+  window.ControlRoster?.render();
 }
 async function refresh() {
   const current=++version;
   try {
-    const body=await request(`/api/control?date=${encodeURIComponent($('date').value)}`);
+    const date=encodeURIComponent($('date').value);
+    const [body,roster]=await Promise.all([request(`/api/control?date=${date}`),request(`/api/shifts?date=${date}`)]);
+    body.shifts=roster.shifts;
     if(current!==version)return;
     data=body;$('identity').textContent=`${body.user.name} · ${body.user.position || 'ADMIN'}`;
     $('message').textContent='';$('updated').textContent=`Updated ${time(new Date().toISOString())} London`;render();
@@ -69,12 +72,13 @@ async function refresh() {
   } catch(error) {
     if(current!==version)return;
     $('message').textContent=`${error.message}${data.flights.length?' · Displayed data may be out of date.':''}`;
-    if([401,403].includes(error.status)){data={flights:[],staff:[],roles:[]};render();$('allocation').close();socket?.disconnect();}
+    if([401,403].includes(error.status)){window.ControlRoster?.close();data={flights:[],staff:[],roles:[]};render();$('allocation').close();socket?.disconnect();}
   }
 }
 function snapshot(rows,roles) {return rows.filter(a=>roles.includes(a.role)).map(a=>`${a._id}:${a.role}:${a.userId?._id||a.userId||''}`).sort();}
 async function openEditor(f) {
   const editorRequest=++editorVersion;
+  $('availableOnly').checked=false;
   $('saveMessage').textContent='';$('assignmentFields').replaceChildren();$('allocationTitle').textContent=`Allocate ${name(f)}`;
   $('allocationHelp').textContent='Loading latest assignments…';$('save').disabled=true;$('allocation').showModal();edit=null;
   try {
@@ -89,6 +93,7 @@ async function openEditor(f) {
       if(selected && ![...select.options].some(o=>o.value===String(selected._id))) {const option=new Option(`${selected.name} (not qualified — replace or remove)`,selected._id);option.disabled=true;select.append(option);}
       select.value=selected?._id||'';label.append(select);if(current.length>1)label.append(el('small','Multiple existing assignments — saving will resolve to this selection.','text-danger'));$('assignmentFields').append(label);
     }
+    window.ControlRoster?.decorateAllocation(f);
     $('save').disabled=false;
   }catch(error){$('allocationHelp').textContent=error.message;}
 }
@@ -104,7 +109,7 @@ $('allocationForm').onsubmit=async event=>{
 };
 $('cancel').onclick=()=>{editorVersion++;$('allocation').close();edit=null;};
 $('search').oninput=render;$('filter').onchange=render;$('refresh').onclick=refresh;
-$('date').onchange=()=>{data.flights=[];render();refresh();};
+$('date').onchange=()=>{data.flights=[];data.shifts=[];render();refresh();};
 for(const button of document.querySelectorAll('[data-offset]'))button.onclick=()=>{$('date').value=OperationalTime.addDays(OperationalTime.operatingDate(),Number(button.dataset.offset));$('date').onchange();};
 if(typeof io==='function'){
   socket=io();socket.on('connect',()=>{$('connection').textContent='Live connection · 15s refresh';refresh();});
@@ -115,5 +120,5 @@ if(typeof io==='function'){
 timer=setInterval(()=>{if(!document.hidden)refresh();},15000);
 window.addEventListener('pagehide',()=>{clearInterval(timer);clearTimeout(debounce);version++;socket?.disconnect();});
 window.addEventListener('pageshow',e=>{if(e.persisted)location.reload();});
-window.addEventListener('storage',e=>{if(e.key==='token'||e.key===null){version++;data={flights:[],staff:[],roles:[]};render();$('allocation').close();socket?.disconnect();clearInterval(timer);$('message').textContent='Account changed. Reload this page.';}});
+window.addEventListener('storage',e=>{if(e.key==='token'||e.key===null){window.ControlRoster?.close();version++;data={flights:[],staff:[],roles:[]};render();$('allocation').close();socket?.disconnect();clearInterval(timer);$('message').textContent='Account changed. Reload this page.';}});
 refresh();
