@@ -105,3 +105,51 @@ test('unique generation index is scoped to scheduled flights', async () => {
   assert.equal(index.options.unique, true);
   assert.equal(index.options.partialFilterExpression.scheduleId.$type, 'objectId');
 });
+
+test('generator prepares today and tomorrow by their own weekday; midnight rolls window without duplicates', async () => {
+  const records = new Map(), writes = [];
+  const schedules = [
+    {_id:'daily', daysOfWeek:[1,2,3,4,5,6,7], sta:'10:00', std:'11:30'},
+    {_id:'friday', daysOfWeek:[5], sta:'23:30', std:'00:45', departureDayOffset:1}
+  ];
+  // A deliberate deletion must remain deleted, including future flights.
+  records.set('friday/2026-10-16', {deleted:true});
+  const generate = load('server/services/turnaroundGenerator.js', {
+    '../models/FlightSchedule':{find:async query => { assert.equal(query.active,true); return schedules; }},
+    '../models/Turnaround':{
+      exists:async key => records.has(`${key.scheduleId}/${key.operatingDate}`),
+      updateOne:async (key, update) => {
+        const id = `${key.scheduleId}/${key.operatingDate}`;
+        writes.push(id); records.set(id,update.$setOnInsert);
+      }
+    }, './getTurnaroundRule':async () => ({mgt:60, mgtSource:'rule'})
+  });
+  await generate(new Date('2026-10-15T13:42:00Z'));
+  assert.deepEqual(writes,['daily/2026-10-15','daily/2026-10-16']);
+  records.get('daily/2026-10-16').status = 'ACCEPTED';
+  await generate(new Date('2026-10-15T13:43:00Z'));
+  assert.equal(writes.length,2);
+  // 23:01 UTC is already Friday in London.
+  await generate(new Date('2026-10-15T23:01:00Z'));
+  assert.deepEqual(writes,['daily/2026-10-15','daily/2026-10-16','daily/2026-10-17']);
+  assert.equal(records.get('daily/2026-10-16').status,'ACCEPTED');
+  assert.equal(records.get('friday/2026-10-16').deleted,true);
+});
+
+test('tomorrow generation crosses year and both London clock changes as calendar dates', async () => {
+  for (const [now, dates, arrivals] of [
+    ['2026-12-31T15:00:00Z',['2026-12-31','2027-01-01'],['2026-12-31T10:00:00.000Z','2027-01-01T10:00:00.000Z']],
+    ['2026-03-28T15:00:00Z',['2026-03-28','2026-03-29'],['2026-03-28T10:00:00.000Z','2026-03-29T09:00:00.000Z']],
+    ['2026-10-24T15:00:00Z',['2026-10-24','2026-10-25'],['2026-10-24T09:00:00.000Z','2026-10-25T10:00:00.000Z']]
+  ]) {
+    const writes=[];
+    const generate=load('server/services/turnaroundGenerator.js', {
+      '../models/FlightSchedule':{find:async()=>[{_id:'daily',daysOfWeek:[1,2,3,4,5,6,7],sta:'10:00',std:'11:30'}]},
+      '../models/Turnaround':{exists:async()=>false,updateOne:async(key,update)=>writes.push(update.$setOnInsert)},
+      './getTurnaroundRule':async()=>({mgt:60})
+    });
+    await generate(new Date(now));
+    assert.deepEqual(writes.map(w=>w.operatingDate),dates);
+    assert.deepEqual(writes.map(w=>w.arrival.staAt.toISOString()),arrivals);
+  }
+});
