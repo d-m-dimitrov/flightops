@@ -81,12 +81,12 @@ async function openEditor(f) {
     const assignments=await request(`/api/assignments/${f._id}`);
     if(!$('allocation').open || editorRequest !== editorVersion)return;
     edit={flight:f,expectedAssignments:snapshot(assignments,data.roles),roles:[...data.roles]};
-    $('allocationHelp').textContent='Select active, qualified agents. “Unassigned” removes that role. Other departments are preserved.';
+    $('allocationHelp').textContent='Only agents with valid airline/role training for this operating date can be assigned. “Unassigned” removes that role. Other departments are preserved.';
     for(const role of edit.roles){
       const label=el('label',labels[role]||role),select=el('select');select.dataset.role=role;select.append(new Option('Unassigned',''));
       const current=assignments.filter(a=>a.role===role),selected=current[0]?.userId;
-      for(const user of data.staff.filter(u=>u.skills?.includes(role)&&(role!=='RAMP'||u.department==='RAMP')))select.append(new Option(user.name,user._id));
-      if(selected && ![...select.options].some(o=>o.value===String(selected._id))) {const option=new Option(`${selected.name} (unavailable — replace or remove)`,selected._id);option.disabled=true;select.append(option);}
+      for(const user of data.staff.filter(u=>AirlineQualifications.eligible(u,f.airline,role,f.operatingDate)))select.append(new Option(user.name,user._id));
+      if(selected && ![...select.options].some(o=>o.value===String(selected._id))) {const option=new Option(`${selected.name} (not qualified — replace or remove)`,selected._id);option.disabled=true;select.append(option);}
       select.value=selected?._id||'';label.append(select);if(current.length>1)label.append(el('small','Multiple existing assignments — saving will resolve to this selection.','text-danger'));$('assignmentFields').append(label);
     }
     $('save').disabled=false;

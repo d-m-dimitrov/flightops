@@ -24,6 +24,15 @@ const UserSchema = new mongoose.Schema({
 
     skills:[String],
 
+    airlineQualifications:{type:[new mongoose.Schema({
+        airline:{type:String,required:true},
+        role:{type:String,enum:['DISPATCH','CHECKIN','GATE','ARRIVAL','RAMP','SPUR'],required:true},
+        validUntil:{type:String,default:null}
+    },{_id:false})],default:[]},
+    qualificationRevision:{type:Number,default:0},
+    qualificationsUpdatedAt:Date,
+    qualificationsUpdatedBy:{type:mongoose.Schema.Types.ObjectId,ref:'User'},
+
     passwordHash:String
 
 },{

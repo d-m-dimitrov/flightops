@@ -17,7 +17,7 @@ test('only current RAMP assignment grants LIR edits, with no admin or skill bypa
 });
 test('ordinary RAMP agent cannot self-assign through the API; allocator preserves other departments',async()=>{
  const flightId='a'.repeat(24),userId='b'.repeat(24),deletions=[],created=[];let existingRows=[];
- const router=load('server/routes/assignments.js',{'../models/Assignment':{find:()=>({populate:async()=>existingRows}),deleteMany:async q=>deletions.push(q),create:async a=>created.push(a)},'../models/User':{findById:async()=>({_id:userId,name:'Assigned Ramp',active:true,department:'RAMP',skills:['RAMP']})},'../models/ChatMessage':{create:async()=>{}},'../services/lirLive':{clearFlight(){}}});
+ const router=load('server/routes/assignments.js',{'../models/Turnaround':{findOne:async()=>({airline:'SQ',operatingDate:'2026-10-15'})},'../models/Assignment':{find:()=>({populate:async()=>existingRows}),deleteMany:async q=>deletions.push(q),create:async a=>created.push(a)},'../models/User':{findById:async()=>({_id:userId,name:'Assigned Ramp',active:true,department:'RAMP',skills:['RAMP'],airlineQualifications:[{airline:'SQ',role:'RAMP',validUntil:null}]})},'../models/ChatMessage':{create:async()=>{}},'../services/lirLive':{clearFlight(){}}});
  const save=router.stack.find(l=>l.route?.methods.post).route.stack[0].handle;
  const req={params:{turnaroundId:flightId},body:{assignments:[{role:'RAMP',userId}],updatedByName:'Spoofed'},user:{active:true,department:'RAMP',position:'RAMP_SUPERVISOR',name:'Allocator'},app:{get:()=>({to:()=>({emit(){}})})}};
  let res=response();await save(req,res);assert.equal(res.statusCode,403);assert.equal(created.length,0);

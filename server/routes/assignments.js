@@ -15,6 +15,8 @@ require("../models/ChatMessage");
 
 
 
+const Qualifications = require('../../client/js/airlineQualifications');
+const Turnaround = require('../models/Turnaround');
 const mongoose = require('mongoose');
 const assignmentRoles = require('../services/assignmentAccess');
 router.use(require('../middleware/requireUser'));
@@ -31,12 +33,14 @@ async(req,res)=>{
 
     })
     .populate(
-        "userId", "name phone email department position skills active"
+        "userId", "name phone email department position skills active airlineQualifications"
     );
 
-    res.json(
-        assignments
-    );
+    const flight = await Turnaround.findOne({_id:req.params.turnaroundId,deleted:{$ne:true}});
+    if (!flight) return res.status(404).json({error:'Flight not found'});
+    res.json(assignments.map(a => ({...(a.toObject ? a.toObject() : a),
+        qualificationWarning:Qualifications.reason(a.userId,flight.airline,a.role,flight.operatingDate)
+    })));
 
 });
 
@@ -56,11 +60,12 @@ async(req,res)=>{
         new Set(assignments.map(item => item.role)).size !== assignments.length) {
         return res.status(400).json({error:'Invalid or unauthorized assignment roles'});
     }
+    const flight = await Turnaround.findOne({_id:turnaroundId,deleted:{$ne:true}});
+    if (!flight) return res.status(404).json({error:'Flight not found'});
     for (const item of assignments) {
         const target = await User.findById(item.userId);
-        if (!target?.active || !target.skills?.includes(item.role) || (item.role === 'RAMP' && target.department !== 'RAMP')) {
-            return res.status(400).json({error:'Select an active, qualified agent for each role'});
-        }
+        const reason = Qualifications.reason(target,flight.airline,item.role,flight.operatingDate);
+        if (reason) return res.status(400).json({error:`${target?.name || 'Agent'}: ${reason}. Assignment blocked; no override is allowed.`});
     }
     const updatedByName = req.user.name;
 

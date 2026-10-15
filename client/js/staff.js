@@ -1,6 +1,8 @@
 checkAuth();
 
 let allUsers = [];
+let qualificationRevision = 0;
+let staffEditToken = null;
 
 const user =
 getCurrentUser();
@@ -166,6 +168,9 @@ async function newUser(){
     true;
 
     renderSkills([]);
+    renderQualifications([]);
+    qualificationRevision = 0;
+    staffEditToken = localStorage.getItem('token');
 
     userModal.show();
 
@@ -223,6 +228,14 @@ function renderRoles(
 
 */
 async function saveUser(){
+    if (!staffEditToken || staffEditToken !== localStorage.getItem('token')) {alert('Account changed. Reopen the staff record.');return;}
+    let airlineQualifications;
+    try { airlineQualifications = AirlineQualifications.normalize([...document.querySelectorAll('.qualification-row')].map(row => ({
+        airline:row.querySelector('[data-field="airline"]').value,
+        role:row.querySelector('[data-field="role"]').value,
+        validUntil:row.querySelector('[data-field="validUntil"]').value || null
+    }))); } catch(error) {alert(error.message);return;}
+
 
     const name =
     document.getElementById(
@@ -306,6 +319,8 @@ async function saveUser(){
                     department,
                     position,
                     skills,
+                    airlineQualifications,
+                    expectedQualificationRevision:qualificationRevision,
 
                     password,
                     active
@@ -347,6 +362,8 @@ async function saveUser(){
                     department,
                     position,
                     skills,
+                    airlineQualifications,
+                    expectedQualificationRevision:qualificationRevision,
 
                     password,
                     active
@@ -591,7 +608,7 @@ if(sort === "POSITION"){
                 <div>
 
                 🛠
-                ${skillsText || "-"}
+                ${skillsText || "-"}<div class="small text-muted">Airline qualifications: ${(user.airlineQualifications || []).length}</div>
 
                 </div>
 
@@ -733,13 +750,16 @@ async function editUser(
     userId
 ){
 
+    const editToken = localStorage.getItem('token');
     const userResponse =
     await fetch(
         `/api/users/${userId}`, {headers:{Authorization:`Bearer ${localStorage.getItem("token") || ""}`}}
     );
 
+    if (!userResponse.ok) {alert('Unable to load staff record');return;}
     const user =
     await userResponse.json();
+    if (!user || editToken !== localStorage.getItem('token')) {alert('Account changed or staff record unavailable. Reopen the editor.');return;}
 
     document.getElementById(
         "userId"
@@ -789,9 +809,30 @@ async function editUser(
         user.skills || []
     );
 
+    renderQualifications(user.airlineQualifications || []);
+    qualificationRevision = user.qualificationRevision || 0;
+    staffEditToken = editToken;
     userModal.show();
 
 }
 
 
 
+
+function renderQualifications(rows) {
+    document.getElementById('qualificationRows').replaceChildren();
+    rows.forEach(addQualificationRow);
+}
+function addQualificationRow(value = {}) {
+    const row=document.createElement('div');row.className='qualification-row row g-2 align-items-end mb-3';
+    for(const [field,title,type] of [['airline','Airline code','text'],['role','Role','select'],['validUntil','Valid until (optional)','date']]){
+        const label=document.createElement('label');label.className='col-sm-3 small';label.textContent=title;
+        const input=document.createElement(type==='select'?'select':'input');input.className=type==='select'?'form-select':'form-control';input.dataset.field=field;
+        if(type==='select')for(const role of AirlineQualifications.roles)input.append(new Option(role,role));
+        else input.type=type;
+        if(field==='airline'){input.maxLength=3;input.placeholder='SQ';input.style.textTransform='uppercase';}
+        input.value=value[field] || (field==='role'?'DISPATCH':'');label.append(input);row.append(label);
+    }
+    const remove=document.createElement('button');remove.type='button';remove.className='btn btn-outline-danger btn-sm col-sm-3';remove.textContent='Remove';remove.onclick=()=>row.remove();row.append(remove);
+    document.getElementById('qualificationRows').append(row);
+}

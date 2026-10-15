@@ -61,8 +61,9 @@ test('Control HTTP protects access, rejects invalid dates, and returns latest do
 test('Allocation rejects stale Control snapshots without deleting or creating assignments',async()=>{
  const flightId='a'.repeat(24),userId='b'.repeat(24);let mutations=0;
  const router=load('server/routes/assignments.js',{
+  '../models/Turnaround':{findOne:async()=>({airline:'SQ',operatingDate:'2026-10-15'})},
   '../models/Assignment':{find:()=>({populate:async()=>[{_id:'new-assignment',role:'RAMP',userId:{_id:userId}}]}),deleteMany:async()=>mutations++,create:async()=>mutations++},
-  '../models/User':{findById:async()=>({_id:userId,active:true,skills:['RAMP'],department:'RAMP'})}
+  '../models/User':{findById:async()=>({_id:userId,active:true,skills:['RAMP'],department:'RAMP',airlineQualifications:[{airline:'SQ',role:'RAMP',validUntil:null}]})}
  });
  const handler=router.stack.find(l=>l.route?.methods.post).route.stack[0].handle;
  const response={statusCode:200,status(n){this.statusCode=n;return this;},json(body){this.body=body;return this;}};

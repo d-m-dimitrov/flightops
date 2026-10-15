@@ -12,6 +12,7 @@
     const result = [];
     if (f.operationalTimeError) result.push('Check flight times');
     for (const a of f.assignments) {
+      if (a.qualificationWarning) result.push(`${a.role}: ${a.qualificationWarning}`);
       if (!a.userId || a.userId.active === false) result.push(`${a.role}: agent unavailable`);
       else if (!a.acceptedAt) result.push(`${a.role}: awaiting acceptance`);
     }

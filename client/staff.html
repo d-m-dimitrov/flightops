@@ -264,7 +264,7 @@
      id="userModal"
      tabindex="-1">
 
-    <div class="modal-dialog">
+    <div class="modal-dialog modal-lg">
 
         <div class="modal-content">
 
@@ -382,6 +382,13 @@
 
 </div>
 
+<section class="border rounded p-3 mb-3">
+    <h6>Airline qualifications</h6>
+    <p class="small text-muted">Use the airline code from the flight schedule, e.g. SQ or CX. Each role needs its own qualification and matching skill. Expiry is inclusive of the flight's London operating date. Blank expiry means no expiry. Missing or expired training blocks assignment, including for Duty Managers.</p>
+    <div id="qualificationRows"></div>
+    <button type="button" class="btn btn-outline-primary btn-sm" onclick="addQualificationRow()">+ Add qualification</button>
+</section>
+
 <div class="mb-3">
 
     <label class="form-label">
@@ -458,6 +465,7 @@
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.7/dist/js/bootstrap.bundle.min.js"></script>
 <script src="js/common.js"></script>
+<script src="js/airlineQualifications.js"></script>
 <script src="js/staff.js"></script>
 
 

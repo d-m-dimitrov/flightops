@@ -1396,6 +1396,7 @@ async function loadAssignments(){
         if(a.userId?.phone){const phone=document.createElement('a');phone.href=`tel:${a.userId.phone.replace(/[^+0-9]/g,'')}`;phone.textContent=`📞 ${a.userId.phone}`;row.append(phone);}
         const status=document.createElement('div');status.className='small mt-1';
         status.textContent=a.acceptedAt ? `✓ Accepted by ${a.acceptedByName || a.userId?.name} · ${new Date(a.acceptedAt).toLocaleString('en-GB',{timeZone:'Europe/London',timeZoneName:'short'})}` : 'Awaiting acceptance';row.append(status);
+        if(a.qualificationWarning){const warning=document.createElement('div');warning.className='small text-danger';warning.textContent=`Training: ${a.qualificationWarning}`;row.append(warning);}
         if(!a.acceptedAt && a.userId?._id===CURRENT_USER._id){
             const button=document.createElement('button');button.className='btn btn-sm btn-success mt-2';button.textContent='Accept flight';
             button.onclick=async()=>{
@@ -1567,115 +1568,20 @@ async function loadAssignmentEditor(){
             a => a.role === role.code
         );
 
-        const eligibleUsers =
-        users.filter(user=>{
-
-            switch(role.code){
-
-                case "DISPATCH":
-
-                    return user.skills?.includes(
-                        "DISPATCH"
-                    );
-
-                case "CHECKIN":
-
-                    return user.skills?.includes(
-                        "CHECKIN"
-                    );
-
-                case "GATE":
-
-                    return user.skills?.includes(
-                        "GATE"
-                    );
-
-                case "ARRIVAL":
-
-                    return user.skills?.includes(
-                        "ARRIVAL"
-                    );
-
-                case "RAMP":
-
-                    return user.active && user.department === "RAMP" && user.skills?.includes(
-                        "RAMP"
-                    );
-
-                case "SPUR":
-
-                    return user.skills?.includes(
-                        "SPUR"
-                    );
-
-                default:
-
-                    return false;
-
-            }
-
-        });
-
-        let options =
-
-        `<option value="">
-            -- Select --
-        </option>`;
-
-        eligibleUsers.forEach(user=>{
-
-            options += `
-
-            <option
-
-                value="${user._id}"
-
-                ${
-                    assigned &&
-                    assigned.userId &&
-                    assigned.userId._id ==
-                    user._id
-                    ?
-                    "selected"
-                    :
-                    ""
-                }
-
-            >
-
-                ${user.name}
-
-            </option>
-
-            `;
-
-        });
-
-        panel.innerHTML += `
-
-        <div class="mb-3">
-
-            <label
-                class="form-label">
-
-                ${role.name}
-
-            </label>
-
-            <select
-
-                class="form-select assignment"
-
-                data-role="${role.code}">
-
-                ${options}
-
-            </select>
-
-        </div>
-
-        `;
-
+        const eligibleUsers = users.filter(user => AirlineQualifications.eligible(user,currentFlight?.airline,role.code,currentFlight?.operatingDate));
+        const row = document.createElement('div');row.className='mb-3';
+        const label = document.createElement('label');label.className='form-label';label.textContent=role.name;
+        const select=document.createElement('select');select.className='form-select assignment';select.dataset.role=role.code;
+        select.append(new Option('-- Unassigned --',''));
+        for(const user of eligibleUsers)select.append(new Option(user.name,user._id));
+        if(assigned?.userId && !eligibleUsers.some(user=>String(user._id)===String(assigned.userId._id))){
+            const option=new Option(`${assigned.userId.name} (not qualified — replace or remove)`,assigned.userId._id);
+            option.disabled=true;select.append(option);
+        }
+        select.value=assigned?.userId?._id || '';
+        const help=document.createElement('small');help.className='d-block text-muted';
+        help.textContent=`Valid ${currentFlight?.airline || 'airline'} / ${role.code} training required on ${currentFlight?.operatingDate || 'flight date'}. No override.`;
+        row.append(label,select,help);panel.append(row);
     });
 
 }
