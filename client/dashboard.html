@@ -411,63 +411,26 @@
             </div>
 
             <div class="modal-body">
-
-                <div class="mb-3">
-
-                    <label>
-
-                        Checked In
-
-                    </label>
-
-                    <input
-                        type="number"
-                        class="form-control"
-                        id="checkedIn">
-
+                <p id="passengerEditMessage" class="small text-muted" role="status"></p>
+                <div class="row g-3">
+                    <section class="col-sm-6"><h6>Check-in</h6>
+                        <label for="checkedIn">Checked-in (excluding infants)</label>
+                        <input type="number" min="0" max="1000" step="1" required class="form-control mb-3" id="checkedIn">
+                        <label for="checkedInInfants">Checked-in infants</label>
+                        <input type="number" min="0" max="1000" step="1" required class="form-control" id="checkedInInfants">
+                    </section>
+                    <section class="col-sm-6"><h6>On board</h6>
+                        <label for="boarded">Boarded (excluding infants)</label>
+                        <input type="number" min="0" max="1000" step="1" required class="form-control mb-3" id="boarded">
+                        <label for="infants">Infants on board</label>
+                        <input type="number" min="0" max="1000" step="1" required class="form-control mb-3" id="infants">
+                        <label for="tob">TOB — automatic total</label>
+                        <input type="number" readonly class="form-control fw-bold mb-3" id="tob">
+                        <label for="jumpSeat">Jump seat (excluded from TOB)</label>
+                        <input type="number" min="0" max="1000" step="1" required class="form-control" id="jumpSeat">
+                    </section>
                 </div>
-
-                <div class="mb-3">
-
-<label>Jump Seat</label>
-
-<input
-    id="jumpSeat"
-    type="number"
-    class="form-control">
-
-                </div>
-
-                <div class="mb-3">
-
-                    <label>
-
-                        TOB
-
-                    </label>
-
-                    <input
-                        type="number"
-                        class="form-control"
-                        id="tob">
-
-                </div>
-
-                <div class="mb-3">
-
-                    <label>
-
-                        INF
-
-                    </label>
-
-                    <input
-                        type="number"
-                        class="form-control"
-                        id="infants">
-
-                </div>
-
+                <div id="passengerEditRemaining" class="mt-3" role="status"></div>
             </div>
 
             <div class="modal-footer">
@@ -988,6 +951,7 @@
 <script src="/socket.io/socket.io.js"></script>
 <script src="js/common.js"></script>
 <script src="js/operationalTime.js"></script>
+<script src="js/passengerFigures.js"></script>
 <script src="js/dashboard.js"></script>
 </body>
 

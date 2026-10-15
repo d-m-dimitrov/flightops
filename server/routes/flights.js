@@ -274,44 +274,22 @@ async(req,res)=>{
 });
 
 
-router.put(
-"/:id/passengers",
-async(req,res)=>{
-
-    const flight =
-    await Turnaround.findById(
-        req.params.id
-    );
-
-    flight.passengers =
-    req.body;
-
-    await flight.save();
-await addSystemMessage(
-
-    req,
-
-    flight._id,
-
-    `${req.body.updatedByName}
-     updated passenger figures`
-
-);
-
-req.app
-.get("io")
-.to(
-    flight._id.toString()
-)
-.emit(
-    "flightUpdated"
-);
-
-
-    res.json(
-        flight
-    );
-
+router.put('/:id/passengers', require('../middleware/requireUser'), async(req,res)=>{
+    const user=req.user;
+    const allowed=user.role==='ADMIN'||['OPERATIONS_DM','PAX_DM','RAMP_DM','SPUR_DM'].includes(user.position)||(user.skills||[]).some(skill=>['CHECKIN','GATE','ARRIVAL'].includes(skill));
+    if(!allowed)return res.status(403).json({error:'You cannot edit passenger figures'});
+    if(!require('mongoose').isObjectIdOrHexString(req.params.id))return res.status(400).json({error:'Invalid flight'});
+    let passengers;
+    try{passengers=require('../../client/js/passengerFigures').validate(req.body||{});}catch(error){return res.status(400).json({error:error.message});}
+    const revision=req.body.expectedRevision;
+    if(!Number.isInteger(revision)||revision<0)return res.status(400).json({error:'Reload the passenger editor before saving'});
+    const filter={_id:req.params.id,deleted:{$ne:true}};
+    if(revision===0)filter.$or=[{passengerRevision:0},{passengerRevision:{$exists:false}}];else filter.passengerRevision=revision;
+    const flight=await Turnaround.findOneAndUpdate(filter,{$set:{passengers},$inc:{passengerRevision:1}},{new:true,runValidators:true});
+    if(!flight)return res.status(409).json({error:'Passenger figures changed or the flight is unavailable. Reopen the editor and review the latest figures.'});
+    try{await addSystemMessage(req,flight._id,`${user.name} updated passenger figures`);}catch(error){console.error('Passenger notice failed:',error.message);}
+    req.app.get('io').to(String(flight._id)).emit('flightUpdated');
+    res.json(flight);
 });
 
 router.get("/:id/operational", async (req, res) => {

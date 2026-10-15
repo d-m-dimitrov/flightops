@@ -1797,173 +1797,62 @@ function formatDateTime(value){
 
 }
 
-function loadPassengerInfo(
-    flight
-){
-
-    document.getElementById(
-        "passengerPanel"
-    ).innerHTML = `
-
-    <div class="row">
-
-        <div class="col-md-3">
-
-            Checked In
-
-            <h4>
-            ${flight.passengers?.checkedIn || 0}
-            </h4>
-
-        </div>
-
-<div class="col-md-3">
-
-    Jump Seat
-
-    <h4>
-    ${flight.passengers?.jumpSeat || 0}
-    </h4>
-
-</div>
-
-        <div class="col-md-3">
-
-            TOB
-
-            <h4>
-            ${flight.passengers?.tob || 0}
-            </h4>
-
-        </div>
-
-        <div class="col-md-3">
-
-            INF
-
-            <h4>
-            ${flight.passengers?.infants || 0}
-            </h4>
-
-        </div>
-
-    </div>
-
-${
-canEdit(
-    "PASSENGERS"
-)
-?
-`
-<button
-    class="btn btn-primary mt-3"
-    onclick="editPassengers()">
-
-    Edit Passengers
-
-</button>
-`
-:
-""
+let passengerEditRevision=0, passengerSaveBusy=false, passengerEditToken=null;
+function passengerValue(value){return value===null?'—':value;}
+function passengerRemaining(p){
+    const bad=p.remaining<0||p.remainingInfants<0;
+    return `<div class="${bad?'alert alert-warning':'bg-light rounded p-2'} mb-0">Remaining passengers: <strong>${passengerValue(p.remaining)}</strong> · Remaining infants: <strong>${passengerValue(p.remainingInfants)}</strong>${bad?'<br>Mismatch — on-board figures exceed check-in figures. Please verify.':''}</div>`;
 }
-
-    `;
-
+function loadPassengerInfo(flight){
+    const p=PassengerFigures.normalize(flight.passengers);
+    document.getElementById('passengerPanel').innerHTML=`
+      <div class="row g-3 mb-3">
+        <section class="col-sm-6"><h6 class="text-muted">Check-in</h6>
+          <div>Checked-in <small>(excluding infants)</small><h4>${passengerValue(p.checkedIn)}</h4></div>
+          <div>Checked-in infants<h4>${passengerValue(p.checkedInInfants)}</h4></div>
+        </section>
+        <section class="col-sm-6"><h6 class="text-muted">On board</h6>
+          <div>Boarded <small>(excluding infants)</small><h4>${passengerValue(p.boarded)}</h4></div>
+          <div>Infants on board<h4>${passengerValue(p.infants)}</h4></div>
+          <div class="bg-primary-subtle rounded p-2 mb-2">TOB <small>(Boarded + infants)</small><h3 class="mb-0">${passengerValue(p.tob)}</h3></div>
+          <div>Jump seat <small>(excluded from TOB)</small><strong class="ms-2">${passengerValue(p.jumpSeat)}</strong></div>
+        </section>
+      </div>
+      ${passengerRemaining(p)}
+      ${p.checkedInInfants===null?'<p class="small text-muted mt-2">Checked-in infants have not been entered.</p>':''}
+      ${p.invalidLegacy?'<p class="text-warning mt-2">Previous TOB is smaller than the infants count. Verify the on-board figures.</p>':p.legacy?'<p class="small text-muted mt-2">Boarded is derived from the previous TOB minus infants. Verify on first edit.</p>':''}
+      ${canEdit('PASSENGERS')?'<button class="btn btn-primary mt-3" onclick="editPassengers()">Edit passengers</button>':''}`;
 }
-
-
+function passengerInput(){
+    const body={};for(const field of PassengerFigures.fields){const value=document.getElementById(field).value;body[field]=value.trim()===''?null:Number(value);}return body;
+}
+function updatePassengerPreview(){
+    const body=passengerInput(),p=PassengerFigures.normalize({...body,figuresVersion:2});
+    document.getElementById('tob').value=p.tob===null?'':p.tob;
+    document.getElementById('passengerEditRemaining').innerHTML=passengerRemaining(p);
+}
+for(const field of PassengerFigures.fields)document.getElementById(field).addEventListener('input',updatePassengerPreview);
 async function editPassengers(){
-
-    const response =
-    await fetch(
-        `/api/flights/${flightId}`
-    );
-
-    const flight =
-    await response.json();
-
-    document.getElementById(
-        "checkedIn"
-    ).value =
-    flight.passengers?.checkedIn || 0;
-
-document.getElementById(
-    "jumpSeat"
-).value =
-flight.passengers?.jumpSeat || 0;
-
-    document.getElementById(
-        "tob"
-    ).value =
-    flight.passengers?.tob || 0;
-
-    document.getElementById(
-        "infants"
-    ).value =
-    flight.passengers?.infants || 0;
-
-    passengerModal.show();
-
+    if(passengerSaveBusy)return;
+    try{
+        const response=await fetch(`/api/flights/${flightId}`);if(!response.ok)throw Error('Unable to load passenger figures');
+        const flight=await response.json(),p=PassengerFigures.normalize(flight.passengers);
+        passengerEditRevision=flight.passengerRevision||0;passengerEditToken=localStorage.getItem('token');
+        for(const field of PassengerFigures.fields)document.getElementById(field).value=p[field]===null?'':p[field];
+        document.getElementById('passengerEditMessage').textContent=p.legacy?'Verify the previous TOB / infants split and enter the checked-in infants count.':'TOB is calculated automatically. Jump seat is counted separately.';
+        updatePassengerPreview();passengerModal.show();
+    }catch(error){alert(error.message);}
 }
-
 async function savePassengers(){
-
-    await fetch(
-
-        `/api/flights/${flightId}/passengers`,
-
-        {
-
-            method:"PUT",
-
-            headers:{
-                "Content-Type":
-                "application/json"
-            },
-
-            body:JSON.stringify({
-
-                checkedIn:
-                Number(
-                    document.getElementById(
-                        "checkedIn"
-                    ).value
-                ),
-
-jumpSeat:
-Number(
-    document.getElementById(
-        "jumpSeat"
-    ).value
-),
-
-                tob:
-                Number(
-                    document.getElementById(
-                        "tob"
-                    ).value
-                ),
-
-                infants:
-                Number(
-                    document.getElementById(
-                        "infants"
-                    ).value
-                ),
-
-    updatedByName:
-    CURRENT_USER.name
-
-            })
-
-        }
-
-    );
-
-    passengerModal.hide();
-
-    await loadFlight();
-
+    if(passengerSaveBusy)return;
+    const message=document.getElementById('passengerEditMessage');
+    try{
+        if(!passengerEditToken||passengerEditToken!==localStorage.getItem('token'))throw Error('Account changed. Reopen the editor.');
+        const figures=PassengerFigures.validate(passengerInput());passengerSaveBusy=true;
+        const response=await fetch(`/api/flights/${flightId}/passengers`,{method:'PUT',headers:{'Content-Type':'application/json',Authorization:`Bearer ${passengerEditToken}`},body:JSON.stringify({...figures,expectedRevision:passengerEditRevision})});
+        if(!response.ok){const error=await response.json().catch(()=>({}));throw Error(error.error||'Unable to save passenger figures');}
+        passengerModal.hide();await loadFlight();
+    }catch(error){message.textContent=error.message;}finally{passengerSaveBusy=false;}
 }
 
 function loadSpecialHandling(

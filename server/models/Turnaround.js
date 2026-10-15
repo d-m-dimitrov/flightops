@@ -3,6 +3,7 @@ const mongoose = require("mongoose");
 const TurnaroundSchema = new mongoose.Schema({
 
     handoverSequence:{type:Number,default:0},
+    passengerRevision:{type:Number,default:0},
     lirSequence: { type:Number, default:0 },
 
     airline: String,
@@ -117,6 +118,9 @@ aircraft: {
     },
 
 passengers: {
+    figuresVersion:Number,
+    checkedInInfants:{type:Number,min:0,max:1000,validate:Number.isInteger},
+    jumpSeat:{type:Number,default:0,min:0,max:1000,validate:Number.isInteger},
 
     checkedIn:{
         type:Number,
