@@ -10,6 +10,10 @@ function actions(f){
  }
  if(roles.includes('GATE')&&f.handover&&!f.handover.received)tasks.push(`Read / acknowledge handover v${f.handover.revision}`);
  if(roles.includes('RAMP')&&f.lir){if(!f.lir.received)tasks.push(`Read / acknowledge LIR v${f.lir.revision}`);else if(f.lir.status!=='COMPLETED')tasks.push('Complete LIR');}
+ if(roles.includes('RAMP')&&f.gateItems){
+  if(f.gateItems.received<f.gateItems.total)tasks.push(`Receive ${f.gateItems.total-f.gateItems.received} gate item(s)`);
+  if(f.gateItems.loaded<f.gateItems.received)tasks.push(`Load ${f.gateItems.received-f.gateItems.loaded} gate item(s)`);
+ }
  return tasks;
 }
 function target(f){const arrival=f.assignments.every(a=>a.role==='ARRIVAL');return {label:arrival?(f.arrival?.eta?'ETA':'STA'):(f.departure?.etd?'ETD':'STD'),value:arrival?(f.arrival?.eta||f.arrival?.staAt):(f.departure?.etd||f.departure?.stdAt)};}

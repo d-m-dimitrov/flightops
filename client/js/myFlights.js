@@ -17,12 +17,13 @@ function render(){
   const clock=el('p',countdown(f),'countdown mt-2');clock.dataset.flight=f._id;body.append(clock);
   if(tasks.length){const list=el('ul','','action-list');tasks.forEach(t=>list.append(el('li',t)));body.append(list);}else body.append(el('p','No pending acknowledgements','text-muted'));
   body.append(el('p',f.handover?`Handover v${f.handover.revision} · ${f.handover.received?'Received by Gate':'Awaiting Gate receipt'}`:'Check-in handover not sent','small'));
+  if(f.gateItems)body.append(el('p',`Gate items: ${f.gateItems.total} submitted · ${f.gateItems.received} received · ${f.gateItems.loaded} loaded`,'small'));
   if(f.canLir)body.append(el('p',f.lir?`LIR v${f.lir.revision} · ${f.lir.status} · ${f.lir.received?'Read':'Awaiting receipt'}`:'LIR not uploaded','small'));
   const buttons=el('div','','d-flex flex-wrap gap-2');body.append(buttons);
   if(!FlightTasks.closed(f))for(const a of f.assignments.filter(a=>!a.acceptedAt)){
    const button=el('button',`Accept ${a.role}`,'btn btn-success');button.onclick=async()=>{button.disabled=true;busy=true;try{await request(`/api/acknowledgements/${f._id}/assignments/${a._id}/accept`,{method:'POST'});await refresh();}catch(error){$('message').textContent=error.message;}finally{busy=false;button.disabled=false;}};buttons.append(button);
   }
-  for(const [label,url] of [['Open flight',`dashboard.html?id=${f._id}`],['Check-in → Gate',`handover.html?id=${f._id}`],...(f.canLir?[['Open LIR',`lir.html?id=${f._id}`]]:[])]){const link=el('a',label,'btn btn-outline-primary');link.href=url;buttons.append(link);}
+  for(const [label,url] of [['Open flight',`dashboard.html?id=${f._id}`],['Check-in → Gate',`handover.html?id=${f._id}`],['Gate items',`gate-items.html?id=${f._id}`],...(f.canLir?[['Open LIR',`lir.html?id=${f._id}`]]:[])]){const link=el('a',label,'btn btn-outline-primary');link.href=url;buttons.append(link);}
   $('cards').append(card);
  }
 }

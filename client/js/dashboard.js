@@ -3485,3 +3485,5 @@ socket.on('lirReceiptUpdated',loadLirSummary);
 socket.on('assignmentsUpdated',loadLirSummary);
 
 document.getElementById('handoverLink').href=`handover.html?id=${encodeURIComponent(flightId)}`;
+
+document.getElementById('gateItemsLink').href=`gate-items.html?id=${encodeURIComponent(flightId)}`;

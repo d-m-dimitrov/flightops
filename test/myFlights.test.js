@@ -27,7 +27,7 @@ test('My flights API uses authenticated identity, validates dates and handles le
  const filename=path.join(__dirname,'../server/routes/myFlights.js'),module={exports:{}},real=createRequire(filename);let ownQuery,flightQuery;
  const mine=[{_id:'r1',turnaroundId:'f1',userId:'me',role:'RAMP'}];
  const chain=value=>({select:()=>chain(value),sort:()=>chain(value),lean:async()=>value});
- const mocks={'../models/Assignment':{find:q=>{if(q.userId){ownQuery=q;return chain(mine);}return chain(mine);}},'../models/Turnaround':{find:q=>{flightQuery=q;return chain([{_id:'f1',operatingDate:'2026-10-14'}]);}},'../models/Handover':{find:()=>chain([])},'../models/Lir':{find:()=>chain([{_id:'l1',turnaroundId:'f1',revision:1,status:'UPLOADED'}])}};
+ const mocks={'../models/GateItems':{find:()=>chain([])},'../models/Assignment':{find:q=>{if(q.userId){ownQuery=q;return chain(mine);}return chain(mine);}},'../models/Turnaround':{find:q=>{flightQuery=q;return chain([{_id:'f1',operatingDate:'2026-10-14'}]);}},'../models/Handover':{find:()=>chain([])},'../models/Lir':{find:()=>chain([{_id:'l1',turnaroundId:'f1',revision:1,status:'UPLOADED'}])}};
  vm.runInNewContext(fs.readFileSync(filename,'utf8'),{module,require:n=>n in mocks?mocks[n]:real(n)},{filename});
  const handler=module.exports.stack.find(l=>l.route).route.stack[0].handle;
  const res=()=>({code:200,set(){return this;},status(code){this.code=code;return this;},json(body){this.body=body;return this;}});
