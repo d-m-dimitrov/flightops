@@ -445,6 +445,10 @@ async(req,res)=>{
     ))) {
         return res.status(400).json({ error:"Each DEPA passenger needs a seat (max 10 characters); names may be up to 120 characters" });
     }
+    if (details.vipBaggage !== undefined) {
+        try { details.vipBaggage = require('../../client/js/vipBaggage').normalize(details.vipBaggage); }
+        catch(error) { return res.status(400).json({error:error.message}); }
+    }
     const previous = flight.specialHandlingDetails?.toObject?.() || flight.specialHandlingDetails || {};
     flight.specialHandlingDetails = { ...previous, ...details };
 

@@ -20,6 +20,7 @@ let dashboardActive = true;
 let specialHandlingDetails = {
 
     depa:[],
+    vipBaggage:[],
 
     wclb:[],
 
@@ -1862,6 +1863,7 @@ function loadSpecialHandling(
     const details =
     flight.specialHandlingDetails || {};
 
+    const vipBaggage = Array.isArray(details.vipBaggage) ? details.vipBaggage : [];
     const depa = Array.isArray(details.depa) ? details.depa : [];
 
     const wclbCount =
@@ -1949,6 +1951,10 @@ function loadSpecialHandling(
             <div id="depaSeatSummary" class="small text-muted"></div>
 
         </div>
+        <div class="col-md-4 mt-2">
+            ⭐ VIP baggage: <strong>${vipBaggage.length}</strong>
+            <div id="vipBaggageSummary" class="small text-muted text-break"></div>
+        </div>
 
     </div>
 
@@ -1988,6 +1994,7 @@ function loadSpecialHandling(
 
     `;
 
+    document.getElementById("vipBaggageSummary").textContent = vipBaggage.length ? `Tags: ${vipBaggage.map(item=>item.bagTag).join(", ")}` : "";
     document.getElementById("depaSeatSummary").textContent = depa.length
         ? `Seats: ${depa.map(item => item.seat || "Unassigned").join(", ")}`
         : "";
@@ -2172,10 +2179,11 @@ async function editSpecialHandlingDetails(){
     await response.json();
 
     specialHandlingDetails = flight.specialHandlingDetails || {};
-    for (const category of ["wclb", "wcbd", "avih", "petc", "cbbg", "weap", "depa"]) {
+    for (const category of ["wclb", "wcbd", "avih", "petc", "cbbg", "weap", "depa", "vipBaggage"]) {
         if (!Array.isArray(specialHandlingDetails[category])) specialHandlingDetails[category] = [];
     }
     renderDepaList();
+    renderVipBaggageList();
 
     renderWclbList();
 renderWcbdList();
@@ -2383,6 +2391,9 @@ function deleteAvih(index){
 }
 
 async function saveSpecialHandlingDetails(){
+    try { specialHandlingDetails.vipBaggage = VipBaggage.normalize(specialHandlingDetails.vipBaggage || []); }
+    catch(error) { alert(error.message); return; }
+
 
     if ((specialHandlingDetails.depa || []).some(item => !item.seat?.trim())) {
         alert("Enter a seat for each DEPA passenger, or remove the unused row.");
@@ -2693,6 +2704,32 @@ specialHandlingDetails.wcbd[${index}].bagTag=this.value
 
 }
 
+
+function addVipBaggage(){
+    specialHandlingDetails.vipBaggage ||= [];
+    if(specialHandlingDetails.vipBaggage.length>=200){alert('Maximum 200 VIP bags');return;}
+    specialHandlingDetails.vipBaggage.push({bagTag:''});renderVipBaggageList();
+}
+function renderVipBaggageList(){
+    const list=document.getElementById('vipBaggageList');list.replaceChildren();
+    const rows=specialHandlingDetails.vipBaggage||[];
+    document.getElementById('vipBaggageCount').textContent=rows.length;
+    rows.forEach((item,index)=>{
+        const card=document.createElement('div');card.className='card mb-3';
+        const body=document.createElement('div');body.className='card-body';
+        const row=document.createElement('div');row.className='row g-2 align-items-end';
+        const column=document.createElement('div');column.className='col-9';
+        const label=document.createElement('label');label.htmlFor=`vip-bag-${index}`;label.textContent=`VIP bag ${index+1} — tag`;
+        const input=document.createElement('input');input.id=label.htmlFor;input.type='text';input.className='form-control';input.maxLength=24;input.required=true;input.value=item.bagTag||'';input.placeholder='e.g. 0012345678';
+        input.addEventListener('input',()=>{item.bagTag=input.value.trim().toUpperCase();});
+        input.addEventListener('blur',()=>{input.value=item.bagTag;});
+        column.append(label,input);
+        const buttons=document.createElement('div');buttons.className='col-3';
+        const remove=document.createElement('button');remove.type='button';remove.className='btn btn-danger';remove.textContent='X';remove.setAttribute('aria-label',`Remove VIP bag ${index+1}`);
+        remove.addEventListener('click',()=>{rows.splice(index,1);renderVipBaggageList();});
+        buttons.append(remove);row.append(column,buttons);body.append(row);card.append(body);list.append(card);
+    });
+}
 
 function addDepa() {
     specialHandlingDetails.depa ||= [];

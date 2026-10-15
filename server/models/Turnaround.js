@@ -185,6 +185,8 @@ specialHandling: {
 
 specialHandlingDetails:{
 
+    vipBaggage:[{bagTag:{type:String,required:true,trim:true,uppercase:true,maxlength:24}}],
+
     depa:[{
         passengerName:{ type:String, trim:true, maxlength:120 },
         seat:{ type:String, required:true, trim:true, uppercase:true, maxlength:10 }
