@@ -927,6 +927,9 @@ function applyDashboardPermissions(){
 function formatRole(role){
 
     const names = {
+        DISPATCH:"Departure Dispatcher",
+        ARRIVAL_DISPATCH:"Arrival Dispatcher",
+        ARRIVAL:"Arrival Agent",
 
         ADMIN:
         "👑 Admin",
@@ -1455,10 +1458,11 @@ async function loadAssignmentEditor(){
     await loadUsers();
 
     const roles = [
+        {code:"ARRIVAL_DISPATCH",name:"Arrival Dispatcher"},
 
         {
             code:"DISPATCH",
-            name:"Dispatcher"
+            name:"Departure Dispatcher"
         },
 
         {
@@ -1473,7 +1477,7 @@ async function loadAssignmentEditor(){
 
         {
             code:"ARRIVAL",
-            name:"Arrival"
+            name:"Arrival Agent"
         },
 
         {
@@ -1499,7 +1503,7 @@ async function loadAssignmentEditor(){
             visibleRoles =
             roles.filter(r=>
 
-                r.code === "DISPATCH"
+                ["DISPATCH","ARRIVAL_DISPATCH"].includes(r.code)
 
             );
 

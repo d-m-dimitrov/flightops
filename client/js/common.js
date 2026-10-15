@@ -90,6 +90,7 @@ function canEdit(module){
         ],
 
         FLIGHT_DETAILS:[
+            "ARRIVAL_DISPATCH",
             "DISPATCH"
         ],
 

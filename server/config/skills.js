@@ -2,6 +2,8 @@ module.exports = [
 
     "DISPATCH",
 
+    "ARRIVAL_DISPATCH",
+
     "CHECKIN",
 
     "GATE",

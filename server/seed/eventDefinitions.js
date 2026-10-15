@@ -11,14 +11,14 @@ async function seedEvents(){
             code:"LANDED",
             name:"Landed",
             group:"ARRIVAL",
-            roles:["DISPATCH"]
+            roles:["ARRIVAL_DISPATCH"]
         },
 
         {
             code:"ON_BLOCKS",
             name:"On Blocks",
             group:"ARRIVAL",
-            roles:["DISPATCH"],
+            roles:["ARRIVAL_DISPATCH"],
             readinessPoints:5
         },
 
@@ -155,6 +155,12 @@ async function seedEvents(){
         await EventDefinition.findOne({
             code:event.code
         });
+
+        // Move the two arrival dispatcher events once; preserve unrelated/custom roles.
+        if (existing && ['LANDED','ON_BLOCKS'].includes(event.code) && existing.roles?.includes('DISPATCH')) {
+            const roles = [...new Set(existing.roles.map(role => role === 'DISPATCH' ? 'ARRIVAL_DISPATCH' : role))];
+            await EventDefinition.updateOne({_id:existing._id,roles:existing.roles},{$set:{roles}});
+        }
 
         if(!existing){
 

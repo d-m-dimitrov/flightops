@@ -5,9 +5,9 @@ const fs=require('node:fs'),vm=require('node:vm'),path=require('node:path'),{cre
 function load(file,mocks){const filename=path.join(__dirname,'..',file),module={exports:{}},real=createRequire(filename);vm.runInNewContext(fs.readFileSync(filename,'utf8'),{module,require:n=>n in mocks?mocks[n]:real(n),console},{filename});return module.exports;}
 function flight(overrides={}) {return {_id:'f1',status:'SCHEDULED',arrival:{staAt:'2026-10-15T09:00:00Z'},departure:{stdAt:'2026-10-15T11:00:00Z'},assignments:[],gateItems:{total:0,received:0,loaded:0},...overrides};}
 test('Control permissions use active database role and department; controllers and allocators retain their scope',()=>{
- assert.deepEqual(access({active:true,department:'OPERATIONS',position:'TRAFFIC_COORDINATOR'}),['DISPATCH']);
+ assert.deepEqual(access({active:true,department:'OPERATIONS',position:'TRAFFIC_COORDINATOR'}),['DISPATCH','ARRIVAL_DISPATCH']);
  assert.deepEqual(access({active:true,department:'RAMP',position:'RAMP_ALLOCATOR'}),['RAMP']);
- assert.equal(access({active:true,department:'OPERATIONS',position:'OPERATIONS_DM'}).length,6);
+ assert.equal(access({active:true,department:'OPERATIONS',position:'OPERATIONS_DM'}).length,7);
  assert.equal(access({active:true,department:'RAMP',position:'OPERATIONS_DM'}).length,0);
  assert.equal(access({active:false,role:'ADMIN'}).length,0);
 });
@@ -18,7 +18,7 @@ test('Control actions reflect current assignment receipts, pending gate items an
  assert.ok(tasks.includes('RAMP: acknowledge LIR v2'));
  assert.ok(tasks.includes('1 gate items awaiting RAMP'));
  assert.ok(tasks.includes('1 gate items awaiting loading'));
- assert.equal(model.gaps(f).length,4);
+ assert.equal(model.gaps(f).length,5);
  assert.deepEqual(model.actions({...f,status:'DEPARTED'}),[]);
  assert.deepEqual(model.gaps({...f,status:'CANCELLED'}),[]);
  assert.equal(model.late(f,Date.parse('2026-10-15T12:00:00Z')),true);
@@ -53,7 +53,7 @@ test('Control HTTP protects access, rejects invalid dates, and returns latest do
   assert.equal((await fetch(url,{headers:{Authorization:'agent'}})).status,403);
   assert.equal((await fetch(url+'?date=2026-02-30',{headers:{Authorization:'manager'}})).status,400);
   const response=await fetch(url+'?date=2026-10-15',{headers:{Authorization:'manager'}}),body=await response.json();
-  assert.equal(response.status,200);assert.equal(body.roles.length,6);
+  assert.equal(response.status,200);assert.equal(body.roles.length,7);
   assert.equal(body.flights[0].lir.received,false);assert.equal(body.flights[0].handover.current,false);assert.equal(body.flights[0].handover.received,false);
   assert.deepEqual(body.flights[0].gateItems,{total:2,received:1,loaded:1});
  }finally{await new Promise(r=>server.close(r));}

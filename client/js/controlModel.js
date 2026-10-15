@@ -1,5 +1,5 @@
 (function(root) {
-  const roles = ['ARRIVAL','DISPATCH','CHECKIN','GATE','RAMP'];
+  const roles = ['ARRIVAL','ARRIVAL_DISPATCH','DISPATCH','CHECKIN','GATE','RAMP'];
   function closed(f) { return ['CANCELLED','DEPARTED','AIRBORNE'].includes(f.status) || Boolean(f.departure?.atd || f.departure?.airborne || f.departure?.pushback); }
   function target(f) { return f.departure?.etd || f.departure?.stdAt; }
   function late(f, now = Date.now()) {
@@ -26,7 +26,7 @@
     return result;
   }
   function windowFor(f, role) {
-    const arrival = role === 'ARRIVAL';
+    const arrival = ['ARRIVAL','ARRIVAL_DISPATCH'].includes(role);
     const at = Date.parse(arrival ? f.arrival?.eta || f.arrival?.staAt : target(f));
     return Number.isFinite(at) ? [at-(arrival?30:150)*60000, at+30*60000] : null;
   }

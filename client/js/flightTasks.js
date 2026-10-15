@@ -2,7 +2,7 @@
 function closed(f){return ['CANCELLED','DEPARTED','AIRBORNE'].includes(f.status)||Boolean(f.departure?.atd||f.departure?.airborne||f.departure?.pushback);}
 function actions(f){
  if(closed(f))return [];
- const tasks=f.assignments.filter(a=>!a.acceptedAt).map(a=>`Accept ${a.role} assignment`);
+ const tasks=f.assignments.filter(a=>!a.acceptedAt).map(a=>`Accept ${label(a.role)} assignment`);
  const roles=f.assignments.map(a=>a.role);
  if(roles.includes('CHECKIN')){
   const mine=f.assignments.find(a=>a.role==='CHECKIN');
@@ -16,7 +16,8 @@ function actions(f){
  }
  return tasks;
 }
-function target(f){const arrival=f.assignments.every(a=>a.role==='ARRIVAL');return {label:arrival?(f.arrival?.eta?'ETA':'STA'):(f.departure?.etd?'ETD':'STD'),value:arrival?(f.arrival?.eta||f.arrival?.staAt):(f.departure?.etd||f.departure?.stdAt)};}
+function target(f){const arrival=f.assignments.length>0&&f.assignments.every(a=>['ARRIVAL','ARRIVAL_DISPATCH'].includes(a.role));return {label:arrival?(f.arrival?.eta?'ETA':'STA'):(f.departure?.etd?'ETD':'STD'),value:arrival?(f.arrival?.eta||f.arrival?.staAt):(f.departure?.etd||f.departure?.stdAt)};}
 function sort(flights){return [...flights].sort((a,b)=>Number(closed(a))-Number(closed(b))||Number(actions(b).length>0)-Number(actions(a).length>0)||(Date.parse(target(a).value)||Infinity)-(Date.parse(target(b).value)||Infinity));}
-const api={actions,closed,target,sort};if(typeof module==='object')module.exports=api;else root.FlightTasks=api;
+function label(role){return {DISPATCH:'Departure Dispatcher',ARRIVAL_DISPATCH:'Arrival Dispatcher',ARRIVAL:'Arrival Agent'}[role]||role;}
+const api={label,actions,closed,target,sort};if(typeof module==='object')module.exports=api;else root.FlightTasks=api;
 })(globalThis);

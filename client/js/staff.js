@@ -564,7 +564,7 @@ if(sort === "POSITION"){
 
         const skillsText =
 
-        (user.skills || [])
+        (user.skills || []).map(AirlineQualifications.label)
         .join(", ");
 
         panel.innerHTML += `
@@ -688,6 +688,8 @@ function renderSkills(
 
         "DISPATCH",
 
+        "ARRIVAL_DISPATCH",
+
         "CHECKIN",
 
         "GATE",
@@ -734,7 +736,7 @@ function renderSkills(
             <label
                 class="form-check-label">
 
-                ${skill}
+                ${AirlineQualifications.label(skill)}
 
             </label>
 
@@ -828,7 +830,7 @@ function addQualificationRow(value = {}) {
     for(const [field,title,type] of [['airline','Airline code','text'],['role','Role','select'],['validUntil','Valid until (optional)','date']]){
         const label=document.createElement('label');label.className='col-sm-3 small';label.textContent=title;
         const input=document.createElement(type==='select'?'select':'input');input.className=type==='select'?'form-select':'form-control';input.dataset.field=field;
-        if(type==='select')for(const role of AirlineQualifications.roles)input.append(new Option(role,role));
+        if(type==='select')for(const role of AirlineQualifications.roles)input.append(new Option(AirlineQualifications.label(role),role));
         else input.type=type;
         if(field==='airline'){input.maxLength=3;input.placeholder='SQ';input.style.textTransform='uppercase';}
         input.value=value[field] || (field==='role'?'DISPATCH':'');label.append(input);row.append(label);

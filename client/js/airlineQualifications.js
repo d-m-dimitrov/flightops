@@ -1,5 +1,5 @@
 (function(root) {
-  const roles = ['DISPATCH','CHECKIN','GATE','ARRIVAL','RAMP','SPUR'];
+  const roles = ['DISPATCH','ARRIVAL_DISPATCH','CHECKIN','GATE','ARRIVAL','RAMP','SPUR'];
   function airline(value) { return typeof value === 'string' ? value.trim().toUpperCase() : ''; }
   function date(value) {
     return typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value) && Number.isFinite(Date.parse(value+'T12:00:00Z')) && new Date(value+'T12:00:00Z').toISOString().slice(0,10) === value;
@@ -32,6 +32,7 @@
     if (expiry && expiry < operatingDate) return `${code} ${role} training expired on ${expiry}`;
     return null;
   }
-  const api={roles,airline,date,normalize,reason,eligible:(...args)=>reason(...args)===null};
+  const labels={DISPATCH:'Departure Dispatcher',ARRIVAL_DISPATCH:'Arrival Dispatcher',ARRIVAL:'Arrival Agent',CHECKIN:'Check-in',GATE:'Gate',RAMP:'RAMP',SPUR:'SPUR'};
+  const api={label:role=>labels[role]||role,roles,airline,date,normalize,reason,eligible:(...args)=>reason(...args)===null};
   if(typeof module==='object')module.exports=api;else root.AirlineQualifications=api;
 })(globalThis);
