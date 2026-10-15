@@ -1,0 +1,16 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Operations Control · FlightOps</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.7/dist/css/bootstrap.min.css" rel="stylesheet"><link href="css/control.css" rel="stylesheet"></head>
+<body><header><a href="flights.html">← Flights</a><span>FLIGHTOPS / OPERATIONS CONTROL</span><a href="my-flights.html">My flights</a></header>
+<main><div class="heading"><div><h1>Operations Control</h1><p id="identity">Loading your access…</p></div><span id="connection" role="status">Connecting…</span></div>
+<section class="toolbar" aria-label="Date and filters">
+<div class="date-buttons"><button data-offset="-1">Yesterday</button><button data-offset="0">Today</button><button data-offset="1">Tomorrow</button></div>
+<label>Operating date · London<input id="date" type="date"></label><label>Search<input id="search" type="search" placeholder="Flight, airline, stand or agent"></label>
+<label>Show<select id="filter"><option value="all">All flights</option><option value="open">Open flights</option><option value="gaps">Assignment gaps</option><option value="attention">Pending actions</option><option value="late">Delayed / past STD</option></select></label><button id="refresh">Refresh</button>
+</section><p id="message" role="status"></p><section id="summary" class="summary" aria-label="Operational summary"></section>
+<section class="board"><div class="section-title"><h2>Flight board</h2><span id="updated"></span></div><div class="table-scroll"><table><thead><tr><th>Flight / stand</th><th>London times</th><th>Status / remaining</th><th>Assignments</th><th>Pending actions</th><th>Manage</th></tr></thead><tbody id="flights"></tbody></table></div></section>
+<section class="board"><div class="section-title"><h2>Team workload</h2></div><p class="note">Assigned work only — not a shift roster or confirmation of availability. Estimated windows: Arrival ETA/STA −30 to +30 minutes; other roles ETD/STD −150 to +30 minutes. Warnings cover this operating date only.</p><div id="team" class="team-grid"></div></section>
+<p class="note">Assignment gaps show Arrival, Dispatch, Check-in, Gate and RAMP coverage to review; not every role is required on every flight. Pending actions are workflow reminders, not overdue deadlines. Updates arrive live, with a 15-second refresh fallback.</p>
+</main>
+<dialog id="allocation"><form id="allocationForm"><h2 id="allocationTitle">Assign team</h2><p id="allocationHelp"></p><div id="assignmentFields"></div><p id="saveMessage" role="alert"></p><div class="dialog-actions"><button type="button" id="cancel">Cancel</button><button type="submit" id="save">Save assignments</button></div></form></dialog>
+<script src="js/common.js"></script><script src="js/operationalTime.js"></script><script src="js/controlModel.js"></script><script src="/socket.io/socket.io.js"></script><script src="js/control.js"></script></body></html>

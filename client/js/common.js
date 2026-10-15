@@ -182,6 +182,14 @@ function applyMenuPermissions(){
         return;
     }
 
+    const controlPositions = {
+        OPERATIONS:['OPERATIONS_DM','TRAFFIC_COORDINATOR'],
+        PASSENGER_HANDLING:['PAX_DM','CHECKIN_SUPERVISOR'],
+        RAMP:['RAMP_DM','RAMP_ALLOCATOR'], SPUR:['SPUR_DM','SPUR_COORDINATOR']
+    };
+    if (user.role !== 'ADMIN' && !controlPositions[user.department]?.includes(user.position)) {
+        document.getElementById('menuControl')?.remove();
+    }
     const canManage =
 
         user.role === "ADMIN"

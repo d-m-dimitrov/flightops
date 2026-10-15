@@ -76,6 +76,7 @@ app.use(cors());
 app.use("/api/lir", require("./routes/lir"));
 app.use(express.json());
 app.use("/api/gate-items", require("./routes/gateItems"));
+app.use("/api/control", require("./routes/control"));
 app.use("/api/my-flights", require("./routes/myFlights"));
 app.use("/api/handovers", require("./routes/handovers"));
 app.use("/api/acknowledgements", require("./routes/acknowledgements"));

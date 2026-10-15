@@ -75,6 +75,19 @@ async(req,res)=>{
         "name"
     );
 
+    // Compare the exact editable assignment snapshot, not acceptance timestamps.
+    // A stale control form must be reopened before it can replace newer allocations.
+    if (req.body.expectedAssignments !== undefined) {
+        const expected = req.body.expectedAssignments;
+        if (!Array.isArray(expected) || expected.length > 100 || expected.some(value => typeof value !== 'string')) {
+            return res.status(400).json({error:'Invalid assignment snapshot'});
+        }
+        const actual = existing.map(a => `${a._id}:${a.role}:${a.userId?._id || ''}`).sort();
+        if (JSON.stringify([...expected].sort()) !== JSON.stringify(actual)) {
+            return res.status(409).json({error:'Assignments changed. Reopen the editor before saving.'});
+        }
+    }
+
     const oldMap = {};
 
     existing.forEach(a=>{
