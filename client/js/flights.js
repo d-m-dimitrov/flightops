@@ -482,7 +482,7 @@ function changeDate(days){
         "flightDate"
     );
 
-    input.value = OperationalTime.addDays(input.value, days);
+    input.value = OperationalTime.addDays(OperationalTime.operatingDate(), days);
 
     loadFlights();
 
