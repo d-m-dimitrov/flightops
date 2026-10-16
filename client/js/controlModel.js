@@ -1,10 +1,10 @@
 (function(root) {
   const roles = ['ARRIVAL','ARRIVAL_DISPATCH','DISPATCH','CHECKIN','GATE','RAMP'];
   function closed(f) { return ['CANCELLED','DEPARTED','AIRBORNE'].includes(f.status) || Boolean(f.departure?.atd || f.departure?.airborne || f.departure?.pushback); }
-  function target(f) { return f.departure?.etd || f.departure?.stdAt; }
+  function target(f) { return f.departureToday === false ? f.arrival?.eta || f.arrival?.staAt : f.departure?.etd || f.departure?.stdAt; }
   function late(f, now = Date.now()) {
     const std = Date.parse(f.departure?.stdAt), etd = Date.parse(f.departure?.etd);
-    return !closed(f) && Number.isFinite(std) && ((Number.isFinite(etd) && etd > std) || now > std);
+    return f.departureToday !== false && !closed(f) && Number.isFinite(std) && ((Number.isFinite(etd) && etd > std) || now > std);
   }
   function gaps(f) { return closed(f) ? [] : (f.assignmentRoles || roles).filter(role => !f.assignments.some(a => a.role === role && a.userId && a.userId.active !== false)); }
   function actions(f) {
@@ -16,6 +16,7 @@
       if (!a.userId || a.userId.active === false) result.push(`${a.role}: agent unavailable`);
       else if (!a.acceptedAt) result.push(`${a.role}: awaiting acceptance`);
     }
+    if (f.departureToday === false) return result;
     if (f.assignments.some(a => a.role === 'CHECKIN') && (!f.handover || !f.handover.current)) result.push('Check-in handover pending');
     else if (f.handover && !f.handover.received) result.push(`Gate: acknowledge handover v${f.handover.revision}`);
     if (f.canLir === false) {}
@@ -28,7 +29,7 @@
   }
   function windowFor(f, role) {
     const arrival = ['ARRIVAL','ARRIVAL_DISPATCH'].includes(role);
-    const at = Date.parse(arrival ? f.arrival?.eta || f.arrival?.staAt : target(f));
+    const at = Date.parse(arrival ? f.arrival?.eta || f.arrival?.staAt : f.departure?.etd || f.departure?.stdAt);
     return Number.isFinite(at) ? [at-(arrival?30:150)*60000, at+30*60000] : null;
   }
   function workload(flights) {

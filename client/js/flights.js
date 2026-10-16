@@ -374,6 +374,7 @@ flight.unreadNotifications > 0
                text-muted
                mt-1">
 
+        ${flight.dayLabel ? `<span class="badge bg-info text-dark">${flight.dayLabel}</span> |` : ""}
         Aircraft <strong>${flight.aircraft?.aircraftType || "-"}</strong>
         |
 

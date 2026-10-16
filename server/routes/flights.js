@@ -1,3 +1,4 @@
+const flightDay = require('../services/flightDay');
 const requireUser = require('../middleware/requireUser');
 const chatReadState = require('../services/chatReadState');
 const time = require("../../client/js/operationalTime");
@@ -52,17 +53,9 @@ async(req,res)=>{
 
     time.operatingDate();
 
-const flights =
-await Turnaround.find({
-
-    operatingDate:
-    date,
-
-    deleted:{
-            $ne:true
-        }
-
-})
+let filter;
+try { filter=flightDay.query(date); } catch { return res.status(400).json({error:'Select a valid operating date'}); }
+const flights = await Turnaround.find(filter)
 
     .sort({
 
@@ -78,6 +71,8 @@ for(const flight of flights){
     const item =
     await turnaroundView(flight);
 
+if (!flightDay.includes(item,date)) continue;
+Object.assign(item,flightDay.context(item,date));
 const readiness =
 await calculateReadiness(
     flight._id

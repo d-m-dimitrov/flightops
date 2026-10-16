@@ -33,5 +33,5 @@ test('My flights API uses authenticated identity, validates dates and handles le
  const res=()=>({code:200,set(){return this;},status(code){this.code=code;return this;},json(body){this.body=body;return this;}});
  let r=res();await handler({query:{date:'2026-99-99'},user:{_id:'me'}},r);assert.equal(r.code,400);assert.equal(ownQuery,undefined);
  r=res();await handler({query:{date:'2026-10-14',userId:'someone-else'},user:{_id:'me',department:'RAMP'}},r);
- assert.equal(ownQuery.userId,'me');assert.equal(flightQuery.operatingDate,'2026-10-14');assert.deepEqual(Array.from(flightQuery._id.$in),['f1']);assert.equal(r.body.flights[0].lir.received,false);
+ assert.equal(ownQuery.userId,'me');assert.ok(flightQuery.$or);assert.deepEqual(Array.from(flightQuery._id.$in),['f1']);assert.equal(r.body.flights[0].lir.received,false);
 });

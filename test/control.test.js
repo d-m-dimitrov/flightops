@@ -38,7 +38,7 @@ test('Control HTTP protects access, rejects invalid dates, and returns latest do
  const f=flight();
  const router=load('server/routes/control.js',{
   '../middleware/requireUser':(req,res,next)=>{if(!req.headers.authorization)return res.status(401).json({error:'Sign in'});req.user={active:true,department:'OPERATIONS',position:req.headers.authorization==='manager'?'OPERATIONS_DM':'DISPATCHER',name:'Manager'};next();},
-  '../models/Turnaround':{find:q=>{assert.equal(q.operatingDate,'2026-10-15');return query([f]);}},
+  '../models/Turnaround':{find:q=>{assert.ok(q.$or);return query([f]);}},
   '../models/Assignment':{find:()=>query([{_id:'ramp2',turnaroundId:'f1',role:'RAMP',userId:{_id:'u1',name:'Ramp'}},{_id:'gate2',turnaroundId:'f1',role:'GATE',userId:{_id:'u2'}}])},
   '../models/User':{find:()=>query([])},
   '../models/Handover':{find:()=>query([{turnaroundId:'f1',revision:2,assignmentId:'old-checkin',receipts:[{assignmentId:'gate1'}]}])},

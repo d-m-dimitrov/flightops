@@ -40,7 +40,7 @@ async(req,res)=>{
     const flight = await Turnaround.findOne({_id:req.params.turnaroundId,deleted:{$ne:true}});
     if (!flight) return res.status(404).json({error:'Flight not found'});
     res.json(assignments.filter(a => departmentAccess.roles(req.user).includes(a.role) && (!a.userId || departmentAccess.canViewStaff(req.user,a.userId))).map(a => ({...(a.toObject ? a.toObject() : a),
-        qualificationWarning:Qualifications.reason(a.userId,flight.airline,a.role,flight.operatingDate)
+        qualificationWarning:Qualifications.reason(a.userId,flight.airline,a.role,Qualifications.flightDate(flight,a.role))
     })));
 
 });
@@ -66,7 +66,7 @@ async(req,res)=>{
     for (const item of assignments) {
         const target = await User.findById(item.userId);
         if (!departmentAccess.canViewStaff(req.user,target)) return res.status(400).json({error:"Select an agent in your department"});
-        const reason = Qualifications.reason(target,flight.airline,item.role,flight.operatingDate);
+        const reason = Qualifications.reason(target,flight.airline,item.role,Qualifications.flightDate(flight,item.role));
         if (reason) return res.status(400).json({error:`${target?.name || 'Agent'}: ${reason}. Assignment blocked; no override is allowed.`});
     }
     const updatedByName = req.user.name;

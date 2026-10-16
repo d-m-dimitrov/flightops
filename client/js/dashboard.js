@@ -1576,7 +1576,7 @@ async function loadAssignmentEditor(){
             a => a.role === role.code
         );
 
-        const eligibleUsers = users.filter(user => AirlineQualifications.eligible(user,currentFlight?.airline,role.code,currentFlight?.operatingDate));
+        const eligibleUsers = users.filter(user => AirlineQualifications.eligible(user,currentFlight?.airline,role.code,AirlineQualifications.flightDate(currentFlight,role.code)));
         const row = document.createElement('div');row.className='mb-3';
         const label = document.createElement('label');label.className='form-label';label.textContent=role.name;
         const select=document.createElement('select');select.className='form-select assignment';select.dataset.role=role.code;
@@ -1588,7 +1588,7 @@ async function loadAssignmentEditor(){
         }
         select.value=assigned?.userId?._id || '';
         const help=document.createElement('small');help.className='d-block text-muted';
-        help.textContent=`Valid ${currentFlight?.airline || 'airline'} / ${role.code} training required on ${currentFlight?.operatingDate || 'flight date'}. No override.`;
+        help.textContent=`Valid ${currentFlight?.airline || 'airline'} / ${role.code} training required on ${AirlineQualifications.flightDate(currentFlight,role.code) || 'flight date'}. No override.`;
         row.append(label,select,help);panel.append(row);
     });
 

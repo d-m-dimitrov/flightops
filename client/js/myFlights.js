@@ -14,6 +14,7 @@ function render(){
   const tasks=FlightTasks.actions(f),card=el('article','',`card flight-card ${tasks.length?'attention':''}`),body=el('div','','card-body');card.append(body);
   body.append(el('h2',f.flightNumberDisplay||`${f.arrivalFlight||'—'} / ${f.departureFlight||'—'}`,'h5'),el('p',`${f.assignments.map(a=>FlightTasks.label(a.role)).join(' · ')} · ${f.status}`,'small text-muted'),el('div',`Stand ${f.aircraft?.stand||'—'} · ${f.aircraft?.registration||'—'}`));
   body.append(el('div',`STA ${f.arrival?.sta||time(f.arrival?.staAt)} · STD ${f.departure?.std||time(f.departure?.stdAt)}`,'small'));
+  if(f.dayLabel)body.append(el('p',f.dayLabel,'badge bg-info text-dark'));
   const clock=el('p',countdown(f),'countdown mt-2');clock.dataset.flight=f._id;body.append(clock);
   if(tasks.length){const list=el('ul','','action-list');tasks.forEach(t=>list.append(el('li',t)));body.append(list);}else body.append(el('p','No pending acknowledgements','text-muted'));
   body.append(el('p',f.handover?`Handover v${f.handover.revision} · ${f.handover.received?'Received by Gate':'Awaiting Gate receipt'}`:'Check-in handover not sent','small'));

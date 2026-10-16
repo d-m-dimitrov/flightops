@@ -32,7 +32,11 @@
     if (expiry && expiry < operatingDate) return `${code} ${role} training expired on ${expiry}`;
     return null;
   }
+  function flightDate(flight, role) {
+    const time = typeof module === 'object' ? require('./operationalTime') : root.OperationalTime;
+    try { return time.movementDate(flight,role); } catch { return flight.operatingDate; }
+  }
   const labels={DISPATCH:'Departure Dispatcher',ARRIVAL_DISPATCH:'Arrival Dispatcher',ARRIVAL:'Arrival Agent',CHECKIN:'Check-in',GATE:'Gate',RAMP:'RAMP',SPUR:'SPUR'};
-  const api={label:role=>labels[role]||role,roles,airline,date,normalize,reason,eligible:(...args)=>reason(...args)===null};
+  const api={flightDate,label:role=>labels[role]||role,roles,airline,date,normalize,reason,eligible:(...args)=>reason(...args)===null};
   if(typeof module==='object')module.exports=api;else root.AirlineQualifications=api;
 })(globalThis);

@@ -64,6 +64,20 @@
       mode: ready <= std ? "STD" : "GROUND", buffer: Math.max(0, (std - ready) / 60000),
       delay: Math.max(0, (ready - std) / 60000) };
   }
-  return { zone, localInput, fromLocal, addDays, scheduleTimes, editedTime, departurePlan,
+  function movementDate(flight, role) {
+    const arrival = ['ARRIVAL','ARRIVAL_DISPATCH'].includes(role);
+    const value = arrival ? flight.arrival?.staAt : flight.departure?.stdAt;
+    if (value) return localInput(value).slice(0,10);
+    const offset = flight.departureDayOffset == null
+      ? Number((flight.departure?.std || '') < (flight.arrival?.sta || '')) : flight.departureDayOffset;
+    return arrival ? flight.operatingDate : addDays(flight.operatingDate, offset);
+  }
+  function dayContext(flight, date) {
+    const arrivalDate = movementDate(flight, 'ARRIVAL'), departureDate = movementDate(flight, 'DISPATCH');
+    return {arrivalDate, departureDate, arrivalToday:arrivalDate === date, departureToday:departureDate === date,
+      dayLabel:arrivalDate === departureDate ? '' : arrivalDate === date
+        ? `Nightstop · Departure ${departureDate}` : `Nightstop · Arrival ${arrivalDate}`};
+  }
+  return { movementDate, dayContext, zone, localInput, fromLocal, addDays, scheduleTimes, editedTime, departurePlan,
     operatingDate: (now = new Date()) => localInput(now).slice(0, 10) };
 });

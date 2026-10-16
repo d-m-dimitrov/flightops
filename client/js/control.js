@@ -21,7 +21,8 @@ function remaining(f) {
   const at=Date.parse(ControlModel.target(f));
   if (!Number.isFinite(at)) return 'Time unavailable';
   const minutes=Math.ceil((at-Date.now())/60000);
-  return minutes >= 0 ? `${Math.floor(minutes/60)}h ${minutes%60}m to ${f.departure?.etd?'ETD':'STD'}` : `${-minutes}m past ${f.departure?.etd?'ETD':'STD'}`;
+  const label=f.departureToday===false?(f.arrival?.eta?'ETA':'STA'):(f.departure?.etd?'ETD':'STD');
+  return minutes >= 0 ? `${Math.floor(minutes/60)}h ${minutes%60}m to ${label}` : `${-minutes}m past ${label}`;
 }
 function render() {
   const all=data.flights, open=all.filter(f=>!ControlModel.closed(f));
@@ -37,7 +38,7 @@ function render() {
   $('flights').replaceChildren();
   for (const f of filtered) {
     const row=el('tr'), identity=el('td');identity.append(el('strong',name(f)),el('p',`${f.airline || ''} · ${f.aircraft?.aircraftType || '—'}`),el('p',`Stand ${f.aircraft?.stand || '—'} · ${f.aircraft?.registration || '—'}`,'muted'));
-    const times=el('td');times.append(el('p',`STA ${time(f.arrival?.staAt)} · ETA ${time(f.arrival?.eta)}`),el('p',`STD ${time(f.departure?.stdAt)} · ETD ${time(f.departure?.etd)}`));
+    const times=el('td');if(f.dayLabel)times.append(el('p',f.dayLabel,'tag'));times.append(el('p',`STA ${time(f.arrival?.staAt)} · ETA ${time(f.arrival?.eta)}`),el('p',`STD ${time(f.departure?.stdAt)} · ETD ${time(f.departure?.etd)}`));
     const status=el('td');status.append(el('span',f.status,'tag'),el('p',remaining(f)));if(ControlModel.late(f))status.append(el('span','Delayed / past STD','tag warn'));
     const assignments=el('td');
     for(const a of f.assignments) assignments.append(el('p',`${labels[a.role]||a.role}: ${a.userId?.name||'Missing user'} ${a.acceptedAt?'✓':'· pending'}`));
@@ -89,7 +90,7 @@ async function openEditor(f) {
     for(const role of edit.roles){
       const label=el('label',labels[role]||role),select=el('select');select.dataset.role=role;select.append(new Option('Unassigned',''));
       const current=assignments.filter(a=>a.role===role),selected=current[0]?.userId;
-      for(const user of data.staff.filter(u=>AirlineQualifications.eligible(u,f.airline,role,f.operatingDate)))select.append(new Option(user.name,user._id));
+      for(const user of data.staff.filter(u=>AirlineQualifications.eligible(u,f.airline,role,AirlineQualifications.flightDate(f,role))))select.append(new Option(user.name,user._id));
       if(selected && ![...select.options].some(o=>o.value===String(selected._id))) {const option=new Option(`${selected.name} (not qualified — replace or remove)`,selected._id);option.disabled=true;select.append(option);}
       select.value=selected?._id||'';label.append(select);if(current.length>1)label.append(el('small','Multiple existing assignments — saving will resolve to this selection.','text-danger'));$('assignmentFields').append(label);
     }
