@@ -41,14 +41,14 @@ async function seedEvents(){
             code:"LAST_BAG",
             name:"Last Bag Delivered",
             group:"ARRIVAL",
-            roles:["RAMP"]
+            roles:["ARRIVAL_RAMP"]
         },
 
         {
             code:"UNLOADING_COMPLETE",
             name:"Unloading Complete",
             group:"ARRIVAL",
-            roles:["RAMP"],
+            roles:["ARRIVAL_RAMP"],
             readinessPoints:10
         },
 
@@ -159,6 +159,11 @@ async function seedEvents(){
         // Move the two arrival dispatcher events once; preserve unrelated/custom roles.
         if (existing && ['LANDED','ON_BLOCKS'].includes(event.code) && existing.roles?.includes('DISPATCH')) {
             const roles = [...new Set(existing.roles.map(role => role === 'DISPATCH' ? 'ARRIVAL_DISPATCH' : role))];
+            await EventDefinition.updateOne({_id:existing._id,roles:existing.roles},{$set:{roles}});
+        }
+
+        if (existing && ['LAST_BAG','UNLOADING_COMPLETE'].includes(event.code) && existing.roles?.includes('RAMP')) {
+            const roles = [...new Set(existing.roles.map(role => role === 'RAMP' ? 'ARRIVAL_RAMP' : role))];
             await EventDefinition.updateOne({_id:existing._id,roles:existing.roles},{$set:{roles}});
         }
 

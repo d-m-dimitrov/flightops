@@ -26,7 +26,7 @@ const UserSchema = new mongoose.Schema({
 
     airlineQualifications:{type:[new mongoose.Schema({
         airline:{type:String,required:true},
-        role:{type:String,enum:['DISPATCH','ARRIVAL_DISPATCH','CHECKIN','GATE','ARRIVAL','RAMP','SPUR'],required:true},
+        role:{type:String,enum:['DISPATCH','ARRIVAL_DISPATCH','CHECKIN','GATE','ARRIVAL','ARRIVAL_RAMP','RAMP','SPUR'],required:true},
         validUntil:{type:String,default:null}
     },{_id:false})],default:[]},
     qualificationRevision:{type:Number,default:0},

@@ -21,9 +21,9 @@ test('ordinary RAMP agent cannot self-assign through the API; allocator preserve
  const save=router.stack.find(l=>l.route?.methods.post).route.stack[0].handle;
  const req={params:{turnaroundId:flightId},body:{assignments:[{role:'RAMP',userId}],updatedByName:'Spoofed'},user:{active:true,department:'RAMP',position:'RAMP_SUPERVISOR',name:'Allocator'},app:{get:()=>({to:()=>({emit(){}})})}};
  let res=response();await save(req,res);assert.equal(res.statusCode,403);assert.equal(created.length,0);
- req.user.position='RAMP_ALLOCATOR';res=response();await save(req,res);assert.equal(res.statusCode,200);assert.deepEqual(Array.from(deletions[0].role.$in),['RAMP']);assert.equal(created.length,1);
+ req.user.position='RAMP_ALLOCATOR';res=response();await save(req,res);assert.equal(res.statusCode,200);assert.deepEqual(Array.from(deletions[0].role.$in),['ARRIVAL_RAMP','RAMP']);assert.equal(created.length,1);
  existingRows=[{_id:'c'.repeat(24),role:'RAMP',userId:{_id:userId,name:'Assigned Ramp'},acceptedAt:new Date()}];
  res=response();await save(req,res);assert.equal(res.statusCode,200);assert.equal(created.length,1);
- assert.equal(deletions.at(-1).role.$in.length,0); // Unchanged assignment and acceptance survive.
+ assert.deepEqual(Array.from(deletions.at(-1).role.$in),['ARRIVAL_RAMP']); // Unchanged assignment and acceptance survive.
  req.body.assignments=[{role:'DISPATCH',userId}];res=response();await save(req,res);assert.equal(res.statusCode,400);assert.equal(created.length,1);
 });

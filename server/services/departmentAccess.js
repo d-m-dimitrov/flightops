@@ -1,7 +1,7 @@
 const departments = {
   OPERATIONS:['DISPATCH','ARRIVAL_DISPATCH'],
   PASSENGER_HANDLING:['CHECKIN','GATE','ARRIVAL'],
-  RAMP:['RAMP'], SPUR:['SPUR']
+  RAMP:['ARRIVAL_RAMP','RAMP'], SPUR:['SPUR']
 };
 const managers = {OPERATIONS:'OPERATIONS_DM',PASSENGER_HANDLING:'PAX_DM',RAMP:'RAMP_DM',SPUR:'SPUR_DM'};
 const superAdmin = user => Boolean(user?.active && user.role === 'ADMIN');

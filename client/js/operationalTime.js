@@ -65,7 +65,7 @@
       delay: Math.max(0, (ready - std) / 60000) };
   }
   function movementDate(flight, role) {
-    const arrival = ['ARRIVAL','ARRIVAL_DISPATCH'].includes(role);
+    const arrival = ['ARRIVAL','ARRIVAL_DISPATCH','ARRIVAL_RAMP'].includes(role);
     const value = arrival ? flight.arrival?.staAt : flight.departure?.stdAt;
     if (value) return localInput(value).slice(0,10);
     const offset = flight.departureDayOffset == null

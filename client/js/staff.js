@@ -703,6 +703,7 @@ function renderSkills(
 
         "ARRIVAL",
 
+        "ARRIVAL_RAMP",
         "RAMP",
 
         "SPUR"
@@ -846,4 +847,4 @@ function addQualificationRow(value = {}) {
     document.getElementById('qualificationRows').append(row);
 }
 
-function staffDepartmentRoles(){return {OPERATIONS:['DISPATCH','ARRIVAL_DISPATCH'],PASSENGER_HANDLING:['CHECKIN','GATE','ARRIVAL'],RAMP:['RAMP'],SPUR:['SPUR']}[document.getElementById('userDepartment').value] || [];}
+function staffDepartmentRoles(){return {OPERATIONS:['DISPATCH','ARRIVAL_DISPATCH'],PASSENGER_HANDLING:['CHECKIN','GATE','ARRIVAL'],RAMP:['ARRIVAL_RAMP','RAMP'],SPUR:['SPUR']}[document.getElementById('userDepartment').value] || [];}

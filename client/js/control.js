@@ -1,7 +1,7 @@
 checkAuth();
 const $ = id => document.getElementById(id), token = localStorage.getItem('token');
 let data = {flights:[],staff:[],roles:[]}, version = 0, editorVersion = 0, edit = null, timer, debounce, socket;
-const labels = {ARRIVAL:'Arrival Agent',ARRIVAL_DISPATCH:'Arrival Dispatcher',DISPATCH:'Departure Dispatcher',CHECKIN:'Check-in',GATE:'Gate',RAMP:'RAMP',SPUR:'SPUR'};
+const labels = {ARRIVAL_RAMP:'Arrival RAMP',ARRIVAL:'Arrival Agent',ARRIVAL_DISPATCH:'Arrival Dispatcher',DISPATCH:'Departure Dispatcher',CHECKIN:'Check-in',GATE:'Gate',RAMP:'Departure RAMP',SPUR:'SPUR'};
 $('date').value = OperationalTime.operatingDate();
 function el(tag,text,cls) { const node=document.createElement(tag);node.textContent=text;if(cls)node.className=cls;return node; }
 function time(at) { return at && Number.isFinite(Date.parse(at)) ? new Date(at).toLocaleTimeString('en-GB',{timeZone:'Europe/London',hour:'2-digit',minute:'2-digit'}) : '—'; }

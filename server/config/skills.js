@@ -10,6 +10,7 @@ module.exports = [
 
     "ARRIVAL",
 
+    "ARRIVAL_RAMP",
     "RAMP",
 
     "SPUR"

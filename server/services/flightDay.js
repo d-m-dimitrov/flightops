@@ -12,5 +12,5 @@ function context(f,date) {
   catch { return {arrivalToday:f.operatingDate===date,departureToday:f.operatingDate===date,dayLabel:''}; }
 }
 function includes(f,date){const c=context(f,date);return c.arrivalToday||c.departureToday;}
-function roleOnDay(f,role,date){const c=context(f,date);return ['ARRIVAL','ARRIVAL_DISPATCH'].includes(role)?c.arrivalToday:c.departureToday;}
+function roleOnDay(f,role,date){const c=context(f,date);return ['ARRIVAL','ARRIVAL_DISPATCH','ARRIVAL_RAMP'].includes(role)?c.arrivalToday:c.departureToday;}
 module.exports={query,context,includes,roleOnDay};

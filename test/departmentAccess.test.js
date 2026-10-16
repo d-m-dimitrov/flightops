@@ -1,13 +1,13 @@
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm'),path=require('node:path'),{createRequire}=require('node:module');
 const access=require('../server/services/departmentAccess'),assignmentRoles=require('../server/services/assignmentAccess');
 function load(file,mocks){const filename=path.join(__dirname,'..',file),module={exports:{}},real=createRequire(filename);vm.runInNewContext(fs.readFileSync(filename,'utf8'),{module,require:n=>n in mocks?mocks[n]:real(n),console},{filename});return module.exports;}
-test('each duty manager gets only their department roles; Super Admin covers all seven',()=>{
+test('each duty manager gets only their department roles; Super Admin covers all eight',()=>{
  for(const [department,position]of Object.entries(access.managers)){
   const user={active:true,department,position};assert.deepEqual(assignmentRoles(user),access.departments[department]);
   for(const other of Object.keys(access.departments))assert.equal(access.canManageStaff(user,{department:other}),department===other);
   assert.equal(access.canManageStaff(user,{department,role:'ADMIN'}),false);
  }
- assert.equal(assignmentRoles({active:true,role:'ADMIN'}).length,7);
+ assert.equal(assignmentRoles({active:true,role:'ADMIN'}).length,8);
  assert.equal(access.canManageStaff({active:true,role:'ADMIN'},{department:'RAMP'}),true);
 });
 test('staff HTTP hides other departments and admin records and blocks cross-department edits, moves and role escalation',async()=>{

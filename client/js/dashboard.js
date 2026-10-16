@@ -929,6 +929,8 @@ function formatRole(role){
     const names = {
         DISPATCH:"Departure Dispatcher",
         ARRIVAL_DISPATCH:"Arrival Dispatcher",
+        ARRIVAL_RAMP:"Arrival RAMP",
+        RAMP:"Departure RAMP",
         ARRIVAL:"Arrival Agent",
 
         ADMIN:
@@ -1459,6 +1461,7 @@ async function loadAssignmentEditor(){
 
     const roles = [
         {code:"ARRIVAL_DISPATCH",name:"Arrival Dispatcher"},
+        {code:"ARRIVAL_RAMP",name:"Arrival RAMP"},
 
         {
             code:"DISPATCH",
@@ -1482,7 +1485,7 @@ async function loadAssignmentEditor(){
 
         {
             code:"RAMP",
-            name:"Ramp"
+            name:"Departure RAMP"
         },
 
         {
@@ -1534,7 +1537,7 @@ async function loadAssignmentEditor(){
             visibleRoles =
             roles.filter(r=>
 
-                r.code === "RAMP"
+                ["ARRIVAL_RAMP","RAMP"].includes(r.code)
 
             );
 

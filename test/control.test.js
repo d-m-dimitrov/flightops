@@ -6,7 +6,7 @@ function load(file,mocks){const filename=path.join(__dirname,'..',file),module={
 function flight(overrides={}) {return {_id:'f1',status:'SCHEDULED',arrival:{staAt:'2026-10-15T09:00:00Z'},departure:{stdAt:'2026-10-15T11:00:00Z'},assignments:[],gateItems:{total:0,received:0,loaded:0},...overrides};}
 test('Control permissions use active database role and department; controllers and allocators retain their scope',()=>{
  assert.deepEqual(access({active:true,department:'OPERATIONS',position:'TRAFFIC_COORDINATOR'}),['DISPATCH','ARRIVAL_DISPATCH']);
- assert.deepEqual(access({active:true,department:'RAMP',position:'RAMP_ALLOCATOR'}),['RAMP']);
+ assert.deepEqual(access({active:true,department:'RAMP',position:'RAMP_ALLOCATOR'}),['ARRIVAL_RAMP','RAMP']);
  assert.equal(access({active:true,department:'OPERATIONS',position:'OPERATIONS_DM'}).length,2);
  assert.equal(access({active:true,department:'RAMP',position:'OPERATIONS_DM'}).length,0);
  assert.equal(access({active:false,role:'ADMIN'}).length,0);
@@ -18,7 +18,7 @@ test('Control actions reflect current assignment receipts, pending gate items an
  assert.ok(tasks.includes('RAMP: acknowledge LIR v2'));
  assert.ok(tasks.includes('1 gate items awaiting RAMP'));
  assert.ok(tasks.includes('1 gate items awaiting loading'));
- assert.equal(model.gaps(f).length,5);
+ assert.equal(model.gaps(f).length,6);
  assert.deepEqual(model.actions({...f,status:'DEPARTED'}),[]);
  assert.deepEqual(model.gaps({...f,status:'CANCELLED'}),[]);
  assert.equal(model.late(f,Date.parse('2026-10-15T12:00:00Z')),true);

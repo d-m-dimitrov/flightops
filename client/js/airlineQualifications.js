@@ -1,5 +1,5 @@
 (function(root) {
-  const roles = ['DISPATCH','ARRIVAL_DISPATCH','CHECKIN','GATE','ARRIVAL','RAMP','SPUR'];
+  const roles = ['DISPATCH','ARRIVAL_DISPATCH','CHECKIN','GATE','ARRIVAL','ARRIVAL_RAMP','RAMP','SPUR'];
   function airline(value) { return typeof value === 'string' ? value.trim().toUpperCase() : ''; }
   function date(value) {
     return typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value) && Number.isFinite(Date.parse(value+'T12:00:00Z')) && new Date(value+'T12:00:00Z').toISOString().slice(0,10) === value;
@@ -21,7 +21,7 @@
   function reason(user, code, role, operatingDate) {
     if (!user?.active) return 'Agent is inactive or unavailable';
     if (!roles.includes(role) || !user.skills?.includes(role)) return `Missing ${role} skill`;
-    if (role === 'RAMP' && user.department !== 'RAMP') return 'RAMP department required';
+    if (['RAMP','ARRIVAL_RAMP'].includes(role) && user.department !== 'RAMP') return 'RAMP department required';
     code = airline(code);
     if (!/^[A-Z0-9]{2,3}$/.test(code) || !date(operatingDate)) return 'Check flight airline and operating date';
     const training = (user.airlineQualifications || []).filter(q => airline(q.airline) === code && q.role === role);
@@ -36,7 +36,7 @@
     const time = typeof module === 'object' ? require('./operationalTime') : root.OperationalTime;
     try { return time.movementDate(flight,role); } catch { return flight.operatingDate; }
   }
-  const labels={DISPATCH:'Departure Dispatcher',ARRIVAL_DISPATCH:'Arrival Dispatcher',ARRIVAL:'Arrival Agent',CHECKIN:'Check-in',GATE:'Gate',RAMP:'RAMP',SPUR:'SPUR'};
+  const labels={DISPATCH:'Departure Dispatcher',ARRIVAL_DISPATCH:'Arrival Dispatcher',ARRIVAL_RAMP:'Arrival RAMP',ARRIVAL:'Arrival Agent',CHECKIN:'Check-in',GATE:'Gate',RAMP:'Departure RAMP',SPUR:'SPUR'};
   const api={flightDate,label:role=>labels[role]||role,roles,airline,date,normalize,reason,eligible:(...args)=>reason(...args)===null};
   if(typeof module==='object')module.exports=api;else root.AirlineQualifications=api;
 })(globalThis);

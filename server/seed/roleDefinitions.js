@@ -6,6 +6,7 @@ async function seedRoles(){
     const roles = [
 
         {code:"ARRIVAL_DISPATCH",name:"Arrival Dispatcher"},
+        {code:"ARRIVAL_RAMP",name:"Arrival RAMP"},
 
         {
             code:"DISPATCH",
@@ -29,7 +30,7 @@ async function seedRoles(){
 
         {
             code:"RAMP",
-            name:"Ramp"
+            name:"Departure RAMP"
         },
 
         {
@@ -47,7 +48,7 @@ async function seedRoles(){
         });
 
         if (existing && ((role.code === 'DISPATCH' && existing.name === 'Dispatcher') ||
-            (role.code === 'ARRIVAL' && existing.name === 'Arrival'))) {
+            (role.code === 'ARRIVAL' && existing.name === 'Arrival') || (role.code === 'RAMP' && ['Ramp','RAMP'].includes(existing.name)))) {
             await RoleDefinition.updateOne({_id:existing._id,name:existing.name},{$set:{name:role.name}});
         }
 
