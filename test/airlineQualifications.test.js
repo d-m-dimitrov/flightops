@@ -34,7 +34,7 @@ test('assignment API blocks unqualified candidates for managers and admins befor
  const handler=router.stack.find(l=>l.route?.methods.post).route.stack[0].handle;
  const req={params:{turnaroundId:flightId},user:{active:true,role:'ADMIN',name:'Admin'},body:{assignments:[{role:'RAMP',userId}],override:true,airline:'CX',operatingDate:'2026-10-15'},app:{get:()=>({to:()=>({emit(){}})})}};
  let res=response();await handler(req,res);assert.equal(res.statusCode,400);assert.match(res.body.error,/expired/);assert.equal(mutations,0);
- req.user={active:true,department:'OPERATIONS',position:'OPERATIONS_DM',name:'Manager'};
+ req.user={active:true,department:'RAMP',position:'RAMP_DM',name:'Manager'};
  target={...target,airlineQualifications:[]};res=response();await handler(req,res);assert.equal(res.statusCode,400);assert.equal(mutations,0);
  target={...target,airlineQualifications:[{airline:'SQ',role:'RAMP',validUntil:'2026-10-16'}]};
  res=response();await handler(req,res);assert.equal(res.statusCode,200);assert.equal(mutations,2);
@@ -43,10 +43,10 @@ test('assignment API blocks unqualified candidates for managers and admins befor
 test('staff updates validate qualifications, preserve omitted data and reject stale qualification revision',async()=>{
  let updateCall,save=true;
  const router=load('server/routes/users.js',{
-  '../models/User':{findOneAndUpdate:async(filter,update)=>{updateCall={filter,update};return save?{toObject:()=>({name:'Agent',passwordHash:'private'})}:null;}}
+  '../models/User':{findById:async()=>({department:'PASSENGER_HANDLING',role:'OPERATIONS'}),findOneAndUpdate:async(filter,update)=>{updateCall={filter,update};return save?{toObject:()=>({name:'Agent',passwordHash:'private'})}:null;}}
  });
  const handler=router.stack.find(l=>l.route?.methods.put).route.stack[0].handle;
- const req={params:{id:'a'.repeat(24)},user:{_id:'b'.repeat(24)},body:{name:'Agent',skills:['GATE'],airlineQualifications:[{airline:'sq',role:'GATE',validUntil:'2027-01-01'}],expectedQualificationRevision:2}};
+ const req={params:{id:'a'.repeat(24)},user:{_id:'b'.repeat(24),active:true,role:'ADMIN'},body:{name:'Agent',department:'PASSENGER_HANDLING',position:'GATE_LEAD',skills:['GATE'],airlineQualifications:[{airline:'sq',role:'GATE',validUntil:'2027-01-01'}],expectedQualificationRevision:2}};
  let res=response();await handler(req,res);assert.equal(res.statusCode,200);assert.equal(updateCall.filter.qualificationRevision,2);assert.equal(updateCall.update.$inc.qualificationRevision,1);assert.equal(updateCall.update.$set.airlineQualifications[0].airline,'SQ');assert.equal(res.body.passwordHash,undefined);
  save=false;res=response();await handler(req,res);assert.equal(res.statusCode,409);
  save=true;delete req.body.airlineQualifications;res=response();await handler(req,res);assert.equal(updateCall.update.$set.airlineQualifications,undefined);assert.equal(updateCall.update.$inc,undefined);

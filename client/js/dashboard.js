@@ -1495,9 +1495,10 @@ async function loadAssignmentEditor(){
     let visibleRoles = roles;
 
     switch(
-        CURRENT_USER.position
+        CURRENT_USER.role === "ADMIN" ? "SUPER_ADMIN" : CURRENT_USER.position
     ){
 
+        case "OPERATIONS_DM":
         case "TRAFFIC_COORDINATOR":
 
             visibleRoles =
@@ -1509,6 +1510,7 @@ async function loadAssignmentEditor(){
 
             break;
 
+        case "PAX_DM":
         case "CHECKIN_SUPERVISOR":
 
             visibleRoles =
@@ -1526,6 +1528,7 @@ async function loadAssignmentEditor(){
 
             break;
 
+        case "RAMP_DM":
         case "RAMP_ALLOCATOR":
 
             visibleRoles =
@@ -1537,6 +1540,7 @@ async function loadAssignmentEditor(){
 
             break;
 
+        case "SPUR_DM":
         case "SPUR_COORDINATOR":
 
             visibleRoles =

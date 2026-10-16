@@ -10,7 +10,7 @@ getCurrentUser();
 if(
     user.role !== "ADMIN"
     &&
-    user.position !== "OPERATIONS_DM"
+    !["OPERATIONS_DM","PAX_DM","RAMP_DM","SPUR_DM"].includes(user.position)
 ){
     window.location =
     "flights.html";
@@ -103,9 +103,16 @@ document.addEventListener(
         )
         .addEventListener(
             "change",
-            loadPositions
+            () => { loadPositions(); renderSkills([]); renderQualifications([]); }
         );
 
+        if (user.role !== 'ADMIN') {
+            for (const id of ['userDepartment','filterDepartment']) {
+                const select = document.getElementById(id);
+                for (const option of [...select.options]) if (option.value !== user.department) option.remove();
+                select.value = user.department;select.disabled = true;
+            }
+        }
         renderSkills();
 
         loadPositions();
@@ -148,14 +155,14 @@ async function newUser(){
     document.getElementById(
         "userDepartment"
     ).value =
-    "OPERATIONS";
+    user.department || "OPERATIONS";
 
     loadPositions();
 
     document.getElementById(
         "userPosition"
     ).value =
-    "DISPATCHER";
+    positions[document.getElementById("userDepartment").value].at(-1);
 
     document.getElementById(
         "userPassword"
@@ -709,7 +716,7 @@ function renderSkills(
 
     panel.innerHTML = "";
 
-    skills.forEach(skill=>{
+    skills.filter(skill=>staffDepartmentRoles().includes(skill)).forEach(skill=>{
 
         panel.innerHTML += `
 
@@ -830,11 +837,13 @@ function addQualificationRow(value = {}) {
     for(const [field,title,type] of [['airline','Airline code','text'],['role','Role','select'],['validUntil','Valid until (optional)','date']]){
         const label=document.createElement('label');label.className='col-sm-3 small';label.textContent=title;
         const input=document.createElement(type==='select'?'select':'input');input.className=type==='select'?'form-select':'form-control';input.dataset.field=field;
-        if(type==='select')for(const role of AirlineQualifications.roles)input.append(new Option(AirlineQualifications.label(role),role));
+        if(type==='select')for(const role of staffDepartmentRoles())input.append(new Option(AirlineQualifications.label(role),role));
         else input.type=type;
         if(field==='airline'){input.maxLength=3;input.placeholder='SQ';input.style.textTransform='uppercase';}
-        input.value=value[field] || (field==='role'?'DISPATCH':'');label.append(input);row.append(label);
+        input.value=value[field] || (field==='role'?staffDepartmentRoles()[0]:'');label.append(input);row.append(label);
     }
     const remove=document.createElement('button');remove.type='button';remove.className='btn btn-outline-danger btn-sm col-sm-3';remove.textContent='Remove';remove.onclick=()=>row.remove();row.append(remove);
     document.getElementById('qualificationRows').append(row);
 }
+
+function staffDepartmentRoles(){return {OPERATIONS:['DISPATCH','ARRIVAL_DISPATCH'],PASSENGER_HANDLING:['CHECKIN','GATE','ARRIVAL'],RAMP:['RAMP'],SPUR:['SPUR']}[document.getElementById('userDepartment').value] || [];}

@@ -7,7 +7,7 @@ function flight(overrides={}) {return {_id:'f1',status:'SCHEDULED',arrival:{staA
 test('Control permissions use active database role and department; controllers and allocators retain their scope',()=>{
  assert.deepEqual(access({active:true,department:'OPERATIONS',position:'TRAFFIC_COORDINATOR'}),['DISPATCH','ARRIVAL_DISPATCH']);
  assert.deepEqual(access({active:true,department:'RAMP',position:'RAMP_ALLOCATOR'}),['RAMP']);
- assert.equal(access({active:true,department:'OPERATIONS',position:'OPERATIONS_DM'}).length,7);
+ assert.equal(access({active:true,department:'OPERATIONS',position:'OPERATIONS_DM'}).length,2);
  assert.equal(access({active:true,department:'RAMP',position:'OPERATIONS_DM'}).length,0);
  assert.equal(access({active:false,role:'ADMIN'}).length,0);
 });
@@ -53,7 +53,7 @@ test('Control HTTP protects access, rejects invalid dates, and returns latest do
   assert.equal((await fetch(url,{headers:{Authorization:'agent'}})).status,403);
   assert.equal((await fetch(url+'?date=2026-02-30',{headers:{Authorization:'manager'}})).status,400);
   const response=await fetch(url+'?date=2026-10-15',{headers:{Authorization:'manager'}}),body=await response.json();
-  assert.equal(response.status,200);assert.equal(body.roles.length,7);
+  assert.equal(response.status,200);assert.equal(body.roles.length,2);assert.equal(body.flights[0].assignments.length,0);
   assert.equal(body.flights[0].lir.received,false);assert.equal(body.flights[0].handover.current,false);assert.equal(body.flights[0].handover.received,false);
   assert.deepEqual(body.flights[0].gateItems,{total:2,received:1,loaded:1});
  }finally{await new Promise(r=>server.close(r));}

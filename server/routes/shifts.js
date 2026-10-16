@@ -1,3 +1,4 @@
+const departmentAccess=require('../services/departmentAccess');
 const express=require('express');
 const Shift=require('../models/StaffShift'),User=require('../models/User');
 const access=require('../services/assignmentAccess'),shifts=require('../services/staffShifts');
@@ -8,7 +9,8 @@ router.use((req,res,next)=>{res.set('Cache-Control','no-store');if(!access(req.u
 router.get('/',async(req,res)=>{
   const date=req.query.date;
   if(!qualifications.date(date))return res.status(400).json({error:'Select a valid date'});
-  const rows=await Shift.find({date:{$gte:dates.addDays(date,-1),$lte:dates.addDays(date,1)}}).lean();
+  const people=await User.find(departmentAccess.staffFilter(req.user)).select('_id').lean();
+  const rows=await Shift.find({userId:{$in:people.map(u=>u._id)},date:{$gte:dates.addDays(date,-1),$lte:dates.addDays(date,1)}}).lean();
   res.json({date,shifts:rows});
 });
 router.post('/copy-preview',async(req,res)=>{
@@ -16,7 +18,7 @@ router.post('/copy-preview',async(req,res)=>{
   if(!qualifications.date(date))return res.status(400).json({error:'Select a valid target date'});
   const previous=dates.addDays(date,-1);
   const [source,target,staff]=await Promise.all([
-    Shift.find({date:previous,status:'WORKING'}).lean(),Shift.find({date}).lean(),User.find({active:true}).select('name department').lean()
+    Shift.find({date:previous,status:'WORKING'}).lean(),Shift.find({date}).lean(),User.find({active:true,...departmentAccess.staffFilter(req.user)}).select('name department role').lean()
   ]);
   const existing=new Set(target.map(s=>String(s.userId))),users=new Map(staff.map(u=>[String(u._id),u]));
   const items=[],skipped=[];
@@ -33,7 +35,7 @@ router.post('/copy-preview',async(req,res)=>{
 });
 router.put('/:userId',async(req,res)=>{
   if(!/^[a-f\d]{24}$/i.test(req.params.userId))return res.status(400).json({error:'Invalid employee'});
-  const user=await User.findById(req.params.userId).select('name department active');
+  const user=await User.findById(req.params.userId).select('name department active role');
   if(!user?.active)return res.status(404).json({error:'Active employee not found'});
   if(!shifts.canManage(req.user,user))return res.status(403).json({error:'You can manage shifts only for your department'});
   let value;

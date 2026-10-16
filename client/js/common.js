@@ -96,6 +96,7 @@ function canEdit(module){
 
         ASSIGNMENTS:[]
     };
+if(user.role === "ADMIN") return true;
 if(
     [
         "OPERATIONS_DM",
@@ -167,7 +168,7 @@ panel.innerHTML = `
     <span
         class="badge ms-2 bg-primary">
 
-        ${user.position || "-"}
+        ${user.role === "ADMIN" ? "Super Admin" : user.position || "-"}
 
     </span>
 

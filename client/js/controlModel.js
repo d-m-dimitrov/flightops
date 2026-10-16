@@ -6,7 +6,7 @@
     const std = Date.parse(f.departure?.stdAt), etd = Date.parse(f.departure?.etd);
     return !closed(f) && Number.isFinite(std) && ((Number.isFinite(etd) && etd > std) || now > std);
   }
-  function gaps(f) { return closed(f) ? [] : roles.filter(role => !f.assignments.some(a => a.role === role && a.userId && a.userId.active !== false)); }
+  function gaps(f) { return closed(f) ? [] : (f.assignmentRoles || roles).filter(role => !f.assignments.some(a => a.role === role && a.userId && a.userId.active !== false)); }
   function actions(f) {
     if (closed(f)) return [];
     const result = [];
@@ -18,7 +18,8 @@
     }
     if (f.assignments.some(a => a.role === 'CHECKIN') && (!f.handover || !f.handover.current)) result.push('Check-in handover pending');
     else if (f.handover && !f.handover.received) result.push(`Gate: acknowledge handover v${f.handover.revision}`);
-    if (!f.lir) result.push('LIR not uploaded');
+    if (f.canLir === false) {}
+    else if (!f.lir) result.push('LIR not uploaded');
     else if (!f.lir.received) result.push(`RAMP: acknowledge LIR v${f.lir.revision}`);
     else if (f.lir.status !== 'COMPLETED') result.push('LIR completion pending');
     if (f.gateItems.received < f.gateItems.total) result.push(`${f.gateItems.total-f.gateItems.received} gate items awaiting RAMP`);

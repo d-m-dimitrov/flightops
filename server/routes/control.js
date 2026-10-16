@@ -1,3 +1,4 @@
+const departmentAccess = require('../services/departmentAccess');
 const express = require('express');
 const Flight = require('../models/Turnaround');
 const Assignment = require('../models/Assignment');
@@ -19,8 +20,8 @@ router.get('/', async (req, res) => {
   const flights = await Flight.find({operatingDate:date, deleted:{$ne:true}}).lean();
   const ids = flights.map(f => f._id), filter = {turnaroundId:{$in:ids}};
   const [assignments, staff, handovers, lirs, gateItems] = await Promise.all([
-    Assignment.find(filter).populate('userId','name active department skills airlineQualifications').lean(),
-    User.find({active:true}).select('name active department position skills airlineQualifications').sort({name:1}).lean(),
+    Assignment.find(filter).populate('userId','name active department role skills airlineQualifications').lean(),
+    User.find({active:true,...departmentAccess.staffFilter(req.user)}).select('name active role department position skills airlineQualifications').sort({name:1}).lean(),
     Handover.find(filter).select('turnaroundId revision assignmentId receipts').sort({revision:-1}).lean(),
     Lir.find(filter).select('turnaroundId revision status receipts').sort({revision:-1}).lean(),
     GateItems.find(filter).select('turnaroundId items.status').lean()
@@ -40,7 +41,9 @@ router.get('/', async (req, res) => {
       _id:item._id, airline:item.airline, arrivalFlight:item.arrivalFlight, departureFlight:item.departureFlight,
       operatingDate:item.operatingDate, status:item.status, aircraft:item.aircraft, arrival:item.arrival, departure:item.departure,
       operationalTimeError:item.operationalTimeError,
-      assignments:team.map(a => ({...a,qualificationWarning:require('../../client/js/airlineQualifications').reason(a.userId,item.airline,a.role,item.operatingDate)})),
+      assignmentRoles:departmentAccess.roles(req.user),
+      canLir:departmentAccess.superAdmin(req.user)||['OPERATIONS','RAMP'].includes(req.user.department),
+      assignments:team.filter(a=>departmentAccess.roles(req.user).includes(a.role)&&(!a.userId||departmentAccess.canViewStaff(req.user,a.userId))).map(a => ({...a,qualificationWarning:require('../../client/js/airlineQualifications').reason(a.userId,item.airline,a.role,item.operatingDate)})),
       handover:handover ? {revision:handover.revision, received:received(handover,'GATE'),
         current:team.some(a => a.role === 'CHECKIN' && String(a._id) === String(handover.assignmentId))} : null,
       lir:lir ? {revision:lir.revision, status:lir.status, received:received(lir,'RAMP')} : null,

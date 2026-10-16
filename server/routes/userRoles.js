@@ -7,6 +7,9 @@ express.Router();
 const UserRole =
 require("../models/UserRole");
 
+router.use(require('../middleware/requireUser'));
+router.use((req,res,next)=>{if(!require('../services/departmentAccess').superAdmin(req.user))return res.status(403).json({error:'Super Admin access required'});next();});
+
 router.get(
 "/:userId",
 async(req,res)=>{

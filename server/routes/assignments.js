@@ -1,3 +1,4 @@
+const departmentAccess = require('../services/departmentAccess');
 const express =
 require("express");
 
@@ -33,12 +34,12 @@ async(req,res)=>{
 
     })
     .populate(
-        "userId", "name phone email department position skills active airlineQualifications"
+        "userId", "name phone email department position skills active role airlineQualifications"
     );
 
     const flight = await Turnaround.findOne({_id:req.params.turnaroundId,deleted:{$ne:true}});
     if (!flight) return res.status(404).json({error:'Flight not found'});
-    res.json(assignments.map(a => ({...(a.toObject ? a.toObject() : a),
+    res.json(assignments.filter(a => departmentAccess.roles(req.user).includes(a.role) && (!a.userId || departmentAccess.canViewStaff(req.user,a.userId))).map(a => ({...(a.toObject ? a.toObject() : a),
         qualificationWarning:Qualifications.reason(a.userId,flight.airline,a.role,flight.operatingDate)
     })));
 
@@ -64,6 +65,7 @@ async(req,res)=>{
     if (!flight) return res.status(404).json({error:'Flight not found'});
     for (const item of assignments) {
         const target = await User.findById(item.userId);
+        if (!departmentAccess.canViewStaff(req.user,target)) return res.status(400).json({error:"Select an agent in your department"});
         const reason = Qualifications.reason(target,flight.airline,item.role,flight.operatingDate);
         if (reason) return res.status(400).json({error:`${target?.name || 'Agent'}: ${reason}. Assignment blocked; no override is allowed.`});
     }

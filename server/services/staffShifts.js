@@ -3,7 +3,7 @@ const qualifications = require('../../client/js/airlineQualifications');
 const roles = require('./assignmentAccess');
 function canManage(actor, target) {
   const allowed = roles(actor);
-  return allowed.length > 0 && (actor.role === 'ADMIN' || actor.position?.endsWith('_DM') || actor.department === target.department);
+  return allowed.length > 0 && require('./departmentAccess').canViewStaff(actor,target);
 }
 function validate(body) {
   if (!qualifications.date(body?.date)) throw Error('Select a valid roster date');

@@ -41,7 +41,7 @@ test('shift department permissions follow allocator scope and deny ordinary agen
  assert.equal(shifts.canManage({active:true,department:'RAMP',position:'RAMP_ALLOCATOR'},{department:'RAMP'}),true);
  assert.equal(shifts.canManage({active:true,department:'RAMP',position:'RAMP_ALLOCATOR'},{department:'OPERATIONS'}),false);
  assert.equal(shifts.canManage({active:true,department:'RAMP',position:'RAMP_SUPERVISOR'},{department:'RAMP'}),false);
- assert.equal(shifts.canManage({active:true,department:'OPERATIONS',position:'OPERATIONS_DM'},{department:'RAMP'}),true);
+ assert.equal(shifts.canManage({active:true,department:'OPERATIONS',position:'OPERATIONS_DM'},{department:'RAMP'}),false);
 });
 
 test('shift HTTP enforces scope, revision conflicts and copy preview without overwriting target records',async()=>{
