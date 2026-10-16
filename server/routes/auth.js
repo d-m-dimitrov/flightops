@@ -30,7 +30,7 @@ async(req,res)=>{
 
     });
 
-    if(!user){
+    if(!user || !user.active){
 
         return res.status(401)
         .json({
@@ -91,6 +91,8 @@ jwt.sign(
     _id:user._id,
 
     name:user.name,
+    role:user.role,
+    active:user.active,
 
     email:user.email,
 

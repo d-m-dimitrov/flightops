@@ -55,6 +55,7 @@ require("./seed/roleDefinitions");
 
 async function startGenerator() {
     await connectDB();
+    await require("./services/bootstrapSuperAdmin")();
     await seedRoles();
     await seedEvents();
     await require("./services/ensureTurnaroundIndex")(require("./models/Turnaround"));
