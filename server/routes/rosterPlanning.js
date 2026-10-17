@@ -60,14 +60,14 @@ router.post('/publish',async(req,res)=>{
  const draft=await Draft.findOne({department:d,month,status:'DRAFT',revision:expectedRevision});
  if(!draft)return res.status(409).json({error:'Draft changed; reload'});
  const users=await User.find({active:true,department:d,role:{$ne:'ADMIN'}}).select('_id').lean(),ids=new Set(users.map(u=>String(u._id)));
- const existing=await Shift.find({userId:{$in:[...ids]},date:{$gte:month+'-01',$lte:planning.days(month).at(-1)}}).lean();
+ const existing=await Shift.find({userId:{$in:users.map(u=>u._id)},date:{$gte:month+'-01',$lte:planning.days(month).at(-1)}}).lean();
  const occupied=new Set(existing.map(s=>String(s.userId)+'|'+s.date)),prepared=[],skipped=[];
  try{
  for(const entry of draft.entries){
   const key=String(entry.userId)+'|'+entry.date;
   if(!ids.has(String(entry.userId))||!planning.days(month).includes(entry.date))throw Error('Draft includes an out-of-scope employee or date');
   if(occupied.has(key)){skipped.push(key+' already scheduled');continue;}
-  if(entry.status!=='OFF'&&!entry.startTime){skipped.push(key+' has no start time');continue;}
+  if(entry.status!=='OFF'&&!entry.startTime)throw Error('Assign a start time to every working draft cell before publishing: '+key);
   const clock=planning.validateStart(entry.status,entry.startTime);
   const input={date:entry.date,status:entry.status==='OFF'?'OFF':'WORKING',expectedRevision:0,breaks:[]};
   if(clock)Object.assign(input,planning.times(entry.date,clock));
