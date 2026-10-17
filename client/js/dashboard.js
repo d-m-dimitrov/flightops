@@ -691,7 +691,7 @@ function canSeeEvent(def){
 
     return def.roles?.some(
         role =>
-        skills.includes(role)
+        (role === "ARRIVAL_RAMP" && user.active !== false && user.department === "RAMP") || skills.includes(role)
     );
 
 }
@@ -1591,7 +1591,7 @@ async function loadAssignmentEditor(){
         }
         select.value=assigned?.userId?._id || '';
         const help=document.createElement('small');help.className='d-block text-muted';
-        help.textContent=`Valid ${currentFlight?.airline || 'airline'} / ${role.code} training required on ${AirlineQualifications.flightDate(currentFlight,role.code) || 'flight date'}. No override.`;
+        help.textContent=role.code === 'ARRIVAL_RAMP' ? 'Available to every active RAMP employee. No skill or airline training required.' : `Valid ${currentFlight?.airline || 'airline'} / ${role.code} training required on ${AirlineQualifications.flightDate(currentFlight,role.code) || 'flight date'}. No override.`;
         row.append(label,select,help);panel.append(row);
     });
 

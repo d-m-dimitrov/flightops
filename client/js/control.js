@@ -86,7 +86,7 @@ async function openEditor(f) {
     const assignments=await request(`/api/assignments/${f._id}`);
     if(!$('allocation').open || editorRequest !== editorVersion)return;
     edit={flight:f,expectedAssignments:snapshot(assignments,data.roles),roles:[...data.roles]};
-    $('allocationHelp').textContent='Only agents with valid airline/role training for this operating date can be assigned. “Unassigned” removes that role. Other departments are preserved.';
+    $('allocationHelp').textContent='Arrival RAMP: any active RAMP employee. Other roles require valid airline/role training for the movement date. “Unassigned” removes that role. Other departments are preserved.';
     for(const role of edit.roles){
       const label=el('label',labels[role]||role),select=el('select');select.dataset.role=role;select.append(new Option('Unassigned',''));
       const current=assignments.filter(a=>a.role===role),selected=current[0]?.userId;

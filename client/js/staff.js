@@ -717,7 +717,7 @@ function renderSkills(
 
     panel.innerHTML = "";
 
-    skills.filter(skill=>staffDepartmentRoles().includes(skill)).forEach(skill=>{
+    skills.filter(skill=>skill !== 'ARRIVAL_RAMP' && staffDepartmentRoles().includes(skill)).forEach(skill=>{
 
         panel.innerHTML += `
 
@@ -838,10 +838,10 @@ function addQualificationRow(value = {}) {
     for(const [field,title,type] of [['airline','Airline code','text'],['role','Role','select'],['validUntil','Valid until (optional)','date']]){
         const label=document.createElement('label');label.className='col-sm-3 small';label.textContent=title;
         const input=document.createElement(type==='select'?'select':'input');input.className=type==='select'?'form-select':'form-control';input.dataset.field=field;
-        if(type==='select')for(const role of staffDepartmentRoles())input.append(new Option(AirlineQualifications.label(role),role));
+        if(type==='select')for(const role of staffDepartmentRoles().filter(role=>role !== 'ARRIVAL_RAMP' || value.role === role))input.append(new Option(AirlineQualifications.label(role),role));
         else input.type=type;
         if(field==='airline'){input.maxLength=3;input.placeholder='SQ';input.style.textTransform='uppercase';}
-        input.value=value[field] || (field==='role'?staffDepartmentRoles()[0]:'');label.append(input);row.append(label);
+        input.value=value[field] || (field==='role'?staffDepartmentRoles().find(role=>role !== 'ARRIVAL_RAMP'):'');label.append(input);row.append(label);
     }
     const remove=document.createElement('button');remove.type='button';remove.className='btn btn-outline-danger btn-sm col-sm-3';remove.textContent='Remove';remove.onclick=()=>row.remove();row.append(remove);
     document.getElementById('qualificationRows').append(row);

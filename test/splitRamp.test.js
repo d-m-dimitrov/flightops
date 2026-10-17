@@ -18,8 +18,10 @@ test('RAMP Allocator can allocate both RAMP roles to one or different agents and
  req.body.assignments[1].userId=two;res=response();await handler(req,res);assert.equal(res.statusCode,200);
  assert.equal(rows.find(a=>a.role==='RAMP').userId,two);assert.equal(rows.find(a=>a.role==='ARRIVAL_RAMP').acceptedAt,'2026-10-15T08:00:00Z');
  users[two].airlineQualifications=users[two].airlineQualifications.filter(q=>q.role!=='ARRIVAL_RAMP');
- req.body.assignments[0].userId=two;res=response();await handler(req,res);assert.equal(res.statusCode,400);
- assert.equal(rows.find(a=>a.role==='ARRIVAL_RAMP').userId,one);
+ users[two].skills=['RAMP'];
+ req.body.assignments[0].userId=two;res=response();await handler(req,res);assert.equal(res.statusCode,200);
+ assert.equal(rows.find(a=>a.role==='ARRIVAL_RAMP').userId,two);
+ users[two].airlineQualifications=[];res=response();await handler(req,res);assert.equal(res.statusCode,400);
 });
 test('accepting arrival RAMP does not accept departure RAMP, even for the same agent',async()=>{
  const uid='a'.repeat(24),fid='b'.repeat(24),a='c'.repeat(24),d='d'.repeat(24);
@@ -31,14 +33,16 @@ test('accepting arrival RAMP does not accept departure RAMP, even for the same a
  let res=response();await handler(req,res);assert.equal(res.statusCode,200);assert.ok(rows[0].acceptedAt);assert.equal(rows[1].acceptedAt,undefined);
  req.params.assignmentId=d;res=response();await handler(req,res);assert.equal(res.statusCode,200);assert.ok(rows[1].acceptedAt);
 });
-test('Arrival RAMP uses arrival day and window, needs separate training, and cannot handle departure documents',async()=>{
+test('Arrival RAMP uses arrival day and window, requires no airline training, and cannot handle departure documents',async()=>{
  const day=require('../server/services/flightDay'),gate=require('../server/services/gateItems');
  const f={operatingDate:'2026-10-17',departureDayOffset:1,arrival:{staAt:'2026-10-17T21:00:00Z'},departure:{stdAt:'2026-10-18T05:00:00Z'},assignments:[{role:'ARRIVAL_RAMP'}]};
  assert.equal(day.roleOnDay(f,'ARRIVAL_RAMP','2026-10-17'),true);
  assert.equal(day.roleOnDay(f,'ARRIVAL_RAMP','2026-10-18'),false);
  assert.equal(tasks.target(f).label,'STA');assert.equal(control.windowFor(f,'ARRIVAL_RAMP')[0],Date.parse(f.arrival.staAt)-30*60000);
  const user={_id:'arrival',active:true,department:'RAMP',skills:['RAMP','ARRIVAL_RAMP'],airlineQualifications:[{airline:'SQ',role:'RAMP'}]};
- assert.match(qualifications.reason(user,'SQ','ARRIVAL_RAMP','2026-10-17'),/No SQ/);
+ assert.equal(qualifications.reason({...user,skills:[]},'SQ','ARRIVAL_RAMP','2026-10-17'),null);
+ assert.match(qualifications.reason({...user,active:false},'SQ','ARRIVAL_RAMP','2026-10-17'),/inactive/);
+ assert.match(qualifications.reason({...user,department:'OPERATIONS'},'SQ','ARRIVAL_RAMP','2026-10-17'),/department/);
  user.airlineQualifications.push({airline:'SQ',role:'ARRIVAL_RAMP',validUntil:'2026-10-17'});
  assert.equal(qualifications.reason(user,'SQ','ARRIVAL_RAMP',qualifications.flightDate(f,'ARRIVAL_RAMP')),null);
  assert.equal(qualifications.label('RAMP'),'Departure RAMP');

@@ -10,7 +10,8 @@
     return rows.map(row => {
       const code = airline(row?.airline), role = row?.role, validUntil = row?.validUntil == null || row?.validUntil === '' ? null : row.validUntil;
       if (!/^[A-Z0-9]{2,3}$/.test(code)) throw Error('Use the airline code from the flight schedule (2–3 letters/digits)');
-      if (!roles.includes(role)) throw Error('Select a valid qualification role');
+      if (role === 'ARRIVAL_RAMP') return user.department === 'RAMP' ? null : 'RAMP department required';
+    if (!roles.includes(role)) throw Error('Select a valid qualification role');
       if (validUntil !== null && !date(validUntil)) throw Error('Select a valid expiry date or leave it blank for no expiry');
       const key = `${code}:${role}`;
       if (seen.has(key)) throw Error(`Duplicate qualification: ${code} ${role}`);
@@ -20,6 +21,7 @@
   }
   function reason(user, code, role, operatingDate) {
     if (!user?.active) return 'Agent is inactive or unavailable';
+    if (role === 'ARRIVAL_RAMP') return user.department === 'RAMP' ? null : 'RAMP department required';
     if (!roles.includes(role) || !user.skills?.includes(role)) return `Missing ${role} skill`;
     if (['RAMP','ARRIVAL_RAMP'].includes(role) && user.department !== 'RAMP') return 'RAMP department required';
     code = airline(code);
