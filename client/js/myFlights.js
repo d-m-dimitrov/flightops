@@ -24,7 +24,7 @@ function render(){
   if(!FlightTasks.closed(f))for(const a of f.assignments.filter(a=>!a.acceptedAt)){
    const button=el('button',`Accept ${FlightTasks.label(a.role)}`,'btn btn-success');button.onclick=async()=>{button.disabled=true;busy=true;try{await request(`/api/acknowledgements/${f._id}/assignments/${a._id}/accept`,{method:'POST'});await refresh();}catch(error){$('message').textContent=error.message;}finally{busy=false;button.disabled=false;}};buttons.append(button);
   }
-  for(const [label,url] of [['Open flight',`dashboard.html?id=${f._id}`],['Check-in → Gate',`handover.html?id=${f._id}`],['Gate items',`gate-items.html?id=${f._id}`],...(f.canLir?[['Open LIR',`lir.html?id=${f._id}`]]:[])]){const link=el('a',label,'btn btn-outline-primary');link.href=url;buttons.append(link);}
+  for(const [label,url] of [['Open flight',`dashboard.html?id=${f._id}`],['Messages',`messages.html?id=${f._id}`],['Check-in → Gate',`handover.html?id=${f._id}`],['Gate items',`gate-items.html?id=${f._id}`],...(f.canLir?[['Open LIR',`lir.html?id=${f._id}`]]:[])]){const link=el('a',label,'btn btn-outline-primary');link.href=url;buttons.append(link);}
   $('cards').append(card);
  }
 }

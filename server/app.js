@@ -64,6 +64,7 @@ async function startGenerator() {
     await require("./models/GateItems").init();
     await require("./models/ChatReadState").init();
     await require("./models/StaffShift").init();
+    await require("./models/FlightMessage").init();
     await generateTurnarounds();
     // Schedule the next run after completion, avoiding overlapping async intervals.
     const run = async () => {
@@ -77,6 +78,7 @@ async function startGenerator() {
 app.use(cors());
 app.use("/api/lir", require("./routes/lir"));
 app.use(express.json());
+app.use("/api/flight-messages", require("./routes/flightMessages"));
 app.use("/api/gate-items", require("./routes/gateItems"));
 app.use("/api/shifts", require("./routes/shifts"));
 app.use("/api/control", require("./routes/control"));
