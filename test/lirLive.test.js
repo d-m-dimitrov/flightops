@@ -25,6 +25,10 @@ test('live LIR authenticates viewers, isolates documents, protects RAMP ownershi
  assert.equal((await send(ops,'draft',payload)).ok,false);
  assert.equal((await send(ramp,'draft',payload)).ok,true);
  assert.equal(ops.received.at(-1).data.author,'Ramp One');assert.equal(other.received.length,0);
+ // Re-watching the same document must not clear the active owner's draft.
+ const clearedBefore=ops.received.filter(e=>e.name==='draftCleared').length;
+ await send(ramp,'watch',{documentId:id});
+ assert.equal(ops.received.filter(e=>e.name==='draftCleared').length,clearedBefore);
  await send(other,'watch',{documentId:id});assert.equal(other.received.at(-1).data.annotations.length,1); // Late join receives preview.
  assert.equal((await send(other,'draft',payload)).ok,false); // One preview owner.
  ramp.disconnect();assert.equal(ops.received.at(-1).name,'draftCleared');
