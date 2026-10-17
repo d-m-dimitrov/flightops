@@ -48,7 +48,10 @@ function watchLive() {
   live.emit('watch',{documentId:id}, result => {
     if(state.doc?._id!==id)return;
     if(!result.ok)liveStatus(result.error);
-    else if(!remoteDraft)liveStatus('Live connected · annotations appear here before Save.');
+    else if(!remoteDraft){
+      liveStatus(state.dirty ? 'Editing locally · reconnecting live preview…' : 'Live connected · annotations appear here before Save.');
+      if(state.dirty)queueLive();
+    }
   });
 }
 function publishLive() {
@@ -59,8 +62,10 @@ function publishLive() {
   live.emit('draft',{documentId:id,expectedVersion:state.doc.annotationVersion,annotations:state.annotations}, result=>{
     if(state.doc?._id!==id || state.doc.annotationVersion!==version || !state.dirty)return;
     if(result.retry){queueLive();return;}
-    if(!result.ok){state.stale=true;liveStatus(result.error);controls();}
-    else liveStatus('LIVE · Sharing your unsaved annotations. Use Save to keep them.');
+    if(!result.ok){
+      if(!live.connected){liveStatus('Connection lost · editing locally. Unsaved annotations are preserved.');return;}
+      state.stale=true;liveStatus(result.error);controls();
+    } else liveStatus('LIVE · Sharing your unsaved annotations. Use Save to keep them.');
   });
 }
 function queueLive() { if(liveTimer)clearTimeout(liveTimer);liveTimer=setTimeout(publishLive,150); }
@@ -69,11 +74,14 @@ function releaseLive() {
   if(live.connected)live.emit('leave',{});
   remoteDraft=null;
 }
-live.on('connect',watchLive);
-live.on('connect_error',()=>liveStatus('Live unavailable. You can still save normally; reconnect or sign in again.'));
+live.on('connect',()=>{
+  liveStatus(state.dirty ? 'Editing locally · restoring live preview…' : 'Live connected · waiting for LIR…');
+  watchLive();
+});
+live.on('connect_error',()=>liveStatus('Connection lost · editing locally. You can still save normally; reconnect or sign in again.'));
 live.on('disconnect',()=>{
   remoteDraft=null;redraw();controls();
-  liveStatus('Live disconnected · displaying saved or local annotations.');
+  liveStatus('Connection lost · displaying saved or local annotations. Local edits are preserved.');
 });
 live.on('draft',draft=>{
   if(draft.documentId!==state.doc?._id || draft.expectedVersion!==state.doc.annotationVersion || draft.owner===live.id || state.doc.status==='COMPLETED')return;
@@ -83,6 +91,12 @@ live.on('draft',draft=>{
 });
 live.on('draftCleared',data=>{
   if(data.documentId!==state.doc?._id)return;
+  // A cleared draft may be our own (save, release, or reconnect). Never replace
+  // the active editor status unless we were actually viewing another operator.
+  if(!remoteDraft){
+    if(state.dirty && live.connected)queueLive();
+    return;
+  }
   remoteDraft=null;redraw();controls();
   liveStatus('Live preview ended · displaying saved or local annotations.');
 });
