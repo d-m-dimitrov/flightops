@@ -53,7 +53,7 @@ function attach(io) {
       if (!validId(body.documentId)) throw new Error('Invalid document');
       const doc = await Lir.findById(body.documentId).select('turnaroundId');
       if (!doc || !await Turnaround.exists({ _id:doc.turnaroundId, deleted:{ $ne:true } })) throw new Error('LIR not found');
-      release(); if (joined) await socket.leave(room(joined));
+      if (joined && joined !== body.documentId) { release(); await socket.leave(room(joined)); }
       joined = body.documentId;
       await socket.join(room(joined));
       const draft = drafts.get(joined);
