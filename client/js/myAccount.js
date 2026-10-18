@@ -9,7 +9,7 @@ async function loadProfile(){
  try{
   const response=await fetch('/api/auth/me',{headers:{Authorization:'Bearer '+(localStorage.getItem('token')||'')},cache:'no-store'});
   if(!response.ok)throw Error((await response.json()).error||'Could not load profile');
-  const {profile,shifts}=await response.json();
+  const {profile,shifts,cycle}=await response.json();
   for(const [id,value] of [['profileName',profile.name],['profileEmail',profile.email],['profileDepartment',profile.department],['profilePosition',profile.position],['profilePhone',profile.phone],['profileLastLogin',profile.lastLoginAt?new Date(profile.lastLoginAt).toLocaleString('en-GB',{timeZone:'Europe/London'}):null]])document.getElementById(id).textContent=value||'—';
   const qualifications=document.getElementById('qualificationRows');qualifications.replaceChildren();
   const dateParts=Object.fromEntries(new Intl.DateTimeFormat('en-GB',{timeZone:'Europe/London',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date()).map(p=>[p.type,p.value]));
@@ -36,7 +36,17 @@ async function loadProfile(){
    const number=document.createElement('div');number.className='day-number';number.textContent=date.toLocaleDateString('en-GB',{day:'numeric',month:'short',timeZone:'UTC'});
    const label=document.createElement('span');label.className='shift-label';
    const time=document.createElement('div');time.className='shift-time';
-   if(!shift){label.textContent='Not scheduled';}
+   if(!shift){
+    const patterns={EELL00:['EARLY','EARLY','LATE','LATE','OFF','OFF'],LLLL00:['LATE','LATE','LATE','LATE','OFF','OFF']};
+    const pattern=patterns[cycle?.pattern];
+    if(pattern && cycle.startDate){
+     const delta=Math.round((Date.parse(iso+'T12:00:00Z')-Date.parse(cycle.startDate+'T12:00:00Z'))/86400000);
+     const type=pattern[((delta%6)+6)%6];
+     cell.classList.add(type.toLowerCase());
+     label.textContent=type+' · Projected';
+     time.textContent='Cycle estimate';
+    }else label.textContent='Not scheduled';
+   }
    else if(shift.status==='OFF'){cell.classList.add('off');label.textContent='Off';}
    else if(shift.status==='ABSENT'){cell.classList.add('absent');label.textContent='Absent';}
    else if(shift.status==='WORKING'){
