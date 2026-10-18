@@ -245,6 +245,8 @@ document.addEventListener(
             showCurrentUser();
 
             applyMenuPermissions();
+            const info=document.getElementById('currentUserInfo');
+            if(info && !document.getElementById('myAccountLink')){const link=document.createElement('a');link.id='myAccountLink';link.href='my-account.html';link.className='text-white text-decoration-underline ms-2';link.textContent='My Account';info.append(link);}
 
         }
 
