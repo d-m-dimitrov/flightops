@@ -11,6 +11,7 @@
     ['messages', '#messagesLink'],
     ['lir', '#lirCard'],
     ['staff', '#staffPanel'],
+    ['events', '#eventButtons'],
     ['timeline', '#timeline'],
     ['chat', '#chatMessages']
   ];
@@ -63,8 +64,8 @@
       const bodyId = 'flight-panel-body-' + key;
       body.id ||= bodyId;
       button.setAttribute('aria-controls', body.id);
-      let collapsed = false;
-      try { collapsed = localStorage.getItem(prefix + key + ':collapsed') === 'true'; } catch {}
+      // Every dashboard panel starts collapsed on each page load.
+      // Do not restore previous expansion state.
       const panel = {key, card, body, button, badge, label, el, lastValue:null, lastSeen:null, unread:false, ready:false};
       panels.set(key, panel);
       function toggle(expanded) {
@@ -76,7 +77,7 @@
         if (expanded) markRead(panel);
       }
       button.onclick = () => toggle(button.getAttribute('aria-expanded') !== 'true');
-      toggle(!collapsed);
+      toggle(false);
       try { panel.lastSeen = localStorage.getItem(prefix + key + ':seen'); } catch {}
     }
   }
