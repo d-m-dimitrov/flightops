@@ -71,6 +71,8 @@ async function loadSchedules(){
 
                 Aircraft:
                 ${schedule.aircraftType}
+                </div><div>Type: ${schedule.arrivalFlightType || 'PASSENGER'} → ${schedule.departureFlightType || 'PASSENGER'} · ${schedule.serviceType || 'SCHEDULED'}
+                </div><div>Valid: ${schedule.validFrom || 'Open'} — ${schedule.validTo || 'Open'}
 
                 </div>
 
@@ -106,6 +108,11 @@ async function loadSchedules(){
 
 
 function newSchedule(){
+    document.getElementById("arrivalFlightType").value="PASSENGER";
+    document.getElementById("departureFlightType").value="SAME";
+    document.getElementById("serviceType").value="SCHEDULED";
+    document.getElementById("validFrom").value="";
+    document.getElementById("validTo").value="";
     document.getElementById("departureDayOffset").value = "0";
     document.getElementById("scheduleOccurrence").value = "reject";
 
@@ -172,7 +179,17 @@ async function saveSchedule(){
 
     });
 
+    const arrivalFlightType=document.getElementById("arrivalFlightType").value;
+    const selectedDepartureType=document.getElementById("departureFlightType").value;
+    const validFrom=document.getElementById("validFrom").value;
+    const validTo=document.getElementById("validTo").value;
+    if(validFrom && validTo && validFrom>validTo){alert("Valid To must not precede Valid From");return;}
     const payload = {
+        arrivalFlightType,
+        departureFlightType:selectedDepartureType==="SAME"?arrivalFlightType:selectedDepartureType,
+        serviceType:document.getElementById("serviceType").value,
+        validFrom:validFrom || null,
+        validTo:validTo || null,
         departureDayOffset:Number(document.getElementById("departureDayOffset").value),
         timeDisambiguation:document.getElementById("scheduleOccurrence").value,
 
@@ -246,6 +263,11 @@ async function editSchedule(id){
 
     const schedule =
     await response.json();
+    document.getElementById("arrivalFlightType").value=schedule.arrivalFlightType || "PASSENGER";
+    document.getElementById("departureFlightType").value=(schedule.departureFlightType || "PASSENGER")===(schedule.arrivalFlightType || "PASSENGER")?"SAME":schedule.departureFlightType;
+    document.getElementById("serviceType").value=schedule.serviceType || "SCHEDULED";
+    document.getElementById("validFrom").value=schedule.validFrom || "";
+    document.getElementById("validTo").value=schedule.validTo || "";
 
     document.getElementById("departureDayOffset").value = schedule.departureDayOffset ?? Number(schedule.std < schedule.sta);
     document.getElementById("scheduleOccurrence").value = schedule.timeDisambiguation || "reject";
