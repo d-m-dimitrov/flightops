@@ -365,16 +365,13 @@ async function saveUser(){
 
                     name,
                     phone,
-                    email,
+                    ...(getCurrentUser().role === 'ADMIN' ? {email, password, active} : {}),
 
                     department,
                     position,
                     skills,
                     airlineQualifications,
-                    expectedQualificationRevision:qualificationRevision,
-
-                    password,
-                    active
+                    expectedQualificationRevision:qualificationRevision
 
                 })
 
