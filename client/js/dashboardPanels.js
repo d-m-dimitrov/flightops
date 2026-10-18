@@ -51,9 +51,9 @@
       // Preserve interactive controls in the header (e.g. Staff Edit / links).
       const headerNodes = [...header.childNodes];
       const titleNode = headerNodes.find(node => node.nodeType === Node.TEXT_NODE && node.textContent.trim());
-      if (header.querySelector('span') && key === 'staff') {
-        const title = header.querySelector('span');
-        button.querySelector('.panel-label').replaceChildren(title);
+      if (key === 'staff') {
+        // Keep handover/gate links and Edit button outside the toggle button.
+        button.querySelector('.panel-label').textContent = 'Staff';
       } else if (titleNode) {
         titleNode.remove();
       }
