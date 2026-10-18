@@ -63,6 +63,7 @@ jwt.sign(
     {
 
         id:user._id,
+        sessionVersion:user.sessionVersion || 0,
 
         department:user.department,
 
@@ -81,6 +82,8 @@ jwt.sign(
     }
 
 );
+
+    await User.updateOne({_id:user._id},{$set:{lastLoginAt:new Date()}});
 
     res.json({
 
