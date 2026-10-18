@@ -12,7 +12,8 @@ async function loadProfile(){
   const {profile,shifts}=await response.json();
   for(const [id,value] of [['profileName',profile.name],['profileEmail',profile.email],['profileDepartment',profile.department],['profilePosition',profile.position],['profilePhone',profile.phone],['profileLastLogin',profile.lastLoginAt?new Date(profile.lastLoginAt).toLocaleString('en-GB',{timeZone:'Europe/London'}):null]])document.getElementById(id).textContent=value||'—';
   const qualifications=document.getElementById('qualificationRows');qualifications.replaceChildren();
-  const today=new Date().toLocaleDateString('en-CA',{timeZone:'Europe/London'});
+  const dateParts=Object.fromEntries(new Intl.DateTimeFormat('en-GB',{timeZone:'Europe/London',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date()).map(p=>[p.type,p.value]));
+  const today=dateParts.year+'-'+dateParts.month+'-'+dateParts.day;
   const soon=new Date(today+'T12:00:00Z');soon.setUTCDate(soon.getUTCDate()+30);
   const cutoff=soon.toISOString().slice(0,10);
   for(const q of profile.airlineQualifications||[]){
@@ -21,9 +22,32 @@ async function loadProfile(){
    addRow(qualifications,[q.airline||'—',q.role||'—',expiry||'No expiry',status]);
   }
   if(!qualifications.children.length)showEmpty(qualifications,'No airline qualifications recorded.',4);
-  const roster=document.getElementById('shiftRows');roster.replaceChildren();
-  for(const shift of shifts||[])addRow(roster,[shift.date,shift.status,londonTime(shift.start),londonTime(shift.end)]);
-  if(!roster.children.length)showEmpty(roster,'No shifts recorded for the next 14 days.',4);
+  const grid=document.getElementById('rosterGrid');grid.replaceChildren();
+  const londonDate=new Intl.DateTimeFormat('en-GB',{timeZone:'Europe/London',year:'numeric',month:'2-digit',day:'2-digit'});
+  const parts=Object.fromEntries(londonDate.formatToParts(new Date()).map(p=>[p.type,p.value]));
+  const today=parts.year+'-'+parts.month+'-'+parts.day;
+  const byDate=new Map((shifts||[]).map(shift=>[shift.date,shift]));
+  const start=new Date(today+'T12:00:00Z');
+  for(let i=0;i<14;i++){
+   const date=new Date(start);date.setUTCDate(start.getUTCDate()+i);
+   const iso=date.toISOString().slice(0,10),shift=byDate.get(iso);
+   const cell=document.createElement('div');cell.className='my-roster-day';
+   if(iso===today)cell.classList.add('today');
+   const weekday=document.createElement('div');weekday.className='day-name';weekday.textContent=date.toLocaleDateString('en-GB',{weekday:'short',timeZone:'UTC'});
+   const number=document.createElement('div');number.className='day-number';number.textContent=date.toLocaleDateString('en-GB',{day:'numeric',month:'short',timeZone:'UTC'});
+   const label=document.createElement('span');label.className='shift-label';
+   const time=document.createElement('div');time.className='shift-time';
+   if(!shift){label.textContent='Not scheduled';}
+   else if(shift.status==='OFF'){cell.classList.add('off');label.textContent='Off';}
+   else if(shift.status==='ABSENT'){cell.classList.add('absent');label.textContent='Absent';}
+   else if(shift.status==='WORKING'){
+    const hour=shift.start?Number(londonTime(shift.start).slice(0,2)):NaN;
+    const type=hour<8?'Early':hour<12?'Day':'Late';
+    cell.classList.add(type.toLowerCase());label.textContent=type;
+    time.textContent=shift.start&&shift.end?londonTime(shift.start)+'–'+londonTime(shift.end):'Time not set';
+   }else label.textContent=shift.status||'Not scheduled';
+   cell.append(weekday,number,label,time);grid.append(cell);
+  }
  }catch(error){notice.className='alert alert-danger';notice.textContent=error.message;}
 }
 loadProfile();
