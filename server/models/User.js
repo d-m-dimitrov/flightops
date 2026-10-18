@@ -33,6 +33,8 @@ const UserSchema = new mongoose.Schema({
     qualificationsUpdatedAt:Date,
     qualificationsUpdatedBy:{type:mongoose.Schema.Types.ObjectId,ref:'User'},
 
+    lastLoginAt:Date,
+    sessionVersion:{type:Number,default:0},
     passwordHash:String
 
 },{
