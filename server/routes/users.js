@@ -131,7 +131,7 @@ async(req,res)=>{
     if (airlineQualifications.some(q=>!access.roles({active:true,department:req.body.department}).includes(q.role))) return res.status(400).json({error:'Qualifications must belong to the employee department'});
     let passwordHash = "";
 
-    if(req.body.password){
+    if(access.superAdmin(req.user) && req.body.password){
 
         passwordHash =
         await bcrypt.hash(
