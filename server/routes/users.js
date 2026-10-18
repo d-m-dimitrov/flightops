@@ -41,6 +41,7 @@ async(req,res)=>{
     const target = await User.findById(req.params.id);
     if (!target || !access.canManageStaff(req.user,target)) return res.status(404).json({error:'Staff record not found in your department'});
     if (req.body.role !== undefined) return res.status(400).json({error:'Account roles cannot be changed here'});
+    if (!access.superAdmin(req.user) && (req.body.password || req.body.active !== undefined || req.body.email !== undefined)) return res.status(403).json({error:'Only Super Admin can manage account access, email and passwords'});
     if (!access.superAdmin(req.user) && req.body.department !== req.user.department) return res.status(403).json({error:'You cannot move staff to another department'});
     if (!positions.some(p => p.department === req.body.department && p.code === req.body.position)) return res.status(400).json({error:'Select a position in the chosen department'});
     if (!Array.isArray(req.body.skills) || req.body.skills.some(role => !access.roles({active:true,role:'OPERATIONS',department:req.body.department}).includes(role))) return res.status(400).json({error:'Skills must belong to the employee department'});
@@ -51,7 +52,7 @@ const updateData = {
 
     phone:req.body.phone,
 
-    email:req.body.email,
+    ...(access.superAdmin(req.user) ? {email:req.body.email} : {}),
 
     department:req.body.department,
 
@@ -59,11 +60,11 @@ const updateData = {
 
     skills:req.body.skills || [],
 
-    active:req.body.active
+    ...(access.superAdmin(req.user) ? {active:req.body.active} : {})
 
 };
 
-    if(req.body.password){
+    if(access.superAdmin(req.user) && req.body.password){
 
         updateData.passwordHash =
         await bcrypt.hash(
@@ -120,6 +121,7 @@ router.post(
 async(req,res)=>{
 
     if (req.body.role !== undefined) return res.status(400).json({error:'Account roles cannot be assigned here'});
+    if (!access.superAdmin(req.user) && (req.body.password || req.body.active !== undefined || req.body.email !== undefined)) return res.status(403).json({error:'Only Super Admin can create login accounts'});
     if (!access.superAdmin(req.user) && req.body.department !== req.user.department) return res.status(403).json({error:'You can create staff only in your department'});
     if (!positions.some(p => p.department === req.body.department && p.code === req.body.position)) return res.status(400).json({error:'Select a position in the chosen department'});
     if (!Array.isArray(req.body.skills) || req.body.skills.some(role => !access.roles({active:true,role:'OPERATIONS',department:req.body.department}).includes(role))) return res.status(400).json({error:'Skills must belong to the employee department'});
@@ -149,7 +151,7 @@ await User.create({
 
     phone:req.body.phone,
 
-    email:req.body.email,
+    ...(access.superAdmin(req.user) ? {email:req.body.email} : {}),
 
     department:req.body.department,
 
@@ -157,7 +159,7 @@ await User.create({
 
     skills:req.body.skills || [],
 
-    active:req.body.active,
+    active:access.superAdmin(req.user) ? req.body.active !== false : false,
     role:"OPERATIONS",
 
     airlineQualifications,
