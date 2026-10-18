@@ -558,97 +558,51 @@ if(sort === "POSITION"){
 
 }
 
-    const panel =
-    document.getElementById(
-        "staffList"
-    );
-
-    panel.innerHTML = "";
-
-    for(const user of users){
-
-        const skillsText =
-
-        (user.skills || []).map(AirlineQualifications.label)
-        .join(", ");
-
-        panel.innerHTML += `
-
-        <div class="card mb-3">
-
-            <div class="card-body">
-
-                <h5>
-
-                ${user.name}
-
-                </h5>
-
-                <div>
-
-                📞 ${user.phone || "-"}
-
-                </div>
-
-                <div>
-
-                📧 ${user.email || "-"}
-
-                </div>
-
-                <div class="mt-2">
-
-                🏢
-                ${user.department || "-"}
-
-                </div>
-
-                <div>
-
-                👔
-                ${user.position || "-"}
-
-                </div>
-
-                <div>
-
-                🛠
-                ${skillsText || "-"}<div class="small text-muted">Airline qualifications: ${(user.airlineQualifications || []).length}</div>
-
-                </div>
-
-                <div class="mt-2">
-
-                ${
-                    user.active !== false
-                    ?
-                    "🟢 Active"
-                    :
-                    "🔴 Disabled"
-                }
-
-                </div>
-
-                <button
-                    class="btn btn-primary btn-sm mt-3"
-                    onclick="
-                    editUser(
-                    '${user._id}'
-                    )
-                    ">
-
-                    Edit
-
-                </button>
-
-            </div>
-
-        </div>
-
-        `;
-
+    const panel = document.getElementById("staffList");
+    panel.replaceChildren();
+    const wrapper = document.createElement('div');
+    wrapper.className = 'table-responsive border rounded bg-white';
+    const table = document.createElement('table');
+    table.className = 'table table-striped table-hover align-middle mb-0';
+    const thead = document.createElement('thead');
+    thead.className = 'table-light';
+    const header = document.createElement('tr');
+    for (const label of ['Name','Department','Position','Phone','Email','Skills','Qualifications','Status','Actions']) {
+        const th=document.createElement('th');th.scope='col';th.textContent=label;header.append(th);
     }
-
+    thead.append(header);
+    const tbody=document.createElement('tbody');
+    for (const employee of users) {
+        const tr=document.createElement('tr');
+        const fields=[
+            employee.name || '—',
+            employee.department || '—',
+            employee.position || '—',
+            employee.phone || '—',
+            employee.email || '—',
+            (employee.skills || []).map(AirlineQualifications.label).join(', ') || '—',
+            String((employee.airlineQualifications || []).length)
+        ];
+        for(const value of fields){
+            const td=document.createElement('td');td.textContent=value;tr.append(td);
+        }
+        const status=document.createElement('td');
+        const badge=document.createElement('span');
+        badge.className='badge '+(employee.active!==false?'text-bg-success':'text-bg-secondary');
+        badge.textContent=employee.active!==false?'Active':'Disabled';
+        status.append(badge);tr.append(status);
+        const action=document.createElement('td');
+        const button=document.createElement('button');
+        button.type='button';button.className='btn btn-sm btn-outline-primary';
+        button.textContent='Edit';button.addEventListener('click',()=>editUser(employee._id));
+        action.append(button);tr.append(action);tbody.append(tr);
+    }
+    if(!users.length){
+        const tr=document.createElement('tr'),td=document.createElement('td');
+        td.colSpan=9;td.className='text-center text-muted py-4';td.textContent='No employees match the selected filters.';
+        tr.append(td);tbody.append(tr);
+    }
+    table.append(thead,tbody);wrapper.append(table);panel.append(wrapper);
 }
 
 
