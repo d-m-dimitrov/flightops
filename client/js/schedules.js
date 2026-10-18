@@ -16,96 +16,67 @@ if(
 let scheduleModal;
 
 
-async function loadSchedules(){
-
-    const response =
-    await fetch(
-        "/api/schedules"
-    );
-
-    const schedules =
-    await response.json();
-
-    const panel =
-    document.getElementById(
-        "scheduleList"
-    );
-
-    panel.innerHTML = "";
-
-    schedules.forEach(schedule=>{
-
-        panel.innerHTML += `
-
-        <div class="card mb-3">
-
-            <div class="card-body">
-
-                <h5>
-
-                ${schedule.arrivalFlight}
-                /
-                ${schedule.departureFlight}
-
-                </h5>
-
-                <div>
-
-                ${schedule.origin}
-                →
-                ${schedule.destination}
-
-                </div>
-
-                <div>
-
-                STA:
-                ${schedule.sta}
-
-                STD:
-                ${schedule.std} (+${schedule.departureDayOffset ?? Number(schedule.std < schedule.sta)}d, London)
-
-                </div>
-
-                <div>
-
-                Aircraft:
-                ${schedule.aircraftType}
-                </div><div>Type: ${schedule.arrivalFlightType || 'PASSENGER'} → ${schedule.departureFlightType || 'PASSENGER'} · ${schedule.serviceType || 'SCHEDULED'}
-                </div><div>Valid: ${schedule.validFrom || 'Open'} — ${schedule.validTo || 'Open'}
-
-                </div>
-
-                <div>
-
-                Days:
-                ${schedule.daysOfWeek?.join(", ")}
-
-                </div>
-
-                <button
-                    class="btn btn-sm btn-primary mt-2"
-                    onclick="
-                    editSchedule(
-                    '${schedule._id}'
-                    )
-                    ">
-
-                    Edit
-
-                </button>
-
-            </div>
-
-        </div>
-
-        `;
-
+let allSchedules = [];
+const escapeSchedule = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const dayNames = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+function renderScheduleTable() {
+    const query = document.getElementById('scheduleSearch').value.trim().toLowerCase();
+    const airline = document.getElementById('scheduleAirlineFilter').value;
+    const type = document.getElementById('scheduleTypeFilter').value;
+    const status = document.getElementById('scheduleStatusFilter').value;
+    const date = document.getElementById('scheduleDateFilter').value;
+    const rows = allSchedules.filter(s => {
+        if (airline && s.airline !== airline) return false;
+        if (type && ![s.arrivalFlightType || 'PASSENGER', s.departureFlightType || 'PASSENGER'].includes(type)) return false;
+        if (status && (s.active !== false ? 'active' : 'inactive') !== status) return false;
+        if (date && ((s.validFrom && date < s.validFrom) || (s.validTo && date > s.validTo))) return false;
+        if (date) {
+            const weekday = new Date(date + 'T12:00:00Z').getUTCDay() || 7;
+            if (!s.daysOfWeek?.includes(weekday)) return false;
+        }
+        return !query || [s.airline,s.arrivalFlight,s.departureFlight,s.origin,s.destination,s.aircraftType]
+            .some(v => String(v || '').toLowerCase().includes(query));
     });
-
+    document.getElementById('scheduleCount').textContent = `Showing ${rows.length} of ${allSchedules.length} schedules`;
+    const panel = document.getElementById('scheduleList');
+    if (!rows.length) {
+        panel.innerHTML = '<div class="alert alert-light border">No schedules match the selected filters.</div>';
+        return;
+    }
+    panel.innerHTML = `<div class="table-responsive"><table class="table table-striped table-hover align-middle">
+    <thead><tr><th>Airline</th><th>Flights</th><th>Route</th><th>STA / STD</th><th>Aircraft</th><th>Flight Type</th><th>Service</th><th>Days</th><th>Validity</th><th>Status</th><th></th></tr></thead>
+    <tbody>${rows.map(s => `<tr>
+      <td class="fw-semibold">${escapeSchedule(s.airline)}</td>
+      <td>${escapeSchedule(s.arrivalFlight)} / ${escapeSchedule(s.departureFlight)}</td>
+      <td>${escapeSchedule(s.origin)} → ${escapeSchedule(s.destination)}</td>
+      <td class="text-nowrap">${escapeSchedule(s.sta)} / ${escapeSchedule(s.std)}${(s.departureDayOffset ?? Number(s.std < s.sta)) ? ' (+' + escapeSchedule(s.departureDayOffset ?? 1) + 'd)' : ''}</td>
+      <td>${escapeSchedule(s.aircraftType)}</td>
+      <td class="text-nowrap">${escapeSchedule(s.arrivalFlightType || 'PASSENGER')} → ${escapeSchedule(s.departureFlightType || 'PASSENGER')}</td>
+      <td>${escapeSchedule(s.serviceType || 'SCHEDULED')}</td>
+      <td class="text-nowrap">${(s.daysOfWeek || []).map(d => escapeSchedule(dayNames[d-1] || d)).join(' ')}</td>
+      <td class="text-nowrap">${escapeSchedule(s.validFrom || 'Open')} — ${escapeSchedule(s.validTo || 'Open')}</td>
+      <td><span class="badge ${s.active === false ? 'text-bg-secondary' : 'text-bg-success'}">${s.active === false ? 'Inactive' : 'Active'}</span></td>
+      <td><button class="btn btn-sm btn-outline-primary schedule-edit" data-id="${escapeSchedule(s._id)}">Edit</button></td>
+    </tr>`).join('')}</tbody></table></div>`;
+    panel.querySelectorAll('.schedule-edit').forEach(btn => btn.addEventListener('click', () => editSchedule(btn.dataset.id)));
 }
-
-
+async function loadSchedules() {
+    const response = await fetch('/api/schedules');
+    if (!response.ok) { document.getElementById('scheduleList').textContent = 'Unable to load schedules'; return; }
+    allSchedules = await response.json();
+    const airlineSelect = document.getElementById('scheduleAirlineFilter');
+    const selected = airlineSelect.value;
+    const airlines = [...new Set(allSchedules.map(s => s.airline).filter(Boolean))].sort();
+    airlineSelect.innerHTML = '<option value="">All airlines</option>';
+    for (const airline of airlines) {
+        const option = document.createElement('option');
+        option.value = airline;
+        option.textContent = airline;
+        airlineSelect.append(option);
+    }
+    airlineSelect.value = airlines.includes(selected) ? selected : '';
+    renderScheduleTable();
+}
 
 function newSchedule(){
     document.getElementById("arrivalFlightType").value="PASSENGER";
@@ -338,6 +309,13 @@ document.addEventListener(
 
         );
 
+        for (const id of ["scheduleSearch","scheduleAirlineFilter","scheduleTypeFilter","scheduleStatusFilter","scheduleDateFilter"]) {
+            document.getElementById(id).addEventListener(id === "scheduleSearch" || id === "scheduleDateFilter" ? "input" : "change", renderScheduleTable);
+        }
+        document.getElementById("scheduleResetFilters").addEventListener("click", () => {
+            for (const id of ["scheduleSearch","scheduleAirlineFilter","scheduleTypeFilter","scheduleStatusFilter","scheduleDateFilter"]) document.getElementById(id).value = "";
+            renderScheduleTable();
+        });
         await loadSchedules();
 
     }
