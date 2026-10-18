@@ -25,7 +25,6 @@ async function loadProfile(){
   const grid=document.getElementById('rosterGrid');grid.replaceChildren();
   const londonDate=new Intl.DateTimeFormat('en-GB',{timeZone:'Europe/London',year:'numeric',month:'2-digit',day:'2-digit'});
   const parts=Object.fromEntries(londonDate.formatToParts(new Date()).map(p=>[p.type,p.value]));
-  const today=parts.year+'-'+parts.month+'-'+parts.day;
   const byDate=new Map((shifts||[]).map(shift=>[shift.date,shift]));
   const start=new Date(today+'T12:00:00Z');
   for(let i=0;i<14;i++){
