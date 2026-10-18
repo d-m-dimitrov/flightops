@@ -256,7 +256,7 @@ function setupFlightOpsNavigation(){
     container.append(links);
     const dropdown=(label,entries)=>{
         const details=document.createElement('details');details.style.cssText='position:relative;z-index:1050';
-        const summary=document.createElement('summary');summary.textContent=label;summary.style.cssText='cursor:pointer;color:white;list-style:auto;white-space:nowrap';
+        const summary=document.createElement('summary');summary.textContent=label;summary.style.cssText='cursor:pointer;color:white;list-style:none;white-space:nowrap;display:block';
         const menu=document.createElement('div');menu.style.cssText='position:absolute;right:0;top:100%;min-width:190px;background:white;color:#212529;border:1px solid #dee2e6;border-radius:6px;padding:0.4rem 0;box-shadow:0 6px 18px #0002';
         for(const [text,href,action] of entries){const item=document.createElement('a');item.href=href||'#';item.textContent=text;item.style.cssText='display:block;padding:0.5rem 0.85rem;color:#212529;text-decoration:none';if(action)item.addEventListener('click',event=>{event.preventDefault();action();});menu.append(item);}
         details.append(summary,menu);document.addEventListener('click',event=>{if(!details.contains(event.target))details.open=false;});return details;
