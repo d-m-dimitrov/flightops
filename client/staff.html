@@ -104,7 +104,7 @@
 
 <div class="container py-3">
 
-    <h2>Staff Administration</h2><p><a class="btn btn-outline-primary" href="staff-roster.html">Monthly Staff Roster →</a></p>
+    <h2>Employees</h2><p id="accountAdminLink" class="d-none"><a class="btn btn-outline-secondary" href="user-accounts.html">Administration → User Accounts</a></p><p><a class="btn btn-outline-primary" href="staff-roster.html">Monthly Staff Roster →</a></p>
 
     <button
         class="btn btn-primary mb-3"
@@ -465,6 +465,7 @@
 <script src="js/common.js"></script>
 <script src="js/airlineQualifications.js"></script>
 <script src="js/staff.js"></script>
+<script>if(getCurrentUser()?.role==="ADMIN")document.getElementById("accountAdminLink").classList.remove("d-none");</script>
 
 
 
