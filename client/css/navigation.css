@@ -1,0 +1,10 @@
+.flightops-navigation{position:relative!important;z-index:1050;background:#212529!important;color:#fff!important;padding:10px 16px!important;font:14px system-ui,sans-serif!important;min-height:58px;height:auto!important;overflow:visible!important;box-sizing:border-box}
+.flightops-navigation-inner{width:100%;display:flex;align-items:center;gap:18px;flex-wrap:wrap}
+.flightops-navigation-links{display:flex;align-items:center;gap:16px;flex:1 1 500px;flex-wrap:wrap}
+.flightops-navigation-dropdown{position:relative;z-index:1051}
+.flightops-navigation-summary{cursor:pointer;color:white;list-style:none;white-space:nowrap;display:block}
+.flightops-navigation-summary::-webkit-details-marker{display:none}
+.flightops-navigation-menu{position:absolute;right:0;top:100%;min-width:190px;background:white;color:#212529;border:1px solid #dee2e6;border-radius:6px;padding:6px 0;box-shadow:0 6px 18px #0002;z-index:1100}
+.flightops-navigation-menu-item{display:block;padding:8px 14px;color:#212529!important;text-decoration:none}
+.flightops-navigation-menu-item:hover{background:#f1f3f5}
+@media(max-width:700px){.flightops-navigation-links{flex-basis:100%;order:3}.flightops-navigation-dropdown{margin-left:0}.flightops-navigation-menu{right:auto;left:0}}
