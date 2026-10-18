@@ -13,6 +13,7 @@ require("../models/User");
 const router =
 express.Router();
 const requireUser = require("../middleware/requireUser");
+const StaffShift = require("../models/StaffShift");
 
 
 router.post(
@@ -110,6 +111,20 @@ jwt.sign(
 
     });
 
+});
+
+router.get('/me',requireUser,async(req,res,next)=>{
+ try{
+  res.set('Cache-Control','no-store');
+  const user=await User.findById(req.user._id).select('name email phone department position role skills airlineQualifications lastLoginAt').lean();
+  if(!user)return res.status(404).json({error:'Profile not found'});
+  const today=new Intl.DateTimeFormat('en-CA',{timeZone:'Europe/London',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
+  const date=new Date(today+'T12:00:00Z');
+  const until=new Date(date);until.setUTCDate(until.getUTCDate()+13);
+  const end=until.toISOString().slice(0,10);
+  const shifts=await StaffShift.find({userId:req.user._id,date:{$gte:today,$lte:end}}).select('date status start end breaks').sort({date:1}).lean();
+  res.json({profile:user,shifts,from:today,to:end});
+ }catch(error){next(error);}
 });
 
 router.post('/change-password',requireUser,async(req,res,next)=>{
