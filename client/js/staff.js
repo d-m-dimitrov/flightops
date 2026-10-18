@@ -2,6 +2,10 @@ checkAuth();
 
 let allUsers = [];
 let qualificationRevision = 0;
+let employeeSortColumn = 'name';
+let employeeSortAscending = true;
+let employeePage = 1;
+const employeePageSize = 15;
 let staffEditToken = null;
 
 const user =
@@ -74,7 +78,7 @@ document.addEventListener(
     ?.addEventListener(
 
         "input",
-        loadUsers
+        () => {employeePage = 1;loadUsers();}
 
     );
 
@@ -519,44 +523,23 @@ if(status === "DISABLED"){
     );
 
 }
-if(sort === "NAME"){
-
-    users.sort((a,b)=>
-
-        (a.name || "")
-        .localeCompare(
-            b.name || ""
-        )
-
-    );
-
-}
-
-if(sort === "DEPARTMENT"){
-
-    users.sort((a,b)=>
-
-        (a.department || "")
-        .localeCompare(
-            b.department || ""
-        )
-
-    );
-
-}
-
-if(sort === "POSITION"){
-
-    users.sort((a,b)=>
-
-        (a.position || "")
-        .localeCompare(
-            b.position || ""
-        )
-
-    );
-
-}
+const sortFields = {NAME:'name',DEPARTMENT:'department',POSITION:'position'};
+if (employeeSortColumn === 'name' && sortFields[sort] && sort !== 'NAME') employeeSortColumn = sortFields[sort];
+const fieldValue = e => ({
+    name:e.name || '',department:e.department || '',position:e.position || '',
+    phone:e.phone || '',email:e.email || '',
+    skills:(e.skills || []).map(AirlineQualifications.label).join(', '),
+    qualifications:(e.airlineQualifications || []).length,
+    active:e.active === false ? 0 : 1
+}[employeeSortColumn] ?? '');
+users.sort((a,b) => {
+    const x=fieldValue(a),y=fieldValue(b);
+    const result=typeof x==='number' ? x-y : String(x).localeCompare(String(y));
+    return (employeeSortAscending?result:-result) || (a.name||'').localeCompare(b.name||'');
+});
+const totalPages=Math.max(1,Math.ceil(users.length/employeePageSize));
+employeePage=Math.min(employeePage,totalPages);
+const visibleUsers=users.slice((employeePage-1)*employeePageSize,employeePage*employeePageSize);
 
     const panel = document.getElementById("staffList");
     panel.replaceChildren();
@@ -567,12 +550,15 @@ if(sort === "POSITION"){
     const thead = document.createElement('thead');
     thead.className = 'table-light';
     const header = document.createElement('tr');
-    for (const label of ['Name','Department','Position','Phone','Email','Skills','Qualifications','Status','Actions']) {
-        const th=document.createElement('th');th.scope='col';th.textContent=label;header.append(th);
+    for (const [label,key] of [['Name','name'],['Department','department'],['Position','position'],['Phone','phone'],['Email','email'],['Skills','skills'],['Qualifications','qualifications'],['Status','active'],['Actions',null]]) {
+        const th=document.createElement('th');th.scope='col';
+        if(key){const button=document.createElement('button');button.type='button';button.className='btn btn-link p-0 text-decoration-none text-dark fw-semibold';button.textContent=label+(employeeSortColumn===key?(employeeSortAscending?' ▲':' ▼'):' ↕');button.onclick=()=>{if(employeeSortColumn===key)employeeSortAscending=!employeeSortAscending;else{employeeSortColumn=key;employeeSortAscending=true;}employeePage=1;loadUsers();};th.append(button);}
+        else th.textContent=label;
+        header.append(th);
     }
     thead.append(header);
     const tbody=document.createElement('tbody');
-    for (const employee of users) {
+    for (const employee of visibleUsers) {
         const tr=document.createElement('tr');
         const fields=[
             employee.name || '—',
@@ -603,6 +589,11 @@ if(sort === "POSITION"){
         tr.append(td);tbody.append(tr);
     }
     table.append(thead,tbody);wrapper.append(table);panel.append(wrapper);
+    const footer=document.createElement('div');footer.className='d-flex justify-content-between align-items-center mt-3 flex-wrap gap-2';
+    const info=document.createElement('span');info.className='text-muted small';info.textContent=users.length ? 'Showing '+((employeePage-1)*employeePageSize+1)+'–'+Math.min(employeePage*employeePageSize,users.length)+' of '+users.length+' employees' : '0 employees';
+    const controls=document.createElement('div');controls.className='btn-group';
+    for(const [label,delta] of [['Previous',-1],['Next',1]]){const b=document.createElement('button');b.type='button';b.className='btn btn-sm btn-outline-secondary';b.textContent=label;b.disabled=delta<0?employeePage<=1:employeePage>=totalPages;b.onclick=()=>{employeePage+=delta;loadUsers();};controls.append(b);}
+    const pages=document.createElement('span');pages.className='btn btn-sm btn-light disabled';pages.textContent='Page '+employeePage+' / '+totalPages;controls.insertBefore(pages,controls.children[1]);footer.append(info,controls);panel.append(footer);
 }
 
 
