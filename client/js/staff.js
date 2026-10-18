@@ -321,7 +321,7 @@ async function saveUser(){
 
                     name,
                     phone,
-                    email,
+                    ...(user.role === 'ADMIN' ? {email, password, active} : {}),
 
                     department,
                     position,
@@ -329,8 +329,7 @@ async function saveUser(){
                     airlineQualifications,
                     expectedQualificationRevision:qualificationRevision,
 
-                    password,
-                    active
+                    ...(user.role === 'ADMIN' ? {} : {})
 
                 })
 
