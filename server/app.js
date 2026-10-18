@@ -129,6 +129,7 @@ app.use(
 );
 
 
+app.use("/api/user-accounts", require("./routes/userAccounts"));
 app.use(
     "/api/users",
     userRoutes
