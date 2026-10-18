@@ -16,6 +16,8 @@ async function generateTurnarounds(now = new Date()) {
       const weekday = new Date(operatingDate + "T12:00:00Z").getUTCDay() || 7;
       for (const schedule of schedules) {
         if (!schedule.daysOfWeek?.includes(weekday)) continue;
+        if (schedule.validFrom && operatingDate < schedule.validFrom) continue;
+        if (schedule.validTo && operatingDate > schedule.validTo) continue;
         try {
           const key = { scheduleId:schedule._id, operatingDate };
           // A deleted generated flight is a tombstone, not permission to recreate it.
@@ -24,12 +26,12 @@ async function generateTurnarounds(now = new Date()) {
             schedule.departureDayOffset, schedule.timeDisambiguation);
           const mgt = await resolveMgt(schedule.airline, schedule.aircraftType);
           await Turnaround.updateOne(key, { $setOnInsert: {
-            ...key, ...mgt, departureDayOffset:times.departureDayOffset,
+            ...key, ...mgt, serviceType:schedule.serviceType || 'SCHEDULED', departureDayOffset:times.departureDayOffset,
             timeDisambiguation:schedule.timeDisambiguation || "reject",
             airline:schedule.airline, arrivalFlight:schedule.arrivalFlight,
             departureFlight:schedule.departureFlight,
-            arrival:{ sta:schedule.sta, staAt:times.staAt },
-            departure:{ std:schedule.std, stdAt:times.stdAt },
+            arrival:{ flightType:schedule.arrivalFlightType || 'PASSENGER', sta:schedule.sta, staAt:times.staAt },
+            departure:{ flightType:schedule.departureFlightType || 'PASSENGER', std:schedule.std, stdAt:times.stdAt },
             flightNumberDisplay:`${schedule.arrivalFlight}/${schedule.departureFlight}`,
             flightDate:time.fromLocal(operatingDate + "T00:00"),
             origin:schedule.origin, destination:schedule.destination,
