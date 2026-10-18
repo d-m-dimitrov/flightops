@@ -113,6 +113,9 @@ document.addEventListener(
                 select.value = user.department;select.disabled = true;
             }
         }
+        if (user.role !== 'ADMIN') {
+            for (const id of ['userEmail','userPassword','userActive']) document.getElementById(id).disabled = true;
+        }
         renderSkills();
 
         loadPositions();
@@ -321,7 +324,7 @@ async function saveUser(){
 
                     name,
                     phone,
-                    ...(user.role === 'ADMIN' ? {email, password, active} : {}),
+                    ...(getCurrentUser().role === 'ADMIN' ? {email, password, active} : {}),
 
                     department,
                     position,
@@ -329,7 +332,6 @@ async function saveUser(){
                     airlineQualifications,
                     expectedQualificationRevision:qualificationRevision,
 
-                    ...(user.role === 'ADMIN' ? {} : {})
 
                 })
 
