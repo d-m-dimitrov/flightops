@@ -10,6 +10,7 @@ module.exports = async function requireUser(req, res, next) {
   try {
     const user = await User.findById(claims.id).select('-passwordHash');
     if (!user || !user.active) return res.status(403).json({ error:'Account is inactive' });
+    if ((claims.sessionVersion || 0) !== (user.sessionVersion || 0)) return res.status(401).json({error:'Session expired. Please sign in again'});
     req.user = user;
     next();
   } catch (error) { next(error); }
