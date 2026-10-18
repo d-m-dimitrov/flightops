@@ -26,10 +26,11 @@ router.patch('/:id',async(req,res,next)=>{
   if((target.email||'').toLowerCase()!==normalized)changes.push('Login email');
   if(target.active!==active)changes.push('Account status');
   if(password)changes.push('Password reset');
+  const previouslyActive=target.active;
   target.email=normalized || undefined;
   target.active=active;
   if(password){target.passwordHash=await bcrypt.hash(password,12);target.sessionVersion=(target.sessionVersion||0)+1;}
-  if(!active && target.active!==false)target.sessionVersion=(target.sessionVersion||0)+1;
+  if(!active && previouslyActive!==false)target.sessionVersion=(target.sessionVersion||0)+1;
   await target.save();
   if(changes.length)await AccountAudit.create({actor:req.user._id,target:target._id,action:'ACCOUNT_UPDATED',changes});
   res.json(safe(target));
