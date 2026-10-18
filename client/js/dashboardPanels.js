@@ -34,7 +34,8 @@
   function initialize() {
     for (const [key, selector] of configs) {
       const el = document.querySelector(selector);
-      const card = el?.closest('.card');
+      // Messages uses a <section>, while LIR itself is the card element.
+      const card = el?.closest('.card, section.card');
       const header = card?.querySelector(':scope > .card-header');
       const body = card?.querySelector(':scope > .card-body');
       if (!card || !header || !body) continue;
