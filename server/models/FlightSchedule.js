@@ -17,8 +17,8 @@ new mongoose.Schema({
     arrivalFlightType:{type:String,enum:['PASSENGER','CARGO','FERRY','OTHER'],default:'PASSENGER'},
     departureFlightType:{type:String,enum:['PASSENGER','CARGO','FERRY','OTHER'],default:'PASSENGER'},
     serviceType:{type:String,enum:['SCHEDULED','CHARTER','AD_HOC'],default:'SCHEDULED'},
-    validFrom:{type:String,match:/^\\d{4}-\\d{2}-\\d{2}$/},
-    validTo:{type:String,match:/^\\d{4}-\\d{2}-\\d{2}$/},
+    validFrom:{type:String,match:/^\d{4}-\d{2}-\d{2}$/},
+    validTo:{type:String,match:/^\d{4}-\d{2}-\d{2}$/},
 
     sta: String,
 
