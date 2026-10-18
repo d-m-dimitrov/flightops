@@ -53,6 +53,7 @@ unreadNotifications:{
     index: true
 },
 
+    serviceType:{type:String,enum:['SCHEDULED','CHARTER','AD_HOC'],default:'SCHEDULED'},
     scheduleId: {
         type: mongoose.Schema.Types.ObjectId,
         ref: "FlightSchedule"
@@ -75,6 +76,7 @@ aircraft: {
 
     arrival: {
 
+        flightType:{type:String,enum:['PASSENGER','CARGO','FERRY','OTHER'],default:'PASSENGER'},
         sta: String,
         staAt: Date,
         eta: Date,
@@ -92,6 +94,7 @@ aircraft: {
 
     departure: {
 
+        flightType:{type:String,enum:['PASSENGER','CARGO','FERRY','OTHER'],default:'PASSENGER'},
         std: String,
         stdAt: Date,
 
