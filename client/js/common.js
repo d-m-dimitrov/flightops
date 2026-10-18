@@ -232,27 +232,40 @@ function applyMenuPermissions(){
 
 }
 
-document.addEventListener(
-    "DOMContentLoaded",
-    ()=>{
-
-        if(
-            localStorage.getItem(
-                "token"
-            )
-        ){
-
-            showCurrentUser();
-
-            applyMenuPermissions();
-            const info=document.getElementById('currentUserInfo');
-            if(info && !document.getElementById('myAccountLink')){const link=document.createElement('a');link.id='myAccountLink';link.href='my-account.html';link.className='text-white text-decoration-underline ms-2';link.textContent='My Account';info.append(link);}
-
-        }
-
-    }
-);
-
+function setupFlightOpsNavigation(){
+    const current=getCurrentUser();
+    if(!current || !localStorage.getItem('token'))return;
+    const admin=current.role==='ADMIN';
+    const manager=admin||['OPERATIONS_DM','PAX_DM','RAMP_DM','SPUR_DM'].includes(current.position);
+    const control=admin||({OPERATIONS:['OPERATIONS_DM','TRAFFIC_COORDINATOR'],PASSENGER_HANDLING:['PAX_DM','CHECKIN_SUPERVISOR'],RAMP:['RAMP_DM','RAMP_ALLOCATOR'],SPUR:['SPUR_DM','SPUR_COORDINATOR']}[current.department]||[]).includes(current.position);
+    const navbar=document.querySelector('nav.navbar');
+    const host=navbar||document.createElement('nav');
+    if(!navbar){host.className='flightops-compact-nav';host.style.cssText='display:flex;align-items:center;gap:1rem;flex-wrap:wrap;padding:0.65rem 1rem;background:#212529;color:white;font:14px system-ui,sans-serif';document.body.insertBefore(host,document.body.firstChild);}
+    host.replaceChildren();
+    const container=document.createElement('div');container.className=navbar?'container-fluid d-flex align-items-center flex-wrap gap-3':'';
+    const brand=document.createElement('a');brand.href='flights.html';brand.textContent='FlightOps';brand.style.cssText='color:white;font-weight:700;text-decoration:none;font-size:1.15rem';container.append(brand);
+    const links=document.createElement('div');links.style.cssText='display:flex;align-items:center;gap:1rem;flex-wrap:wrap;flex:1';
+    const addLink=(label,href)=>{const a=document.createElement('a');a.href=href;a.textContent=label;a.style.cssText='color:#e9ecef;text-decoration:none';if(location.pathname.endsWith('/'+href))a.style.fontWeight='bold';links.append(a);};
+    addLink('Operations','flights.html');
+    addLink('My Flights','my-flights.html');
+    if(control)addLink('Control','control.html');
+    if(manager)addLink('Schedules','schedules.html');
+    if(manager)addLink('Employees','staff.html');
+    if(manager)addLink('Roster','staff-roster.html');
+    addLink('About','about.html');
+    container.append(links);
+    const dropdown=(label,entries)=>{
+        const details=document.createElement('details');details.style.cssText='position:relative;z-index:1050';
+        const summary=document.createElement('summary');summary.textContent=label;summary.style.cssText='cursor:pointer;color:white;list-style:auto;white-space:nowrap';
+        const menu=document.createElement('div');menu.style.cssText='position:absolute;right:0;top:100%;min-width:190px;background:white;color:#212529;border:1px solid #dee2e6;border-radius:6px;padding:0.4rem 0;box-shadow:0 6px 18px #0002';
+        for(const [text,href,action] of entries){const item=document.createElement('a');item.href=href||'#';item.textContent=text;item.style.cssText='display:block;padding:0.5rem 0.85rem;color:#212529;text-decoration:none';if(action)item.addEventListener('click',event=>{event.preventDefault();action();});menu.append(item);}
+        details.append(summary,menu);document.addEventListener('click',event=>{if(!details.contains(event.target))details.open=false;});return details;
+    };
+    if(admin)container.append(dropdown('Administration ▾',[['Employees','staff.html'],['User Accounts','user-accounts.html'],['Audit Log','user-accounts.html#audit']]));
+    container.append(dropdown((current.name||'My Account')+' ▾',[['My Profile','my-account.html'],['Change Password','my-account.html#change-password'],['Logout',null,logout]]));
+    host.append(container);
+}
+document.addEventListener('DOMContentLoaded',setupFlightOpsNavigation);
 
 
 function canCreateFlight(){
