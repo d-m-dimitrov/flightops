@@ -14,6 +14,7 @@ const router =
 express.Router();
 const requireUser = require("../middleware/requireUser");
 const StaffShift = require("../models/StaffShift");
+const RosterCycle = require("../models/RosterCycle");
 
 
 router.post(
@@ -122,8 +123,8 @@ router.get('/me',requireUser,async(req,res,next)=>{
   const date=new Date(today+'T12:00:00Z');
   const until=new Date(date);until.setUTCDate(until.getUTCDate()+13);
   const end=until.toISOString().slice(0,10);
-  const shifts=await StaffShift.find({userId:req.user._id,date:{$gte:today,$lte:end}}).select('date status start end breaks').sort({date:1}).lean();
-  res.json({profile:user,shifts,from:today,to:end});
+  const [shifts,cycle]=await Promise.all([StaffShift.find({userId:req.user._id,date:{$gte:today,$lte:end}}).select('date status start end breaks').sort({date:1}).lean(),RosterCycle.findOne({userId:req.user._id}).select('pattern startDate').lean()]);
+  res.json({profile:user,shifts,cycle,from:today,to:end});
  }catch(error){next(error);}
 });
 
