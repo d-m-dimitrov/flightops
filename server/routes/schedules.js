@@ -10,7 +10,7 @@ function validateSchedule(req, res, next) {
     const types = ['PASSENGER','CARGO','FERRY','OTHER'];
     const services = ['SCHEDULED','CHARTER','AD_HOC'];
     const {arrivalFlightType,departureFlightType,serviceType,validFrom,validTo} = req.body;
-    const dateOk = v => v == null || v === '' || (/^\\d{4}-\\d{2}-\\d{2}$/.test(v) && !Number.isNaN(Date.parse(v+'T00:00:00Z')) && new Date(v+'T00:00:00Z').toISOString().slice(0,10) === v);
+    const dateOk = v => v == null || v === '' || (/^\d{4}-\d{2}-\d{2}$/.test(v) && !Number.isNaN(Date.parse(v+'T00:00:00Z')) && new Date(v+'T00:00:00Z').toISOString().slice(0,10) === v);
     if ((arrivalFlightType != null && !types.includes(arrivalFlightType)) ||
         (departureFlightType != null && !types.includes(departureFlightType)) ||
         (serviceType != null && !services.includes(serviceType)) || !dateOk(validFrom) || !dateOk(validTo) ||
