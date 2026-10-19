@@ -2,7 +2,7 @@
  const panel=document.getElementById('handlingInstructionsPanel');
  const count=document.getElementById('handlingInstructionsCount');
  if(!panel||!count)return;
- let lastKey='',request=0;
+ let lastKey='',lastFetch=0,request=0;
  const flightKey=new URLSearchParams(location.search).get('id')||'';
  const user=(()=>{try{return JSON.parse(localStorage.getItem('user')||'{}')}catch{return {}}})();
  const prefix='handlingRead:v1:'+String(user._id||'guest')+':'+flightKey+':';
@@ -36,8 +36,8 @@
   const aircraft=String(currentFlight.aircraft?.aircraftType||'').toUpperCase();
   if(!airline)return;
   const key=airline+':'+aircraft;
-  if(key===lastKey)return;
-  lastKey=key;const id=++request;
+  if(key===lastKey&&Date.now()-lastFetch<60000)return;
+  lastKey=key;lastFetch=Date.now();const id=++request;
   try{
    const response=await fetch('/api/handling-instructions/applicable?'+new URLSearchParams({airline,aircraftType:aircraft}),{headers:{Authorization:'Bearer '+(localStorage.getItem('token')||'')}});
    if(!response.ok)throw Error('Handling instructions unavailable ('+response.status+')');
