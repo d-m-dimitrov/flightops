@@ -8,3 +8,18 @@
 .flightops-navigation-menu-item{display:block;padding:8px 14px;color:#212529!important;text-decoration:none}
 .flightops-navigation-menu-item:hover{background:#f1f3f5}
 @media(max-width:700px){.flightops-navigation-links{flex-basis:100%;order:3}.flightops-navigation-dropdown{margin-left:0}.flightops-navigation-menu{right:auto;left:0}}
+
+/* Consistent navigation regardless of page-specific Bootstrap or workflow styles. */
+body>.flightops-navigation,body>nav.flightops-navigation{width:100%;margin:0!important}
+.flightops-navigation *, .flightops-navigation *::before, .flightops-navigation *::after{box-sizing:border-box}
+.flightops-navigation a{font-size:14px;line-height:1.4}
+.flightops-navigation-links a{white-space:nowrap}
+.flightops-navigation-summary{font-size:14px;line-height:1.4;padding:4px 0}
+.flightops-navigation-menu-item{white-space:nowrap;font-size:14px}
+.flightops-navigation-dropdown[open]{z-index:1100}
+@media(max-width:700px){
+ .flightops-navigation{padding:10px 12px!important}
+ .flightops-navigation-inner{gap:10px 14px}
+ .flightops-navigation-links{gap:10px 14px;flex:1 0 100%;order:4}
+ .flightops-navigation-menu{max-width:calc(100vw - 24px)}
+}
