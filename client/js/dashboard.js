@@ -607,66 +607,45 @@ await fetch(
 
 
 
-function renderTimeline(events){
-
-    const timeline =
-    document.getElementById(
-        "timeline"
-    );
-
-    timeline.innerHTML = "";
-
-    events.forEach(event=>{
-
-        const div =
-        document.createElement(
-            "div"
-        );
-
-        const time =
-        new Date(
-            event.eventTime
-        );
-
-        div.className =
-        "border-start border-3 ps-2 mb-2";
-
-div.innerHTML = `
-
-<strong>
-
-${time.toLocaleTimeString(
-    "en-GB", { timeZone:"Europe/London" }
-)}
-
-</strong>
-
--
-
-${event.eventType}
-
-<br>
-
-<small
-class="text-muted">
-
-👤
-
-${event.createdBy?.name || "Unknown"}
-
-</small>
-
-`;
-
-        timeline.appendChild(
-            div
-        );
-
-    });
-
+function renderTimeline(events) {
+    const timeline = document.getElementById("timeline");
+    if (!timeline) return;
+    const safe = value => String(value ?? "").replace(/[&<>"']/g, char =>
+        ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" })[char]);
+    const ordered = [...(Array.isArray(events) ? events : [])]
+        .filter(event => event && event.eventTime && !Number.isNaN(new Date(event.eventTime).getTime()))
+        .sort((a,b) => new Date(a.eventTime) - new Date(b.eventTime));
+    timeline.innerHTML = ordered.length ? ordered.map(event => {
+        const date = new Date(event.eventTime);
+        const time = date.toLocaleTimeString("en-GB", { timeZone:"Europe/London", hour:"2-digit", minute:"2-digit" });
+        const day = date.toLocaleDateString("en-GB", { timeZone:"Europe/London", day:"2-digit", month:"short" });
+        return `<div class="turnround-event">
+            <div class="d-flex flex-wrap gap-2 align-items-baseline">
+                <span class="turnround-event-time">${safe(time)}</span>
+                <small class="text-muted">${safe(day)}</small>
+                <strong>${safe(event.eventType)}</strong>
+                <span class="badge text-bg-success">Recorded</span>
+            </div>
+            <small class="text-muted">👤 ${safe(event.createdBy?.name || "Unknown")}</small>
+        </div>`;
+    }).join("") : '<p class="text-muted mb-0">No operational events recorded yet.</p>';
+    const badge = document.getElementById("turnroundProgressBadge");
+    if (badge) badge.textContent = ordered.length + " events";
+    const summary = document.getElementById("turnroundProgressSummary");
+    if (summary) summary.textContent = ordered.length
+        ? ordered.length + " recorded events · " + new Set(ordered.map(e => e.eventType)).size + " distinct milestones"
+        : "Awaiting first operational event";
+    // Do not imply an overall completion percentage until mandatory milestones
+    // are configured for the flight's airline and aircraft type.
+    const bar = document.getElementById("turnroundProgressBar");
+    if (bar) bar.style.width = "0%";
+    const progress = bar?.parentElement;
+    if (progress) {
+        progress.setAttribute("aria-valuenow", "0");
+        progress.setAttribute("aria-label", "Completion percentage unavailable until mandatory milestones are configured");
+        progress.classList.add("d-none");
+    }
 }
-
-
 
 function canSeeEvent(def){
 
