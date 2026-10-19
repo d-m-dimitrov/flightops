@@ -3073,13 +3073,19 @@ function updateCountdown() {
         }
         target = departure.target.getTime();
         label = departure.mode === "STD" ? "STD" : "Ground Time";
-        info.textContent = `Ground Ready ${operationalDisplay(departure.ready)} • MGT ${currentFlight.mgt} min`;
         const warning = currentFlight.mgtSource === "fallback" ? " • Default MGT: verify rule" : "";
-        panel.textContent = now > target
-            ? `STD/MGT target passed at ${operationalDisplay(target)} — awaiting actual departure${warning}`
-            : `Earliest Off Blocks (STD/MGT): ${operationalDisplay(target)} • ` +
-              (departure.delay > 0 ? `Minimum delay +${Math.ceil(departure.delay)} min` :
-                `Buffer ${Math.floor(departure.buffer)} min`) + warning;
+        const std = currentFlight.departure?.stdAt;
+        const stdText = std ? operationalDisplay(std) : "Unavailable";
+        const readyText = operationalDisplay(departure.ready);
+        const bufferMinutes = Math.floor(departure.buffer);
+        const delayMinutes = Math.ceil(departure.delay);
+        info.textContent = `STD: ${stdText} • Ground Ready: ${readyText} • MGT: ${currentFlight.mgt} min`;
+        if (departure.mode === "STD") {
+            panel.textContent = `Buffer: +${bufferMinutes} min • Countdown to STD${warning}`;
+        } else {
+            panel.textContent = `Minimum delay: +${delayMinutes} min • Ground Ready later than STD${warning}`;
+        }
+        if (now > target) panel.textContent += ` • Target passed at ${operationalDisplay(target)} — awaiting actual departure`;
     } else if (landing) {
         const landedAt = Date.parse(landing);
         title.textContent = "Taxi In";
