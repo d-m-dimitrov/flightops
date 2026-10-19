@@ -7,7 +7,8 @@ const schema = new mongoose.Schema({
   role: { type: String, default: 'ALL' },
   type: { type: String, enum: ['INFO', 'MANDATORY', 'CHECKLIST'], required: true },
   title: { type: String, required: true },
-  body: { type: String, required: true },
+  body: { type: String, default: '' },
+  steps: { type: [String], default: [] },
   active: { type: Boolean, default: false },
   revision: { type: Number, default: 1 }
 }, { timestamps: true });
