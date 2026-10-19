@@ -19,14 +19,38 @@
     const header=el('div','d-flex align-items-center gap-2 flex-wrap mb-2');
     const label=el('span','badge '+(item.type==='MANDATORY'?'text-bg-danger':item.type==='CHECKLIST'?'text-bg-warning':'text-bg-info'),item.type);
     header.append(label,el('strong','',item.title),el('small','text-muted',item.aircraftType+' · '+item.role));
-    block.append(header,el('div','mb-2',item.body));
-    const key=prefix+item._id+':'+item.revision;
-    const acknowledged=localStorage.getItem(key)==='yes';
-    const line=el('label','d-flex gap-2 align-items-center small');
-    const checkbox=el('input','form-check-input mt-0');checkbox.type='checkbox';checkbox.checked=acknowledged;
-    checkbox.addEventListener('change',()=>{if(checkbox.checked)localStorage.setItem(key,'yes');else localStorage.removeItem(key);});
-    line.append(checkbox,el('span','',item.type==='CHECKLIST'?'Mark completed (this browser only)':'Mark as read (this browser only)'));
-    block.append(line);panel.append(block);
+    block.append(header);
+    if(item.type==='CHECKLIST'){
+     if(item.body)block.append(el('p','text-muted small mb-2',item.body));
+     const steps=Array.isArray(item.steps)&&item.steps.length?item.steps:String(item.body||'').split(/\r?\n/).map(s=>s.trim()).filter(Boolean);
+     const progress=el('div','small text-muted mb-2');
+     block.append(progress);
+     let completed=0;
+     steps.forEach((step,index)=>{
+      const key=prefix+item._id+':'+item.revision+':step:'+index;
+      const line=el('label','d-flex align-items-start gap-2 py-1');
+      const checkbox=el('input','form-check-input mt-1');checkbox.type='checkbox';checkbox.checked=localStorage.getItem(key)==='yes';
+      const text=el('span','',step);if(checkbox.checked)text.classList.add('text-decoration-line-through','text-muted');
+      checkbox.addEventListener('change',()=>{
+       if(checkbox.checked)localStorage.setItem(key,'yes');else localStorage.removeItem(key);
+       text.classList.toggle('text-decoration-line-through',checkbox.checked);
+       text.classList.toggle('text-muted',checkbox.checked);
+       updateProgress();
+      });
+      line.append(checkbox,text);block.append(line);
+     });
+     function updateProgress(){completed=block.querySelectorAll('input[type=checkbox]:checked').length;progress.textContent=completed+' / '+steps.length+' tasks completed (saved on this browser only)';}
+     updateProgress();
+    }else{
+     block.append(el('div','mb-2',item.body));
+     const key=prefix+item._id+':'+item.revision;
+     const line=el('label','d-flex gap-2 align-items-center small');
+     const checkbox=el('input','form-check-input mt-0');checkbox.type='checkbox';checkbox.checked=localStorage.getItem(key)==='yes';
+     checkbox.addEventListener('change',()=>{if(checkbox.checked)localStorage.setItem(key,'yes');else localStorage.removeItem(key);});
+     line.append(checkbox,el('span','','Mark as read (this browser only)'));
+     block.append(line);
+    }
+    panel.append(block);
    }
   }
  }
