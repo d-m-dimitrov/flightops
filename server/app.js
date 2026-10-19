@@ -130,6 +130,7 @@ app.use(
 
 
 app.use("/api/user-accounts", require("./routes/userAccounts"));
+app.use("/api/handling-instructions", require("./routes/handlingInstructions"));
 app.use(
     "/api/users",
     userRoutes
