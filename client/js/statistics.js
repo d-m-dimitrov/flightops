@@ -1,6 +1,8 @@
 checkAuth();
 const date=document.getElementById('date');
-date.value=new Date().toLocaleDateString('en-CA',{timeZone:'Europe/London'});
+const parts=new Intl.DateTimeFormat('en-GB',{timeZone:'Europe/London',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date());
+const part=k=>parts.find(p=>p.type===k)?.value;
+date.value=part('year')+'-'+part('month')+'-'+part('day');
 const esc=s=>String(s??'').replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
 function clock(v){if(!v)return null;const d=new Date(v);if(!Number.isFinite(d.getTime()))return null;return +new Intl.DateTimeFormat('en-GB',{timeZone:'Europe/London',hour:'2-digit',hourCycle:'h23'}).format(d)}
 function card(name,value,detail){return '<div class="col-6 col-lg-3"><div class="card h-100"><div class="card-body"><div class="small text-muted">'+name+'</div><div class="display-6">'+value+'</div><small>'+detail+'</small></div></div></div>'}
