@@ -254,6 +254,7 @@ function setupFlightOpsNavigation(){
     if(manager)addLink('Schedules','schedules.html');
     if(manager)addLink('Employees','staff.html');
     if(manager)addLink('Roster','staff-roster.html');
+    if(manager||control)addLink('Statistics','statistics.html');
     addLink('About','about.html');
     container.append(links);
     const dropdown=(label,entries)=>{
