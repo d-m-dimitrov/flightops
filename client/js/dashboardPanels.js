@@ -8,6 +8,7 @@
   const configs = [
     ['passengers', '#passengerPanel'],
     ['special', '#specialHandlingPanel'],
+    ['handling', '#handlingInstructionsPanel'],
     ['messages', '#messagesLink'],
     ['lir', '#lirCard'],
     ['staff', '#staffPanel'],
