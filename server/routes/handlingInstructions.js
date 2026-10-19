@@ -27,7 +27,7 @@ function validate(input) {
  if (!Array.isArray(row.steps)) row.steps = [];
  if(row.steps.length > 50 || row.steps.some(s=>typeof s!=='string'||s.trim().length>300))throw Error('Maximum 50 steps, 300 characters each');
  row.steps = row.steps.map(s=>s.trim()).filter(Boolean);
- if(row.type==='CHECKLIST' && !row.steps.length && row.body){row.steps=row.body.split(/\\r?\\n/).map(s=>s.trim().replace(/^[-*•\\d.)\\s]+/, '')).filter(Boolean);}
+ if(row.type==='CHECKLIST' && !row.steps.length && row.body){row.steps=row.body.split(/\r?\n/).map(s=>s.trim().replace(/^[-*•\d.)\s]+/, '')).filter(Boolean);}
  if(row.type==='CHECKLIST' && !row.steps.length)throw Error('Add at least one checklist step');
  if (!/^[A-Z0-9]{2,12}$/.test(row.airline)) throw Error('Invalid airline code');
  if (!/^[A-Z0-9_-]{1,20}$/.test(row.aircraftType)) throw Error('Invalid aircraft type');
