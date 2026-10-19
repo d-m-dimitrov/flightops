@@ -3,7 +3,20 @@ const router = express.Router();
 const Instruction = require('../models/HandlingInstruction');
 const requireUser = require('../middleware/requireUser');
 const { superAdmin } = require('../services/departmentAccess');
-router.use(requireUser, (req,res,next) => superAdmin(req.user) ? next() : res.status(403).json({error:'Super Admin access required'}));
+router.use(requireUser);
+router.get('/applicable',async(req,res,next)=>{try{
+ const airline=String(req.query.airline||'').trim().toUpperCase();
+ const aircraft=String(req.query.aircraftType||'').trim().toUpperCase();
+ if(!/^[A-Z0-9]{2,12}$/.test(airline))return res.status(400).json({error:'Invalid airline'});
+ if(aircraft&&!/^[A-Z0-9_-]{1,20}$/.test(aircraft))return res.status(400).json({error:'Invalid aircraft'});
+ const admin=superAdmin(req.user);
+ const roles=[...(Array.isArray(req.user.skills)?req.user.skills:[]),req.user.position].filter(Boolean).map(s=>String(s).toUpperCase());
+ const query={active:true,airline,aircraftType:{$in:['ALL',aircraft]}};
+ if(!admin){query.department=String(req.user.department||'').toUpperCase();query.role={$in:['ALL',...roles]};}
+ const items=await Instruction.find(query).select('airline aircraftType operation department role type title body revision updatedAt').sort({operation:1,type:1,title:1}).lean();
+ res.json(items);
+}catch(e){next(e);}});
+router.use((req,res,next)=>superAdmin(req.user)?next():res.status(403).json({error:'Super Admin access required'}));
 const fields = ['airline','aircraftType','operation','department','role','type','title','body','active'];
 function validate(input) {
  const row = {};
