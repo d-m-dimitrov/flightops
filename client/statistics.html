@@ -1,0 +1,6 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>FlightOps Statistics</title><link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.7/dist/css/bootstrap.min.css" rel="stylesheet"><link href="css/navigation.css" rel="stylesheet"></head>
+<body><main class="container py-4"><h1>Operations Statistics</h1><p class="text-muted">Daily flight movements and departure punctuality</p>
+<div class="row g-2 mb-3"><div class="col-auto"><label for="date" class="form-label">Operating date</label><input id="date" type="date" class="form-control"></div><div class="col-auto"><label for="airline" class="form-label">Airline</label><input id="airline" class="form-control" placeholder="All airlines"></div><div class="col-auto align-self-end"><button id="refresh" class="btn btn-primary">Refresh</button></div></div>
+<div id="error" role="alert"></div><div id="metrics" class="row g-3 mb-4"></div><h2 class="h5">Movements by hour (London)</h2><div id="hours" class="mb-4"></div><h2 class="h5">Airline breakdown</h2><div id="airlines"></div><p class="small text-muted mt-4">A completed departure requires ATD or pushback. Delayed means more than 15 minutes after STD. Cancelled flights are excluded.</p></main>
+<script src="js/common.js"></script><script src="js/statistics.js"></script></body></html>
