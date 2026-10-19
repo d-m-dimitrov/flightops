@@ -263,7 +263,7 @@ function setupFlightOpsNavigation(){
         for(const [text,href,action] of entries){const item=document.createElement('a');item.href=href||'#';item.textContent=text;item.className='flightops-navigation-menu-item';if(action)item.addEventListener('click',event=>{event.preventDefault();action();});menu.append(item);}
         details.append(summary,menu);document.addEventListener('click',event=>{if(!details.contains(event.target))details.open=false;});return details;
     };
-    if(admin)container.append(dropdown('Administration ▾',[['Employees','staff.html'],['User Accounts','user-accounts.html'],['Audit Log','user-accounts.html#audit']]));
+    if(admin)container.append(dropdown('Administration ▾',[['Employees','staff.html'],['User Accounts','user-accounts.html'],['Audit Log','user-accounts.html#audit'],['Handling Instructions','handling-instructions.html']]));
     container.append(dropdown((current.name||'My Account')+' ▾',[['My Profile','my-account.html'],['Change Password','my-account.html#change-password'],['Logout',null,logout]]));
     host.append(container);
 }
