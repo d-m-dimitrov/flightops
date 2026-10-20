@@ -130,6 +130,7 @@ app.use(
 
 
 app.use("/api/statistics/workload", require("./routes/workloadStatistics"));
+app.use("/api/statistics/turnround-performance", require("./routes/turnroundPerformance"));
 app.use("/api/user-accounts", require("./routes/userAccounts"));
 app.use("/api/handling-instructions", require("./routes/handlingInstructions"));
 app.use(
