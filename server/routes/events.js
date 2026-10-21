@@ -137,7 +137,7 @@ if(existing){
 
             eventTime: new Date(),
 
-            createdBy: req.body.createdBy,
+            createdBy: req.user._id,
 
             notes: req.body.notes || ""
 
@@ -146,28 +146,7 @@ if(existing){
         const ChatMessage =
 require("../models/ChatMessage");
 
-const User =
-require("../models/User");
-
-console.log(
-    "EVENT BODY:",
-    req.body
-);
-
-const user =
-await User.findById(
-    req.body.createdBy
-);
-
-console.log(
-    "CREATED BY:",
-    req.body.createdBy
-);
-
-console.log(
-    "USER FOUND:",
-    user
-);
+const user = req.user;
 const addSystemMessage =
 require(
     "../services/systemMessage"
