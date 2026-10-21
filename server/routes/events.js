@@ -34,6 +34,16 @@ async function loadEventForEdit(req,res,next) {
 const processEvent =
 require("../services/eventProcessor");
 
+router.get("/:turnaroundId/permissions", async(req,res)=>{
+  const id=req.params.turnaroundId;
+  if(!mongoose.isObjectIdOrHexString(id))return res.status(400).json({error:"Invalid flight"});
+  const flight=await Turnaround.findOne({_id:id,deleted:{$ne:true}});
+  if(!flight)return res.status(404).json({error:"Flight not found"});
+  const manager=access.superAdmin(req.user)||(req.user.department==="OPERATIONS"&&req.user.position==="OPERATIONS_DM");
+  const assigned=manager||Boolean(await Assignment.exists({turnaroundId:id,userId:req.user._id,role:{$in:access.roles(req.user)}}));
+  res.json({canEdit:assigned});
+});
+
 router.get("/:turnaroundId", async(req,res)=>{
 
     try{
