@@ -10,6 +10,9 @@ require("express");
 const router =
 express.Router();
 
+// All flight endpoints require a valid active session.
+router.use(requireUser);
+
 const Turnaround =
 require("../models/Turnaround");
 
