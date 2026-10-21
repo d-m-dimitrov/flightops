@@ -22,12 +22,11 @@ const express = require("express");
 const router = express.Router();
 
 router.use(require("../middleware/requireUser"));
-// Schedule changes are restricted to duty managers and administrators.
+// Schedule management (including reads) is limited to Super Admin and Operations Duty Manager.
 router.use((req,res,next)=>{
- if(["GET","HEAD","OPTIONS"].includes(req.method))return next();
  const access=require("../services/departmentAccess");
- if(access.superAdmin(req.user)||access.dutyManager(req.user))return next();
- return res.status(403).json({error:"Schedule management requires Duty Manager access"});
+ if(access.superAdmin(req.user)||(req.user.active && req.user.department==="OPERATIONS" && req.user.position==="OPERATIONS_DM"))return next();
+ return res.status(403).json({error:"Schedule management requires Operations Duty Manager or Admin access"});
 });
 
 const FlightSchedule =
