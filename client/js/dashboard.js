@@ -1303,10 +1303,12 @@ async function saveSpecialHandling(){
 async function editEvent(
     eventType
 ){
+    if (!canEditFlightEvents) return;
 
     const response =
     await fetch(
-        `/api/events/${flightId}/${eventType}`
+        `/api/events/${flightId}/${eventType}`,
+        {headers:{Authorization:`Bearer ${localStorage.getItem("token")}`}}
     );
 
     const event =
@@ -1336,6 +1338,7 @@ async function editEvent(
 
 
 async function saveEventEdit(){
+    if (!canEditFlightEvents) return;
 
     const eventId =
     document.getElementById(
@@ -1362,7 +1365,8 @@ async function saveEventEdit(){
 
             headers:{
                 "Content-Type":
-                "application/json"
+                "application/json",
+                Authorization:`Bearer ${localStorage.getItem("token")}`
             },
 
             body:JSON.stringify({
