@@ -8,6 +8,28 @@ const router = express.Router();
 router.use(require("../middleware/requireUser"));
 
 const Event = require("../models/Event");
+const Assignment = require("../models/Assignment");
+const mongoose = require("mongoose");
+const access = require("../services/departmentAccess");
+
+// Operational event changes are limited to staff allocated to that flight.
+async function requireFlightAssignment(req,res,next) {
+  const flightId = req.method === "POST" ? req.body?.turnaroundId : req.eventForEdit?.turnaroundId;
+  if (!mongoose.isObjectIdOrHexString(flightId)) return res.status(400).json({error:"Invalid flight"});
+  const flight = await Turnaround.findOne({_id:flightId,deleted:{$ne:true}});
+  if (!flight) return res.status(404).json({error:"Flight not found"});
+  if (access.superAdmin(req.user) || (req.user.department==="OPERATIONS" && req.user.position==="OPERATIONS_DM")) return next();
+  const roles = access.roles(req.user);
+  const assigned = await Assignment.exists({turnaroundId:flightId,userId:req.user._id,role:{$in:roles}});
+  if (!assigned) return res.status(403).json({error:"You can record events only for flights assigned to you"});
+  next();
+}
+async function loadEventForEdit(req,res,next) {
+  if (!mongoose.isObjectIdOrHexString(req.params.id)) return res.status(400).json({error:"Invalid event"});
+  req.eventForEdit=await Event.findById(req.params.id);
+  if (!req.eventForEdit) return res.status(404).json({error:"Event not found"});
+  next();
+}
 
 const processEvent =
 require("../services/eventProcessor");
@@ -56,9 +78,8 @@ router.get("/:turnaroundId/existing", async (req, res) => {
 
 });
 
-router.put("/:id", async (req, res) => {
-    const event = await Event.findById(req.params.id);
-    if (!event) return res.status(404).json({ error:"Event not found" });
+router.put("/:id", loadEventForEdit, requireFlightAssignment, async (req, res) => {
+    const event = req.eventForEdit;
     let eventTime;
     try {
         eventTime = time.editedTime(req.body.eventTime, event.eventTime, req.body.timeDisambiguation);
@@ -104,7 +125,7 @@ async(req,res)=>{
 
 });
 
-router.post("/", async (req, res) => {
+router.post("/", requireFlightAssignment, async (req, res) => {
 
     try {
 
