@@ -264,7 +264,7 @@ async(req,res)=>{
 
         message:
 
-        `${req.body.updatedByName}
+        `${req.user.name}
         deleted flight`
 
     });
@@ -354,7 +354,7 @@ await addSystemMessage(
 
     flight._id,
 
-    `${req.body.updatedByName}
+    `${req.user.name}
      updated special handling`
 
 );
@@ -408,7 +408,7 @@ await addSystemMessage(
 
     flight._id,
 
-    `${req.body.updatedByName}
+    `${req.user.name}
      updated flight details`
 
 );
