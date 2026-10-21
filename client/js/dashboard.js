@@ -88,6 +88,7 @@ const flightId =
 params.get("id");
 let eventModal;
 let completedEvents = [];
+let canEditFlightEvents = false;
 
 
 socket.emit(
@@ -217,9 +218,11 @@ async function loadCompletedEvents(){
 
     const response =
     await fetch(
-        `/api/events/${flightId}/existing`
+        `/api/events/${flightId}/existing`,
+        {headers:{Authorization:`Bearer ${localStorage.getItem("token")}`}}
     );
 
+    if (!response.ok) throw new Error("Cannot load events");
     completedEvents =
     await response.json();
 
@@ -678,7 +681,23 @@ function canSeeEvent(def){
 
 async function loadEventButtons(){
 
-    await loadCompletedEvents();
+    const container = document.getElementById("eventButtons");
+    if (!container) return;
+    canEditFlightEvents = false;
+    container.innerHTML = '<p class="small text-muted">Checking flight assignment…</p>';
+    const token=localStorage.getItem("token");
+    try {
+        const permissionResponse=await fetch(`/api/events/${flightId}/permissions`,{
+            headers:{Authorization:`Bearer ${token}`}
+        });
+        if (!permissionResponse.ok) throw new Error("Cannot verify event permissions");
+        const permission=await permissionResponse.json();
+        canEditFlightEvents=permission.canEdit===true;
+        await loadCompletedEvents();
+    } catch(error) {
+        container.textContent="Event permissions unavailable — editing disabled. Refresh to retry.";
+        return;
+    }
     const response =
     await fetch(
         "/api/event-definitions"
@@ -687,12 +706,14 @@ async function loadEventButtons(){
     const definitions =
     await response.json();
 
-    const container =
-    document.getElementById(
-        "eventButtons"
-    );
 
     container.innerHTML = "";
+    if (!canEditFlightEvents) {
+        const notice=document.createElement("p");
+        notice.className="alert alert-secondary py-2 small";
+        notice.textContent="View only — Not assigned to this flight";
+        container.appendChild(notice);
+    }
 
     const groups = {};
 
@@ -772,6 +793,10 @@ else{
 
 }
 
+            if (!canEditFlightEvents) {
+                btn.disabled=true;
+                btn.title="View only — Not assigned to this flight";
+            }
             section.appendChild(
                 btn
             );
