@@ -234,7 +234,7 @@ async function loadFlight() {
     const version = ++refreshVersion;
     let snapshot;
     try {
-        const response = await fetch(`/api/flights/${flightId}/operational`);
+        const response = await fetch(`/api/flights/${flightId}/operational`, {headers:{Authorization:`Bearer ${localStorage.getItem("token")}`}});
         if (!response.ok) throw new Error("Operational data unavailable");
         snapshot = await response.json();
         if (!snapshot.flight || !Array.isArray(snapshot.events)) throw new Error("Invalid operational data");
@@ -567,15 +567,17 @@ function requiresNotoc(
 async function saveEvent(
     eventType
 ){
+    if (!canEditFlightEvents) return;
 
-    await fetch(
+    const eventResponse = await fetch(
         "/api/events",
         {
             method:"POST",
 
             headers:{
                 "Content-Type":
-                "application/json"
+                "application/json",
+                Authorization:`Bearer ${localStorage.getItem("token")}`
             },
 
             body:JSON.stringify({
@@ -594,12 +596,8 @@ async function saveEvent(
         }
     );
 
-await fetch(
-    `/api/flights/${flightId}/update-status`,
-    {
-        method:"POST"
-    }
-);
+if (!eventResponse.ok) { alert("Could not record event. Check your assignment and try again."); return; }
+await fetch(`/api/flights/${flightId}/update-status`, {method:"POST",headers:{Authorization:`Bearer ${localStorage.getItem("token")}`}});
 
 
     await loadFlight();
