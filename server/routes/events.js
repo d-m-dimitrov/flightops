@@ -4,6 +4,9 @@ const express = require("express");
 
 const router = express.Router();
 
+// Event reads and writes must not be accessible anonymously.
+router.use(require("../middleware/requireUser"));
+
 const Event = require("../models/Event");
 
 const processEvent =
