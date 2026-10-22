@@ -1263,7 +1263,9 @@ async function saveSpecialHandling(){
             method:"PUT",
 
             headers:{
-                "Content-Type":\n                "application/json",\n                Authorization:`Bearer ${localStorage.getItem("token") || ""}`
+                "Content-Type":
+                "application/json",
+                Authorization:`Bearer ${localStorage.getItem("token") || ""}`
             },
 
             body:JSON.stringify({
@@ -2241,7 +2243,9 @@ async function saveSpecialHandlingDetails(){
             method:"PUT",
 
             headers:{
-                "Content-Type":\n                "application/json",\n                Authorization:`Bearer ${localStorage.getItem("token") || ""}`
+                "Content-Type":
+                "application/json",
+                Authorization:`Bearer ${localStorage.getItem("token") || ""}`
             },
 
             body:JSON.stringify({
@@ -2991,7 +2995,9 @@ async function deleteFlight(){
             method:"POST",
 
             headers:{
-                "Content-Type":\n                "application/json",\n                Authorization:`Bearer ${localStorage.getItem("token") || ""}`
+                "Content-Type":
+                "application/json",
+                Authorization:`Bearer ${localStorage.getItem("token") || ""}`
             },
 
             body:JSON.stringify({
