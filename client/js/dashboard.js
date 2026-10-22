@@ -89,6 +89,8 @@ params.get("id");
 let eventModal;
 let completedEvents = [];
 let canEditFlightEvents = false;
+let currentEventPermission = {canEdit:false,manager:false,roles:[]};
+let eventPermissionVersion = 0;
 
 
 socket.emit(
@@ -677,10 +679,33 @@ function canSeeEvent(def){
 }
 
 
+function renderYourAssignment() {
+    const container=document.getElementById("yourAssignmentStatus");
+    if (!container) return;
+    const permission=currentEventPermission;
+    container.replaceChildren();
+    const title=document.createElement("strong");
+    title.textContent="Your Assignment";
+    const status=document.createElement("span");
+    status.className="badge "+(permission.canEdit?"text-bg-success":"text-bg-secondary");
+    status.textContent=permission.manager?"Manager access":permission.roles.length?"Assigned":"View only";
+    const header=document.createElement("div");
+    header.className="d-flex justify-content-between align-items-center mb-1";
+    header.append(title,status);
+    const detail=document.createElement("div");
+    detail.className="small text-muted";
+    detail.textContent=permission.manager?"Operations Duty Manager / Admin":permission.roles.length?permission.roles.map(role=>formatRole(role)).join(", "):"Not assigned to this flight";
+    const access=document.createElement("div");
+    access.className="small mt-1";
+    access.textContent="Event Actions: "+(permission.canEdit?"Enabled":"View only");
+    container.append(header,detail,access);
+}
+
 async function loadEventButtons(){
 
     const container = document.getElementById("eventButtons");
     if (!container) return;
+    const requestVersion=++eventPermissionVersion;
     canEditFlightEvents = false;
     container.innerHTML = '<p class="small text-muted">Checking flight assignment…</p>';
     const token=localStorage.getItem("token");
@@ -690,9 +715,16 @@ async function loadEventButtons(){
         });
         if (!permissionResponse.ok) throw new Error("Cannot verify event permissions");
         const permission=await permissionResponse.json();
-        canEditFlightEvents=permission.canEdit===true;
+        if (requestVersion!==eventPermissionVersion) return;
+        currentEventPermission={canEdit:permission.canEdit===true,manager:permission.manager===true,roles:Array.isArray(permission.roles)?permission.roles:[]};
+        canEditFlightEvents=currentEventPermission.canEdit;
+        renderYourAssignment();
         await loadCompletedEvents();
+        if (requestVersion!==eventPermissionVersion) return;
     } catch(error) {
+        if (requestVersion!==eventPermissionVersion) return;
+        currentEventPermission={canEdit:false,manager:false,roles:[]};
+        renderYourAssignment();
         container.textContent="Event permissions unavailable — editing disabled. Refresh to retry.";
         return;
     }
@@ -1422,7 +1454,8 @@ async function loadAssignments(){
         panel.append(row);
     }
 }
-socket.on('assignmentAccepted',loadAssignments);
+socket.on('assignmentAccepted', async()=>{ await loadAssignments(); await loadEventButtons(); });
+socket.on('assignmentsUpdated', async()=>{ await loadAssignments(); await loadEventButtons(); });
 
 
 async function loadUsers(){
@@ -3130,7 +3163,7 @@ window.addEventListener("pageshow", event => {
 // Rejoin the room and refresh after reconnect, including missed events.
 socket.on("connect", () => {
     socket.emit("joinFlight", flightId);
-    if (dashboardActive) loadFlight();
+    if (dashboardActive) { loadFlight(); loadEventButtons(); loadAssignments(); }
 });
 
 
