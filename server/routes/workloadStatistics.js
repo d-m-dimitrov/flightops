@@ -30,16 +30,18 @@ router.get('/',async(req,res)=>{
  const t=anchor?new Date(anchor).getTime():NaN;
  const start=Number.isFinite(t)?new Date(t+(arrival?-30:-150)*60000):null;
  const end=Number.isFinite(t)?new Date(t+30*60000):null;
- p.assignments.push({flight:arrival?f.arrivalFlight:f.departureFlight,airline:f.airline,role:a.role,start,end});
+ p.assignments.push({turnaroundId:String(f._id),flight:arrival?f.arrivalFlight:f.departureFlight,airline:f.airline,role:a.role,start,end});
  }
  for(const p of staff.values()){
  const ordered=p.assignments.filter(a=>a.start&&a.end).sort((a,b)=>new Date(a.start)-new Date(b.start));
  for(let i=0;i<ordered.length;i++)for(let j=i+1;j<ordered.length;j++){
  if(new Date(ordered[j].start)>=new Date(ordered[i].end))break;
+ // Arrival and departure duties on the same turnaround are one combined assignment, not a clash.
+ if(ordered[i].turnaroundId===ordered[j].turnaroundId)continue;
  p.overlaps++;
  }
  }
- res.json({date,staff:[...staff.values()].sort((a,b)=>b.assignments.length-a.assignments.length),method:'Estimated assignment windows: arrival STA -30/+30 min; departure STD -150/+30 min. Overlaps are potential conflicts, not confirmed clashes.'});
+ res.json({date,staff:[...staff.values()].sort((a,b)=>b.assignments.length-a.assignments.length),method:'Estimated assignment windows: arrival STA -30/+30 min; departure STD -150/+30 min. Arrival and departure duties on the same turnaround are treated as combined dispatch, not overlap. Overlaps between different turnarounds are potential conflicts, not confirmed clashes.'});
  }catch(e){console.error(e);res.status(500).json({error:'Workload unavailable'})}
 });
 module.exports=router;
