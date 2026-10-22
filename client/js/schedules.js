@@ -61,7 +61,7 @@ function renderScheduleTable() {
     panel.querySelectorAll('.schedule-edit').forEach(btn => btn.addEventListener('click', () => editSchedule(btn.dataset.id)));
 }
 async function loadSchedules() {
-    const response = await fetch('/api/schedules');
+    const response = await fetch('/api/schedules', {headers:{Authorization:`Bearer ${localStorage.getItem('token') || ''}`}});
     if (!response.ok) { document.getElementById('scheduleList').textContent = 'Unable to load schedules'; return; }
     allSchedules = await response.json();
     const airlineSelect = document.getElementById('scheduleAirlineFilter');
@@ -213,7 +213,7 @@ async function saveSchedule(){
 
     const response = await fetch(scheduleId ? `/api/schedules/${scheduleId}` : "/api/schedules", {
         method:scheduleId ? "PUT" : "POST",
-        headers:{ "Content-Type":"application/json" },
+        headers:{ "Content-Type":"application/json", Authorization:`Bearer ${localStorage.getItem('token') || ''}` },
         body:JSON.stringify(payload)
     });
     if (!response.ok) { alert((await response.json()).error || "Save failed"); return; }
@@ -229,7 +229,8 @@ async function editSchedule(id){
 
     const response =
     await fetch(
-        `/api/schedules/${id}`
+        `/api/schedules/${id}`,
+        {headers:{Authorization:`Bearer ${localStorage.getItem('token') || ''}`}}
     );
 
     const schedule =
