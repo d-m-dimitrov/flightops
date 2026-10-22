@@ -13,6 +13,15 @@ express.Router();
 // All flight endpoints require a valid active session.
 router.use(requireUser);
 
+// Destructive and schedule-level changes require an Operations manager.
+const departmentAccess = require('../services/departmentAccess');
+function requireOperationsManager(req,res,next) {
+    if (departmentAccess.superAdmin(req.user) ||
+        (req.user.active && req.user.department === 'OPERATIONS' && req.user.position === 'OPERATIONS_DM')) return next();
+    return res.status(403).json({error:'Operations Duty Manager or Admin access required'});
+}
+
+
 const Turnaround =
 require("../models/Turnaround");
 
@@ -97,7 +106,7 @@ res.json(result);
 
 });
 
-router.post("/", async (req, res) => {
+router.post("/", requireOperationsManager, async (req, res) => {
     let times, mgt;
     try {
         times = time.scheduleTimes(req.body.operatingDate, req.body.sta, req.body.std,
@@ -202,7 +211,7 @@ async(req,res)=>{
 
 router.post(
 "/:id/cancel",
-async(req,res)=>{
+requireOperationsManager,\nasync(req,res)=>{
 
     const flight =
     await Turnaround.findById(
@@ -232,7 +241,7 @@ req.app
 
 router.post(
 "/:id/delete",
-async(req,res)=>{
+requireOperationsManager,\nasync(req,res)=>{
 
     const flight =
     await Turnaround.findById(
