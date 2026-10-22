@@ -40,8 +40,9 @@ router.get("/:turnaroundId/permissions", async(req,res)=>{
   const flight=await Turnaround.findOne({_id:id,deleted:{$ne:true}});
   if(!flight)return res.status(404).json({error:"Flight not found"});
   const manager=access.superAdmin(req.user)||(req.user.department==="OPERATIONS"&&req.user.position==="OPERATIONS_DM");
-  const assigned=manager||Boolean(await Assignment.exists({turnaroundId:id,userId:req.user._id,role:{$in:access.roles(req.user)}}));
-  res.json({canEdit:assigned});
+  const ownAssignments=await Assignment.find({turnaroundId:id,userId:req.user._id,role:{$in:access.roles(req.user)}}).select("role").lean();
+  const assigned=manager||ownAssignments.length>0;
+  res.json({canEdit:assigned,manager,roles:[...new Set(ownAssignments.map(a=>a.role))]});
 });
 
 router.get("/:turnaroundId", async(req,res)=>{
