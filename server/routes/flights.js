@@ -22,6 +22,20 @@ function requireOperationsManager(req,res,next) {
 }
 
 
+// Match the existing dashboard's skill-based editing rules on the API.
+function requireFlightEditor(module) {
+    const allowedSkills = {
+        FLIGHT_DETAILS:['DISPATCH','ARRIVAL_DISPATCH'],
+        SPECIAL_HANDLING:['CHECKIN','GATE','ARRIVAL']
+    };
+    return (req,res,next) => {
+        const user=req.user;
+        if (departmentAccess.superAdmin(user) || departmentAccess.dutyManager(user)) return next();
+        if ((allowedSkills[module] || []).some(skill => (user.skills || []).includes(skill))) return next();
+        return res.status(403).json({error:'You do not have permission to edit '+module.toLowerCase().replace('_',' ')});
+    };
+}
+
 const Turnaround =
 require("../models/Turnaround");
 
@@ -345,7 +359,7 @@ readiness;
 
 router.put(
 "/:id/special-handling",
-async(req,res)=>{
+requireFlightEditor("SPECIAL_HANDLING"),\nasync(req,res)=>{
 
     const flight =
     await Turnaround.findById(
@@ -384,7 +398,7 @@ req.app
 
 router.put(
 "/:id/details",
-async(req,res)=>{
+requireFlightEditor("FLIGHT_DETAILS"),\nasync(req,res)=>{
 
     const flight =
     await Turnaround.findById(
@@ -438,7 +452,7 @@ req.app
 
 router.put(
 "/:id/special-handling-details",
-async(req,res)=>{
+requireFlightEditor("SPECIAL_HANDLING"),\nasync(req,res)=>{
 
     const flight =
     await Turnaround.findById(
