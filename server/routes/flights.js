@@ -225,7 +225,8 @@ async(req,res)=>{
 
 router.post(
 "/:id/cancel",
-requireOperationsManager,\nasync(req,res)=>{
+requireOperationsManager,
+async(req,res)=>{
 
     const flight =
     await Turnaround.findById(
@@ -255,7 +256,8 @@ req.app
 
 router.post(
 "/:id/delete",
-requireOperationsManager,\nasync(req,res)=>{
+requireOperationsManager,
+async(req,res)=>{
 
     const flight =
     await Turnaround.findById(
@@ -359,7 +361,8 @@ readiness;
 
 router.put(
 "/:id/special-handling",
-requireFlightEditor("SPECIAL_HANDLING"),\nasync(req,res)=>{
+requireFlightEditor("SPECIAL_HANDLING"),
+async(req,res)=>{
 
     const flight =
     await Turnaround.findById(
@@ -398,7 +401,8 @@ req.app
 
 router.put(
 "/:id/details",
-requireFlightEditor("FLIGHT_DETAILS"),\nasync(req,res)=>{
+requireFlightEditor("FLIGHT_DETAILS"),
+async(req,res)=>{
 
     const flight =
     await Turnaround.findById(
@@ -452,7 +456,8 @@ req.app
 
 router.put(
 "/:id/special-handling-details",
-requireFlightEditor("SPECIAL_HANDLING"),\nasync(req,res)=>{
+requireFlightEditor("SPECIAL_HANDLING"),
+async(req,res)=>{
 
     const flight =
     await Turnaround.findById(
