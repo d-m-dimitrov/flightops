@@ -41,7 +41,39 @@ router.get('/',async(req,res)=>{
  p.overlaps++;
  }
  }
- res.json({date,staff:[...staff.values()].sort((a,b)=>b.assignments.length-a.assignments.length),method:'Estimated assignment windows: arrival STA -30/+30 min; departure STD -150/+30 min. Arrival and departure duties on the same turnaround are treated as combined dispatch, not overlap. Overlaps between different turnarounds are potential conflicts, not confirmed clashes.'});
+ // Hourly operational coverage (London clock). Count distinct people, not roles.
+ const londonHour=value=>Number(new Intl.DateTimeFormat('en-GB',{timeZone:'Europe/London',hour:'2-digit',hourCycle:'h23'}).format(value));
+ const hourly=Array.from({length:24},(_,hour)=>({hour,working:0,assigned:0,required:0}));
+ const dayStart=require('../../client/js/operationalTime').fromLocal(date+'T00:00').getTime();
+ const nextDate=require('../../client/js/operationalTime').addDays(date,1);
+ const dayEnd=require('../../client/js/operationalTime').fromLocal(nextDate+'T00:00').getTime();
+ const slots=[];
+ for(let t=dayStart;t<dayEnd;t+=15*60000)slots.push({start:t,end:Math.min(t+15*60000,dayEnd),hour:londonHour(new Date(t))});
+ for(const slot of slots){
+   const working=new Set(),busy=new Set(),demand=new Set();
+   for(const p of staff.values()){
+     const shift=p.shift;
+     if(shift?.status==='WORKING'&&shift.start&&shift.end&&new Date(shift.start).getTime()<slot.end&&new Date(shift.end).getTime()>slot.start)working.add(p.id);
+     for(const a of p.assignments){
+       if(a.start&&a.end&&new Date(a.start).getTime()<slot.end&&new Date(a.end).getTime()>slot.start){
+         busy.add(p.id);
+         demand.add(a.turnaroundId+':'+a.role);
+       }
+     }
+   }
+   const h=hourly[slot.hour];
+   h.working=Math.max(h.working,working.size);
+   h.assigned=Math.max(h.assigned,busy.size);
+   // Role slots are demand indicators, not a staffing minimum.
+   h.required=Math.max(h.required,demand.size);
+ }
+ const combined=[...staff.values()].map(p=>({
+   id:p.id,
+   name:p.name,
+   count:new Set(p.assignments.filter(a=>['ARRIVAL_DISPATCH','DISPATCH'].includes(a.role)).map(a=>a.turnaroundId)
+     .filter(id=>p.assignments.some(a=>a.turnaroundId===id&&a.role==='ARRIVAL_DISPATCH')&&p.assignments.some(a=>a.turnaroundId===id&&a.role==='DISPATCH'))).size
+ })).filter(p=>p.count>0);
+ res.json({date,hourly,combined,staff:[...staff.values()].sort((a,b)=>b.assignments.length-a.assignments.length),method:'Estimated assignment windows: arrival STA -30/+30 min; departure STD -150/+30 min. Arrival and departure duties on the same turnaround are treated as combined dispatch, not overlap. Overlaps between different turnarounds are potential conflicts, not confirmed clashes.'});
  }catch(e){console.error(e);res.status(500).json({error:'Workload unavailable'})}
 });
 module.exports=router;
