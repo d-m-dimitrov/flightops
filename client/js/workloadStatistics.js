@@ -12,6 +12,23 @@ async function loadWorkload(){
  const conflicts=staff.reduce((n,s)=>n+s.overlaps,0);
  summary.innerHTML=card('Working shifts',working,'Roster records')+card('Assigned staff',assigned,'With flight assignments')+card('Assignments',staff.reduce((n,s)=>n+s.assignments.length,0),'Roles allocated')+card('Potential overlaps',conflicts,'Estimated windows');
  document.getElementById('workloadMethod').textContent=data.method||'';
+ const coverage=document.getElementById('workloadCoverage');
+ if(coverage){
+   const combined=data.combined||[],hourly=data.hourly||[];
+   const peak=Math.max(1,...hourly.map(h=>Math.max(h.working,h.assigned,h.required)));
+   coverage.innerHTML='<div class="row g-3 mb-3">'+
+    '<div class="col-md-4">'+card('Combined turnarounds',combined.reduce((n,p)=>n+p.count,0),'Same dispatcher: arrival + departure')+'</div>'+
+    '<div class="col-md-4">'+card('Dispatchers with combined duties',combined.length,'Unique staff')+'</div>'+
+    '<div class="col-md-4">'+card('Peak assigned staff',Math.max(0,...hourly.map(h=>h.assigned)),'Distinct people in 15-minute slots')+'</div></div>'+
+    '<h3 class="h6">Hourly staffing coverage (London time)</h3>'+
+    '<p class="small text-muted">Working = peak rostered staff in each hour; assigned = peak distinct staff with an active assignment window; role demand = peak simultaneous role slots. These are separate indicators, not a verified minimum staffing requirement. Shift breaks are not deducted.</p>'+
+    '<div class="table-responsive"><table class="table table-sm align-middle"><thead><tr><th>Hour</th><th>Working</th><th>Assigned</th><th>Role demand</th></tr></thead><tbody>'+
+    hourly.map(h=>'<tr><td>'+String(h.hour).padStart(2,'0')+':00</td>'+
+     [h.working,h.assigned,h.required].map((v,i)=>'<td style="min-width:90px"><div class="d-flex gap-2 align-items-center"><span class="small" style="width:22px">'+v+'</span><div class="progress flex-grow-1" style="height:12px"><div class="progress-bar '+['bg-primary','bg-success','bg-secondary'][i]+'" style="width:'+(v/peak*100)+'%"></div></div></div></td>').join('')+'</tr>').join('')+
+    '</tbody></table></div>'+
+    (combined.length?'<h3 class="h6">Combined dispatch by employee</h3><p>'+combined.map(p=>escapeWorkload(p.name)+' ('+p.count+')').join(', ')+'</p>':'');
+ }
+
  const workloadLevel=s=>{
    if(s.overlaps>0)return {row:'table-danger',label:'Overlap',badge:'text-bg-danger'};
    if(s.shift?.status==='OFF'||s.shift?.status==='ABSENT')return {row:'table-secondary',label:s.shift.status==='OFF'?'Day off':'Absent',badge:'text-bg-secondary'};
