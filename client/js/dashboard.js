@@ -1058,18 +1058,11 @@ async function editFlightDetails(){
 
 
 function canCancelFlight(){
-
-    const position =
-    getCurrentUser()?.position;
-
-    return [
-
-        "OPERATIONS_DM",
-        "TRAFFIC_COORDINATOR"
-
-    ].includes(position);
-
+    const user=getCurrentUser();
+    return user?.role==="ADMIN" ||
+        (user?.department==="OPERATIONS" && user?.position==="OPERATIONS_DM");
 }
+
 
 async function saveFlightDetails(){
 
