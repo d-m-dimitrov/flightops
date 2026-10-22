@@ -1261,7 +1261,7 @@ async function editSpecialHandling(){
 
 async function saveSpecialHandling(){
 
-    await fetch(
+    const saveResponse = await fetch(
 
         `/api/flights/${flightId}/special-handling`,
 
@@ -1270,8 +1270,7 @@ async function saveSpecialHandling(){
             method:"PUT",
 
             headers:{
-                "Content-Type":
-                "application/json"
+                "Content-Type":\n                "application/json",\n                Authorization:`Bearer ${localStorage.getItem("token") || ""}`
             },
 
             body:JSON.stringify({
@@ -1333,6 +1332,11 @@ async function saveSpecialHandling(){
 
     );
 
+    if (!saveResponse.ok) {
+        const error=await saveResponse.json().catch(()=>({}));
+        alert(error.error || "Special handling could not be saved");
+        return;
+    }
     specialHandlingModal.hide();
 
     await loadFlight();
@@ -2244,8 +2248,7 @@ async function saveSpecialHandlingDetails(){
             method:"PUT",
 
             headers:{
-                "Content-Type":
-                "application/json"
+                "Content-Type":\n                "application/json",\n                Authorization:`Bearer ${localStorage.getItem("token") || ""}`
             },
 
             body:JSON.stringify({
@@ -2986,7 +2989,7 @@ async function deleteFlight(){
         return;
     }
 
-    await fetch(
+    const deleteResponse = await fetch(
 
         `/api/flights/${flightId}/delete`,
 
@@ -2995,8 +2998,7 @@ async function deleteFlight(){
             method:"POST",
 
             headers:{
-                "Content-Type":
-                "application/json"
+                "Content-Type":\n                "application/json",\n                Authorization:`Bearer ${localStorage.getItem("token") || ""}`
             },
 
             body:JSON.stringify({
@@ -3010,6 +3012,11 @@ async function deleteFlight(){
 
     );
 
+    if (!deleteResponse.ok) {
+        const error=await deleteResponse.json().catch(()=>({}));
+        alert(error.error || "Flight could not be deleted");
+        return;
+    }
     window.location =
     "flights.html";
 
