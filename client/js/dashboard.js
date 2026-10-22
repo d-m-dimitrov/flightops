@@ -1099,7 +1099,8 @@ if(cancelBtn){
 
             headers:{
                 "Content-Type":
-                "application/json"
+                "application/json",
+                Authorization:`Bearer ${localStorage.getItem("token") || ""}`
             },
 
             body:JSON.stringify({
@@ -1166,7 +1167,7 @@ async function cancelFlight(){
         return;
     }
 
-    await fetch(
+    const cancelResponse = await fetch(
 
         `/api/flights/${flightId}/cancel`,
 
@@ -1176,7 +1177,8 @@ async function cancelFlight(){
 
             headers:{
                 "Content-Type":
-                "application/json"
+                "application/json",
+                Authorization:`Bearer ${localStorage.getItem("token") || ""}`
             },
 
             body:JSON.stringify({
@@ -1192,6 +1194,11 @@ async function cancelFlight(){
 
     );
 
+    if (!cancelResponse.ok) {
+        const error = await cancelResponse.json().catch(()=>({}));
+        alert(error.error || "Could not cancel flight");
+        return;
+    }
     flightDetailsModal.hide();
 
     await loadFlight();
