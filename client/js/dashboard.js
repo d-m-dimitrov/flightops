@@ -1784,7 +1784,10 @@ for(const field of PassengerFigures.fields)document.getElementById(field).addEve
 async function editPassengers(){
     if(passengerSaveBusy)return;
     try{
-        const response=await fetch(`/api/flights/${flightId}`);if(!response.ok)throw Error('Unable to load passenger figures');
+        const sessionToken=localStorage.getItem('token');
+        if(!sessionToken)throw Error('Session expired. Please sign in again.');
+        const response=await fetch(`/api/flights/${flightId}`,{headers:{Authorization:`Bearer ${sessionToken}`}});
+        if(!response.ok){const details=await response.json().catch(()=>({}));throw Error(details.error||`Unable to load passenger figures (${response.status})`);}
         const flight=await response.json(),p=PassengerFigures.normalize(flight.passengers);
         passengerEditRevision=flight.passengerRevision||0;passengerEditToken=localStorage.getItem('token');
         for(const field of PassengerFigures.fields)document.getElementById(field).value=p[field]===null?'':p[field];
