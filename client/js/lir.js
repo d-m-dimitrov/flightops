@@ -301,17 +301,38 @@ document.querySelectorAll('[data-tool]').forEach(button=>button.onclick=()=>{
 });
 document.querySelector('[data-tool="tick"]').classList.add('active');
 function addMark(mark){if(!editable())return;if(state.annotations.length>=1000){message('Maximum 1,000 annotations reached.','warning');return;}state.annotations.push(mark);historySave();redraw();}
+// On touchscreens two fingers always navigate the LIR, even while an annotation tool is selected.
+let gesture=null, suppressTouchUntil=0, pendingTap=null;
+function cancelPendingTap(){if(pendingTap){clearTimeout(pendingTap.timer);pendingTap=null;}strikeStart=null;redraw();}
+function touchDistance(a,b){return Math.hypot(a.clientX-b.clientX,a.clientY-b.clientY);}
+function touchCenter(a,b){return {x:(a.clientX+b.clientX)/2,y:(a.clientY+b.clientY)/2};}
+canvas.addEventListener('touchstart',event=>{
+  if(event.touches.length<2)return;
+  event.preventDefault();cancelPendingTap();suppressTouchUntil=Date.now()+350;
+  const viewport=$('documentViewport'),a=event.touches[0],b=event.touches[1],center=touchCenter(a,b),rect=canvas.getBoundingClientRect();
+  gesture={distance:touchDistance(a,b),zoom:view.zoom,docX:(center.x-rect.left)/view.zoom,docY:(center.y-rect.top)/view.zoom};
+},{passive:false});
+canvas.addEventListener('touchmove',event=>{
+  if(!gesture||event.touches.length<2)return;
+  event.preventDefault();const a=event.touches[0],b=event.touches[1],center=touchCenter(a,b),viewport=$('documentViewport');
+  view.fit=false;view.zoom=Math.max(.25,Math.min(3,gesture.zoom*touchDistance(a,b)/Math.max(1,gesture.distance)));
+  applyZoom();const rect=viewport.getBoundingClientRect();
+  viewport.scrollLeft+=gesture.docX*view.zoom+rect.left-center.x+viewport.scrollLeft-(canvas.getBoundingClientRect().left-rect.left+viewport.scrollLeft);
+  viewport.scrollTop+=gesture.docY*view.zoom+rect.top-center.y+viewport.scrollTop-(canvas.getBoundingClientRect().top-rect.top+viewport.scrollTop);
+},{passive:false});
+canvas.addEventListener('touchend',event=>{if(gesture){suppressTouchUntil=Date.now()+350;if(event.touches.length<2)gesture=null;}},{passive:true});
+canvas.addEventListener('touchcancel',()=>{gesture=null;suppressTouchUntil=Date.now()+350;cancelPendingTap();},{passive:true});
 canvas.onpointerdown=event=>{
-  if(!editable() || view.pan)return;event.preventDefault();const pos=coords(event,canvas);
+  if(!editable() || view.pan || gesture || (event.pointerType==='touch' && Date.now()<suppressTouchUntil))return;event.preventDefault();const pos=coords(event,canvas);
   if(state.tool==='strike'){strikeStart=pos;canvas.setPointerCapture(event.pointerId);return;}
   const mark={page:state.page,type:state.tool,...pos};
-  if(['tick','nil'].includes(state.tool)){addMark(mark);return;}
+  if(['tick','nil'].includes(state.tool)){if(event.pointerType==='touch'){cancelPendingTap();pendingTap={mark,timer:setTimeout(()=>{if(pendingTap?.mark===mark&&!gesture)addMark(mark);pendingTap=null;},170)};}else addMark(mark);return;}
   pendingAnnotation=mark;$('annotationText').value='';$('piecesText').value='';$('piecesGroup').hidden=state.tool!=='uld';
   $('dialogTitle').textContent=state.tool==='pcs'?'Pieces':state.tool==='uldonly'?'ULD Number (vertical)':'ULD Details';
   $('textLabel').textContent=state.tool==='pcs'?'Pieces':'ULD number';$('annotationDialog').showModal();$('annotationText').focus();
 };
-canvas.onpointermove=event=>{if(strikeStart&&editable()){event.preventDefault();redraw({page:state.page,type:'strike',...strikeStart,x2:coords(event,canvas).x});}};
-canvas.onpointerup=event=>{if(!strikeStart)return;const start=strikeStart;strikeStart=null;if(editable()&&Math.abs(coords(event,canvas).x-start.x)>.004)addMark({page:state.page,type:'strike',...start,x2:coords(event,canvas).x});else redraw();};
+canvas.onpointermove=event=>{if(!gesture&&strikeStart&&editable()){event.preventDefault();redraw({page:state.page,type:'strike',...strikeStart,x2:coords(event,canvas).x});}};
+canvas.onpointerup=event=>{if(gesture || (event.pointerType==='touch'&&Date.now()<suppressTouchUntil)){strikeStart=null;redraw();return;}if(!strikeStart)return;const start=strikeStart;strikeStart=null;if(editable()&&Math.abs(coords(event,canvas).x-start.x)>.004)addMark({page:state.page,type:'strike',...start,x2:coords(event,canvas).x});else redraw();};
 canvas.onpointercancel=()=>{strikeStart=null;redraw();};
 $('annotationDialog').addEventListener('close',()=>{if($('annotationDialog').returnValue==='add'&&pendingAnnotation&&$('annotationText').value.trim()){addMark({...pendingAnnotation,text:$('annotationText').value.trim().toUpperCase(),pieces:$('piecesText').value.trim()});}pendingAnnotation=null;});
 function restoreHistory(delta){if(!editable())return;const index=state.historyIndex+delta;if(index<0||index>=state.history.length)return;state.historyIndex=index;Object.assign(state,JSON.parse(state.history[index]));state.dirty=true;queueLive();redraw();drawSignature();controls();}
