@@ -184,6 +184,7 @@ async function newUser(){
     renderSkills([]);
     renderQualifications([]);
     qualificationRevision = 0;
+    const trainingLink=document.getElementById('trainingLink');if(trainingLink){trainingLink.href='#';trainingLink.classList.add('disabled');trainingLink.setAttribute('aria-disabled','true');}
     staffEditToken = localStorage.getItem('token');
 
     userModal.show();
@@ -765,6 +766,8 @@ async function editUser(
     renderQualifications(user.airlineQualifications || []);
     qualificationRevision = user.qualificationRevision || 0;
     staffEditToken = editToken;
+    const trainingLink=document.getElementById('trainingLink');
+    if(trainingLink){trainingLink.href='training.html?id='+encodeURIComponent(user._id);trainingLink.classList.remove('disabled');trainingLink.removeAttribute('aria-disabled');}
     userModal.show();
 
 }
