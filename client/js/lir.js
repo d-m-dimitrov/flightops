@@ -316,9 +316,9 @@ canvas.addEventListener('touchmove',event=>{
   if(!gesture||event.touches.length<2)return;
   event.preventDefault();const a=event.touches[0],b=event.touches[1],center=touchCenter(a,b),viewport=$('documentViewport');
   view.fit=false;view.zoom=Math.max(.25,Math.min(3,gesture.zoom*touchDistance(a,b)/Math.max(1,gesture.distance)));
-  applyZoom();const rect=viewport.getBoundingClientRect();
-  viewport.scrollLeft+=gesture.docX*view.zoom+rect.left-center.x+viewport.scrollLeft-(canvas.getBoundingClientRect().left-rect.left+viewport.scrollLeft);
-  viewport.scrollTop+=gesture.docY*view.zoom+rect.top-center.y+viewport.scrollTop-(canvas.getBoundingClientRect().top-rect.top+viewport.scrollTop);
+  applyZoom();const rect=canvas.getBoundingClientRect();
+  viewport.scrollLeft+=gesture.docX*view.zoom-(center.x-rect.left);
+  viewport.scrollTop+=gesture.docY*view.zoom-(center.y-rect.top);
 },{passive:false});
 canvas.addEventListener('touchend',event=>{if(gesture){suppressTouchUntil=Date.now()+350;if(event.touches.length<2)gesture=null;}},{passive:true});
 canvas.addEventListener('touchcancel',()=>{gesture=null;suppressTouchUntil=Date.now()+350;cancelPendingTap();},{passive:true});
