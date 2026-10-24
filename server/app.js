@@ -24,6 +24,7 @@ const assignmentRoutes = require("./routes/assignments");
 
 
 const userRoutes = require("./routes/users");
+const trainingRoutes = require("./routes/training");
 const userRoleRoutes = require("./routes/userRoles");
 
 const turnaroundRuleRoutes = require("./routes/turnaroundRules");
@@ -83,6 +84,7 @@ app.use(express.json());
 app.use("/api/flight-messages", require("./routes/flightMessages"));
 app.use("/api/gate-items", require("./routes/gateItems"));
 app.use("/api/shifts", require("./routes/shifts"));
+app.use("/api/training", trainingRoutes);
 app.use("/api/roster-planning", require("./routes/rosterPlanning"));
 app.use("/api/control", require("./routes/control"));
 app.use("/api/my-flights", require("./routes/myFlights"));
