@@ -13,8 +13,27 @@ async function employee(req,res){
  if(!u||!access.canManageStaff(req.user,u)){res.status(404).json({error:'Employee not found in your department'});return null;}
  return u;
 }
+router.get('/matrix',async(req,res)=>{
+ try{
+  const users=await User.find(access.staffFilter(req.user)).select('name department position active mandatoryTraining trainingNotRequired airlineQualifications trainingFlights lineTrainerQualifications').sort({name:1}).lean();
+  res.json(users);
+ }catch(e){res.status(500).json({error:'Unable to load training matrix'});}
+});
+router.put('/:id/not-required',async(req,res)=>{
+ try{
+  const u=await employee(req,res);if(!u)return;
+  const {code:trainingCode,notRequired,expectedRevision}=req.body;
+  const allowed=['GENERAL','DGR','JETTY','ADP','WB'];
+  if(!allowed.includes(trainingCode)||typeof notRequired!=='boolean'||!Number.isInteger(expectedRevision)||expectedRevision<0)return res.status(400).json({error:'Invalid training requirement'});
+  const updated=await User.findOneAndUpdate({_id:u._id,trainingRevision:expectedRevision},
+   { [notRequired?'$addToSet':'$pull']:{trainingNotRequired:trainingCode},$inc:{trainingRevision:1}},
+   {new:true,runValidators:true});
+  if(!updated)return res.status(409).json({error:'Training changed. Reload and retry'});
+  res.json({trainingRevision:updated.trainingRevision,trainingNotRequired:updated.trainingNotRequired});
+ }catch(e){res.status(400).json({error:'Unable to update requirement'});}
+});
 router.get('/:id',async(req,res)=>{
- try{const u=await employee(req,res);if(!u)return;res.json({name:u.name,department:u.department,mandatoryTraining:u.mandatoryTraining||[],lineTrainerQualifications:u.lineTrainerQualifications||[],trainingFlights:u.trainingFlights||[],trainingRevision:u.trainingRevision||0});}
+ try{const u=await employee(req,res);if(!u)return;res.json({name:u.name,department:u.department,mandatoryTraining:u.mandatoryTraining||[],lineTrainerQualifications:u.lineTrainerQualifications||[],trainingFlights:u.trainingFlights||[],trainingRevision:u.trainingRevision||0,trainingNotRequired:u.trainingNotRequired||[]});}
  catch(e){res.status(400).json({error:'Unable to load training'});}
 });
 router.put('/:id',async(req,res)=>{
