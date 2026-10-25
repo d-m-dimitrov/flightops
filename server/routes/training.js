@@ -15,7 +15,7 @@ async function employee(req,res){
 }
 router.get('/matrix',async(req,res)=>{
  try{
-  const users=await User.find(access.staffFilter(req.user)).select('name department position active mandatoryTraining trainingNotRequired airlineQualifications trainingFlights lineTrainerQualifications').sort({name:1}).lean();
+  const users=await User.find({$and:[access.staffFilter(req.user),{department:'OPERATIONS',active:{$ne:false},role:{$ne:'ADMIN'}}]}).select('name department position active mandatoryTraining trainingNotRequired airlineQualifications trainingFlights lineTrainerQualifications').sort({name:1}).lean();
   res.json(users);
  }catch(e){res.status(500).json({error:'Unable to load training matrix'});}
 });
