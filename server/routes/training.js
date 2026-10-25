@@ -23,6 +23,7 @@ router.put('/:id',async(req,res)=>{
  const {mandatoryTraining:m,lineTrainerQualifications:l,expectedRevision:v}=req.body;
  if(!Array.isArray(m)||m.length>100||!Array.isArray(l)||l.length>100||!Number.isInteger(v)||v<0)return res.status(400).json({error:'Invalid training update'});
  if(m.some(t=>!code(t.code)||!safe(t.name)||!t.name.trim()||(t.completedOn&&!date(t.completedOn))||(t.validUntil&&!date(t.validUntil))||!safe(t.evidence||'')||!safe(t.notes||'')))return res.status(400).json({error:'Invalid mandatory training'});
+ if(m.some(t=>['JETTY','ADP'].includes(t.code)&&(!t.completedOn||!t.validUntil)))return res.status(400).json({error:'Jetty Training and ADP require completion and expiry dates'});
  if(l.some(t=>!code(t.airline)||t.airline.length>3||!roles.includes(t.role)||!access.roles({active:true,department:u.department}).includes(t.role)||typeof t.canTrain!=='boolean'||typeof t.canCheck!=='boolean'||(t.validUntil&&!date(t.validUntil))))return res.status(400).json({error:'Invalid Line Trainer qualification'});
  const filter={_id:u._id,trainingRevision:v};
  const result=await User.findOneAndUpdate(filter,{$set:{mandatoryTraining:m,lineTrainerQualifications:l},$inc:{trainingRevision:1}},{new:true,runValidators:true});
