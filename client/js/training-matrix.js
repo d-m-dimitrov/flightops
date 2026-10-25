@@ -14,7 +14,8 @@ function status(u,code){
  const remaining=Math.round((Date.parse(t.validUntil+'T00:00:00Z')-Date.parse(today+'T00:00:00Z'))/86400000);
  return remaining<=30?['SOON','Expires '+t.validUntil]:['VALID','Valid to '+t.validUntil];
 }
-const airlineColors={LICENSED:'success',TRAINED:'primary',SHADOW:'warning',UNTRAINED:'secondary',EXPIRED:'danger'};
+const airlineColors={LICENSED:'success',TRAINED:'info',SHADOW:'warning',UNTRAINED:'secondary',EXPIRED:'danger'};
+const airlineSymbols={LICENSED:'✓',TRAINED:'T',SHADOW:'S',UNTRAINED:'—',EXPIRED:'✕'};
 function airlineState(u,airline){const qs=(u.airlineQualifications||[]).filter(q=>q.airline===airline&&['DISPATCH','ARRIVAL_DISPATCH'].includes(q.role));const valid=qs.filter(q=>!q.validUntil||q.validUntil>=today);if(valid.length)return ['LICENSED','Licensed',valid.map(q=>q.role+(q.validUntil?' · '+q.validUntil:'')).join(' / ')];const flights=(u.trainingFlights||[]).filter(f=>f.airline===airline&&['DISPATCH','ARRIVAL_DISPATCH'].includes(f.role));const checks=flights.filter(f=>f.kind==='CHECK').sort((a,b)=>String(b.flightDate).localeCompare(String(a.flightDate)));if(checks[0]?.outcome==='PASS')return ['TRAINED','Trained','Check Flight passed '+checks[0].flightDate+'; independent qualification not recorded'];const shadow=flights.filter(f=>f.kind==='SHADOW').length;if(shadow)return ['SHADOW','Shadow',shadow+' shadow flights'];if(qs.length)return ['EXPIRED','Expired','Qualification expired'];return ['UNTRAINED','Untrained','No qualification or training recorded'];}
 const colors={VALID:'success',SOON:'warning',EXPIRED:'danger',MISSING:'secondary',NA:'light'};
 function td(tr,text){const c=document.createElement('td');c.textContent=text;tr.append(c);return c;}
@@ -30,7 +31,7 @@ function draw(){
  const out=[u.name||'',u.department||''];
  for(const [code] of codes){const [kind,label]=status(u,code);counts[kind]++;out.push(label);const cell=document.createElement('td');const button=document.createElement('button');button.className='btn btn-sm p-0 border-0';button.append(badge(kind,label));button.title='Open training record / set N/A';button.onclick=()=>manage(u,code,kind);cell.append(button);tr.append(cell);}body.append(tr);exportRows.push(out);
  }else{
- const tr=document.createElement('tr');td(tr,u.name||'—');const out=[u.name||''];for(const airline of airlines()){const [kind,label,detail]=airlineState(u,airline);out.push(label);const cell=document.createElement('td');const pill=document.createElement('span');pill.className='badge text-bg-'+airlineColors[kind];pill.textContent=label;pill.title=detail;cell.append(pill);tr.append(cell);}body.append(tr);exportRows.push(out);
+ const tr=document.createElement('tr');td(tr,u.name||'—');const out=[u.name||''];for(const airline of airlines()){const [kind,label,detail]=airlineState(u,airline);out.push(label);const cell=document.createElement('td');const pill=document.createElement('span');pill.className='badge text-bg-'+airlineColors[kind];pill.textContent=airlineSymbols[kind];pill.title=label+' — '+detail;pill.setAttribute('aria-label',airline+' '+label+' — '+detail);pill.style.minWidth='2rem';pill.style.fontSize='0.9rem';cell.className='text-center';cell.append(pill);tr.append(cell);}body.append(tr);exportRows.push(out);
  }
  }
  $('summary').textContent=mode==='mandatory'?rows.length+' employees · '+counts.VALID+' valid · '+counts.SOON+' expiring · '+counts.EXPIRED+' expired · '+counts.MISSING+' missing · '+counts.NA+' N/A':rows.length+' dispatchers · '+airlines().length+' airlines';
