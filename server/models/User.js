@@ -48,6 +48,7 @@ const UserSchema = new mongoose.Schema({
         outcome:{type:String,enum:['COMPLETED','PASS','FAIL'],required:true},
         notes:{type:String,default:''},recordedAt:{type:Date,default:Date.now}
     },{_id:true})],default:[]},
+    trainingNotRequired:{type:[String],default:[]},
     trainingRevision:{type:Number,default:0},
     qualificationRevision:{type:Number,default:0},
     qualificationsUpdatedAt:Date,
