@@ -9,7 +9,7 @@ const notify=(msg,bad=false)=>{const el=$('notice');el.hidden=false;el.className
 async function api(url,options={}){const r=await fetch(url,{...options,headers});const data=await r.json().catch(()=>({}));if(!r.ok)throw Error(data.error||'Request failed');return data;}
 function field(type,name,value='',placeholder=''){const input=document.createElement('input');input.type=type;input.className='form-control form-control-sm';input.dataset.field=name;input.value=value||'';input.placeholder=placeholder;return input;}
 function cell(row,label,input){const wrap=document.createElement('label');wrap.className='col-md small';wrap.textContent=label;wrap.append(input);row.append(wrap);}
-const mandatoryPresets={DGR:'Dangerous Goods Regulations',JETTY:'Jetty Training',ADP:'Airport Driving Permit',WB:'Weight and Balance Training'};
+const mandatoryPresets={GENERAL:'General Training',DGR:'Dangerous Goods Regulations',JETTY:'Jetty Training',ADP:'Airport Driving Permit',WB:'Weight and Balance Training'};
 function trainingStatus(t){
  const today=new Date().toLocaleDateString('en-CA',{timeZone:'Europe/London'});
  if(!t.completedOn)return ['Not completed','text-bg-secondary'];
