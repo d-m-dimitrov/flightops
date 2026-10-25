@@ -85,6 +85,7 @@ app.use("/api/flight-messages", require("./routes/flightMessages"));
 app.use("/api/gate-items", require("./routes/gateItems"));
 app.use("/api/shifts", require("./routes/shifts"));
 app.use("/api/training", trainingRoutes);
+app.use("/api/airline-directory", require("./routes/airlineDirectory"));
 app.use("/api/roster-planning", require("./routes/rosterPlanning"));
 app.use("/api/control", require("./routes/control"));
 app.use("/api/my-flights", require("./routes/myFlights"));
