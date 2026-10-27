@@ -9,10 +9,12 @@ function el(tag,text,cls){const e=document.createElement(tag);e.textContent=text
 async function request(url,options={}){if(localStorage.getItem('token')!==token)throw Error('Account changed. Reload this page.');const r=await fetch(url,{...options,headers:{Authorization:`Bearer ${token}`}});if(localStorage.getItem('token')!==token)throw Error('Account changed. Reload this page.');if(!r.ok)throw Error((await r.json()).error||'Unable to load flights');const body=await r.json();if(localStorage.getItem('token')!==token)throw Error('Account changed. Reload this page.');return body;}
 function time(value){return value?new Date(value).toLocaleTimeString('en-GB',{timeZone:'Europe/London',hour:'2-digit',minute:'2-digit'}):'—';}
 function countdown(f){const target=FlightTasks.target(f),at=Date.parse(target.value);if(FlightTasks.closed(f))return f.status;if(!Number.isFinite(at))return `${target.label}: time unavailable`;const minutes=Math.ceil((at-Date.now())/60000);return `${target.label} ${time(target.value)} · ${minutes>=0?`${Math.floor(minutes/60)}h ${minutes%60}m remaining`:`${Math.abs(minutes)}m past`}`;}
-function appendPhone(row,phone){
+function appendPhone(row,phone,label='Call'){
  const clean=String(phone).replace(/[^+0-9]/g,'');
- if(!/^\\+?[0-9]{5,16}$/.test(clean)){row.append(document.createTextNode(' · '+phone));return;}
- const a=el('a',' ☎ '+phone,'ms-2');a.href='tel:'+clean;row.append(a);
+ if(!/^\\+?[0-9]{5,16}$/.test(clean)){row.append(el('span',' · '+phone,'text-muted'));return;}
+ const a=el('a','☎ '+label,'btn btn-success btn-sm ms-2 my-1');a.href='tel:'+clean;
+ a.setAttribute('aria-label',label+' '+phone);a.title=phone;
+ a.style.minHeight='42px';a.style.minWidth='92px';row.append(a);
 }
 function render(){
  $('cards').replaceChildren();
@@ -50,7 +52,7 @@ function render(){
      for(const [key,label] of Object.entries(labels)){
       const v=data.services?.[key];if(!v||!Object.values(v).some(Boolean))continue;
       const row=el('div',label+': '+(v.provider||'—')+(v.contact?' · '+v.contact:''),'mb-1');
-      if(v.phone)appendPhone(row,v.phone);if(v.backupPhone)appendPhone(row,v.backupPhone);
+      if(v.phone)appendPhone(row,v.phone);if(v.backupPhone)appendPhone(row,v.backupPhone,'Backup');
       if(v.notes)row.append(el('div',v.notes,'text-muted'));info.append(row);
      }
      for(const key of ['general','arrival','departure','aircraft'])if(data.instructions?.[key]){
