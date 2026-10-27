@@ -45,7 +45,7 @@ router.delete('/:iata/logo',async(req,res)=>{
  res.json({ok:true});
 });
 router.get('/:iata',async(req,res)=>{
- try{const row=await Airline.findOne({iata:String(req.params.iata).toUpperCase(),station:'LHR'}).lean();if(!row)return res.status(404).json({error:'Airline not found'});res.json(row);}
+ try{const row=await Airline.findOne({iata:String(req.params.iata).toUpperCase(),station:'LHR'}).select('+logoData').lean();if(!row)return res.status(404).json({error:'Airline not found'});res.json(row);}
  catch(e){res.status(500).json({error:'Unable to load airline'});}
 });
 router.put('/:iata',async(req,res)=>{
