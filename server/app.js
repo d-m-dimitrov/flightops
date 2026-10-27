@@ -80,7 +80,7 @@ async function startGenerator() {
 
 app.use(cors());
 app.use("/api/lir", require("./routes/lir"));
-app.use(express.json());
+app.use(express.json({limit:'300kb'}));
 app.use("/api/flight-messages", require("./routes/flightMessages"));
 app.use("/api/gate-items", require("./routes/gateItems"));
 app.use("/api/shifts", require("./routes/shifts"));
