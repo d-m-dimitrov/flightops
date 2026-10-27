@@ -3,7 +3,7 @@ const AirlineDirectorySchema = new mongoose.Schema({
  iata:{type:String,required:true,uppercase:true,trim:true},
  icao:{type:String,uppercase:true,trim:true,default:''},
  name:{type:String,required:true,trim:true},
- callsign:String,awbPrefix:String,logoUrl:String,
+ callsign:String,awbPrefix:String,logoUrl:String,logoData:{type:String,select:false},
  station:{type:String,default:'LHR',uppercase:true},
  representatives:[{name:String,position:String,phone:String,email:String,notes:String}],
  services:{type:mongoose.Schema.Types.Mixed,default:{}},
