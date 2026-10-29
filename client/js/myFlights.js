@@ -59,10 +59,19 @@ function render(){
       if(v.phone)appendPhone(row,v.phone);if(v.backupPhone)appendPhone(row,v.backupPhone,'Backup');
       if(v.notes)row.append(el('div',v.notes,'text-muted'));info.append(row);
      }
-     for(const key of ['general','arrival','departure','aircraft'])if(data.instructions?.[key]){
-      info.append(el('div',key.toUpperCase(),'fw-semibold mt-2'));
-      const notes=el('div',data.instructions[key],'text-muted');notes.style.whiteSpace='pre-wrap';info.append(notes);
-     }
+     try{
+      const aircraft=String(f.aircraft?.aircraftType||'').trim().toUpperCase();
+      const instructions=await request('/api/airline-directory/'+encodeURIComponent(airlineCode)+'/instructions'+(aircraft?'?aircraftType='+encodeURIComponent(aircraft):''));
+      if(!details.isConnected)return;
+      for(const item of instructions.items||[]){
+       info.append(el('div',item.title+' · '+item.operation+' · '+item.aircraftType,'fw-semibold mt-2'));
+       const notes=el('div',item.body||'','text-muted');notes.style.whiteSpace='pre-wrap';info.append(notes);
+       if(item.steps?.length){const ul=el('ul','','mb-2');for(const step of item.steps)ul.append(el('li',step));info.append(ul);}
+      }
+      const legacy=Object.entries(instructions.legacy||{}).filter(([,v])=>typeof v==='string'&&v.trim());
+      if(legacy.length)info.append(el('div','Legacy notes (read-only; awaiting migration)','small text-warning mt-2'));
+      for(const [key,value] of legacy){info.append(el('div',key.toUpperCase(),'fw-semibold mt-2'));const note=el('div',value,'text-muted');note.style.whiteSpace='pre-wrap';info.append(note);}
+     }catch(e){info.append(el('div','Instructions unavailable: '+e.message,'text-danger'));}
      const link=el('a','Open full Airline Directory','btn btn-sm btn-outline-primary mt-2');link.href='airline-directory.html?iata='+encodeURIComponent(airlineCode);info.append(link);
     }catch(e){info.textContent=e.message==='Airline not found'?'No directory entry for '+airlineCode+'.':e.message;}
    });
