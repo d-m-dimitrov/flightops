@@ -11,10 +11,14 @@ function time(value){return value?new Date(value).toLocaleTimeString('en-GB',{ti
 function countdown(f){const target=FlightTasks.target(f),at=Date.parse(target.value);if(FlightTasks.closed(f))return f.status;if(!Number.isFinite(at))return `${target.label}: time unavailable`;const minutes=Math.ceil((at-Date.now())/60000);return `${target.label} ${time(target.value)} · ${minutes>=0?`${Math.floor(minutes/60)}h ${minutes%60}m remaining`:`${Math.abs(minutes)}m past`}`;}
 function appendPhone(row,phone,label='Call'){
  const clean=String(phone).replace(/[^+0-9]/g,'');
- if(!/^\+?[0-9]{5,16}$/.test(clean)){row.append(el('span',' · '+phone,'text-muted'));return;}
- const a=el('a','☎ '+label,'btn btn-success btn-sm ms-2 my-1');a.href='tel:'+clean;
- a.setAttribute('aria-label',label+' '+phone);a.title=phone;
- a.style.minHeight='42px';a.style.minWidth='92px';row.append(a);
+ const valid=/^\+?[0-9]{5,16}$/.test(clean);
+ row.append(document.createTextNode(' · '));
+ if(!valid){row.append(el('span',phone,'text-muted'));return;}
+ const a=el('a',phone,'link-primary text-decoration-underline');
+ a.href='tel:'+clean;
+ a.setAttribute('aria-label',(label==='Backup'?'Call backup number ':'Call ')+phone);
+ a.title=label==='Backup'?'Call backup number':'Call';
+ row.append(a);
 }
 function render(){
  $('cards').replaceChildren();
