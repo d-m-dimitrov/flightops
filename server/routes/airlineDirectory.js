@@ -1,6 +1,7 @@
 const express=require('express');
 const router=express.Router();
 const Airline=require('../models/AirlineDirectory');
+const HandlingInstruction=require('../models/HandlingInstruction');
 const access=require('../services/departmentAccess');
 router.use(require('../middleware/requireUser'));
 const canEdit=u=>access.superAdmin(u)||access.dutyManager(u);
@@ -9,6 +10,18 @@ const short=(v,max=500)=>typeof v==='string'&&v.length<=max;
 router.get('/',async(req,res)=>{
  try{const rows=await Airline.find().sort({name:1}).lean();res.json(rows);}
  catch(e){res.status(500).json({error:'Unable to load airlines'});}
+});
+router.get('/:iata/instructions',async(req,res)=>{
+ const iata=String(req.params.iata).trim().toUpperCase();
+ const aircraft=String(req.query.aircraftType||'').trim().toUpperCase();
+ if(!/^[A-Z0-9]{2,3}$/.test(iata)|| (aircraft&&!/^[A-Z0-9_-]{1,20}$/.test(aircraft)))return res.status(400).json({error:'Invalid airline or aircraft'});
+ try{
+  const [items,airline]=await Promise.all([
+   HandlingInstruction.find({airline:iata,active:true,aircraftType:{$in:['ALL',...(aircraft?[aircraft]:[])]}}).select('title body steps operation aircraftType department role type revision').sort({operation:1,title:1}).lean(),
+   Airline.findOne({iata,station:'LHR'}).select('instructions').lean()
+  ]);
+  res.set('Cache-Control','no-store').json({items,legacy:airline?.instructions||{}});
+ }catch(e){res.status(500).json({error:'Unable to load instructions'});}
 });
 router.get('/:iata/logo',async(req,res)=>{
  try{
@@ -58,7 +71,7 @@ router.put('/:iata',async(req,res)=>{
  const services=b.services||{};if(!services||Array.isArray(services)||typeof services!=='object'||Object.keys(services).some(k=>!allowedServices.includes(k)))return res.status(400).json({error:'Invalid services'});
  if(Object.values(services).some(x=>!x||typeof x!=='object'||!['provider','contact','phone','backupPhone','notes'].every(k=>short(x[k]||'',1500))))return res.status(400).json({error:'Invalid service details'});
  const instructions=b.instructions||{};if(!['arrival','departure','aircraft','general'].every(k=>short(instructions[k]||'',10000)))return res.status(400).json({error:'Invalid instructions'});
- try{const row=await Airline.findOneAndUpdate({iata,station:'LHR'},{$set:{name:b.name.trim(),icao:(b.icao||'').toUpperCase(),callsign:b.callsign||'',awbPrefix:b.awbPrefix||'',logoUrl:b.logoUrl||'',representatives:b.representatives,services,instructions,updatedBy:req.user._id}},{upsert:true,new:true,runValidators:true,setDefaultsOnInsert:true});res.json(row);}
+ try{const row=await Airline.findOneAndUpdate({iata,station:'LHR'},{$set:{name:b.name.trim(),icao:(b.icao||'').toUpperCase(),callsign:b.callsign||'',awbPrefix:b.awbPrefix||'',logoUrl:b.logoUrl||'',representatives:b.representatives,services,updatedBy:req.user._id}},{upsert:true,new:true,runValidators:true,setDefaultsOnInsert:true});res.json(row);}
  catch(e){res.status(400).json({error:'Unable to save airline'});}
 });
 module.exports=router;
