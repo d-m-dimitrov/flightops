@@ -2,7 +2,8 @@ const express = require('express');
 const router = express.Router();
 const Instruction = require('../models/HandlingInstruction');
 const requireUser = require('../middleware/requireUser');
-const { superAdmin } = require('../services/departmentAccess');
+const { superAdmin, dutyManager } = require('../services/departmentAccess');
+const canDraft = user => superAdmin(user) || (dutyManager(user) && user.department === 'OPERATIONS');
 router.use(requireUser);
 router.get('/applicable',async(req,res,next)=>{try{
  const airline=String(req.query.airline||'').trim().toUpperCase();
@@ -16,7 +17,7 @@ router.get('/applicable',async(req,res,next)=>{try{
  const items=await Instruction.find(query).select('airline aircraftType operation department role type title body steps revision updatedAt').sort({operation:1,type:1,title:1}).lean();
  res.json(items);
 }catch(e){next(e);}});
-router.use((req,res,next)=>superAdmin(req.user)?next():res.status(403).json({error:'Super Admin access required'}));
+router.use((req,res,next)=>canDraft(req.user)?next():res.status(403).json({error:'Operations Duty Manager or Super Admin required'}));
 const fields = ['airline','aircraftType','operation','department','role','type','title','body','steps','active'];
 function validate(input) {
  const row = {};
@@ -47,6 +48,7 @@ router.patch('/:id', async(req,res,next) => {try {
  if(!doc)return res.status(404).json({error:'Instruction not found'});
  if(Number(req.body.revision)!==doc.revision)return res.status(409).json({error:'This instruction changed. Reload before editing.'});
  const row=validate(req.body||{});
+ if(!superAdmin(req.user) && (doc.active || row.active))return res.status(403).json({error:'Only Super Admin can edit or publish active instructions'});
  Object.assign(doc,row);doc.revision+=1;await doc.save();res.json(doc);
 }catch(e){res.status(400).json({error:e.message});}});
 module.exports=router;
