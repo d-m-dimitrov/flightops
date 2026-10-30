@@ -61,12 +61,7 @@ async function loadInstructions(iata){
    if(item.steps?.length){const ul=document.createElement('ul');for(const step of item.steps){const li=document.createElement('li');li.textContent=step;ul.append(li);}box.append(ul);}
    target.append(box);
   }
-  const legacy=Object.entries(data.legacy||{}).filter(([,v])=>typeof v==='string'&&v.trim());
-  if(legacy.length){
-   const heading=document.createElement('div');heading.className='col-12 text-warning-emphasis fw-semibold';heading.textContent='Legacy Airline Directory notes (read-only; not yet migrated)';target.append(heading);
-   for(const [key,value] of legacy){const div=document.createElement('div');div.className='col-md-6';const strong=document.createElement('strong');strong.textContent=key.toUpperCase();const body=document.createElement('div');body.style.whiteSpace='pre-wrap';body.textContent=value;div.append(strong,body);target.append(div);}
-  }
-  if(!data.items.length&&!legacy.length)target.textContent='No handling instructions configured.';
+  if(!data.items.length)target.textContent='No published handling instructions. Add them in Administration.';
   const link=document.createElement('a');link.href='handling-instructions.html';link.className='col-12 small';link.textContent='Manage instructions in Administration';target.append(link);
  }catch(e){target.textContent='Unable to load instructions: '+e.message;}
 }
