@@ -68,9 +68,6 @@ function render(){
        const notes=el('div',item.body||'','text-muted');notes.style.whiteSpace='pre-wrap';info.append(notes);
        if(item.steps?.length){const ul=el('ul','','mb-2');for(const step of item.steps)ul.append(el('li',step));info.append(ul);}
       }
-      const legacy=Object.entries(instructions.legacy||{}).filter(([,v])=>typeof v==='string'&&v.trim());
-      if(legacy.length)info.append(el('div','Legacy notes (read-only; awaiting migration)','small text-warning mt-2'));
-      for(const [key,value] of legacy){info.append(el('div',key.toUpperCase(),'fw-semibold mt-2'));const note=el('div',value,'text-muted');note.style.whiteSpace='pre-wrap';info.append(note);}
      }catch(e){info.append(el('div','Instructions unavailable: '+e.message,'text-danger'));}
      const link=el('a','Open full Airline Directory','btn btn-sm btn-outline-primary mt-2');link.href='airline-directory.html?iata='+encodeURIComponent(airlineCode);info.append(link);
     }catch(e){info.textContent=e.message==='Airline not found'?'No directory entry for '+airlineCode+'.':e.message;}
