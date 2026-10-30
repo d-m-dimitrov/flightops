@@ -16,11 +16,8 @@ router.get('/:iata/instructions',async(req,res)=>{
  const aircraft=String(req.query.aircraftType||'').trim().toUpperCase();
  if(!/^[A-Z0-9]{2,3}$/.test(iata)|| (aircraft&&!/^[A-Z0-9_-]{1,20}$/.test(aircraft)))return res.status(400).json({error:'Invalid airline or aircraft'});
  try{
-  const [items,airline]=await Promise.all([
-   HandlingInstruction.find({airline:iata,active:true,aircraftType:{$in:['ALL',...(aircraft?[aircraft]:[])]}}).select('title body steps operation aircraftType department role type revision').sort({operation:1,title:1}).lean(),
-   Airline.findOne({iata,station:'LHR'}).select('instructions').lean()
-  ]);
-  res.set('Cache-Control','no-store').json({items,legacy:airline?.instructions||{}});
+  const items=await HandlingInstruction.find({airline:iata,active:true,aircraftType:{$in:['ALL',...(aircraft?[aircraft]:[])]}}).select('title body steps operation aircraftType department role type revision').sort({operation:1,title:1}).lean();
+  res.set('Cache-Control','no-store').json({items});
  }catch(e){res.status(500).json({error:'Unable to load instructions'});}
 });
 router.get('/:iata/logo',async(req,res)=>{
