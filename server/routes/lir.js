@@ -50,6 +50,14 @@ router.get('/:flightId/:documentId', async (req,res) => {
   if (!doc) return res.status(404).json({ error:'LIR not found' });
   res.json(doc);
 });
+router.get('/:flightId/loading-preview', async (req,res) => {
+ const doc=await latest(req.flight._id);
+ if(!doc)return res.status(404).json({error:'No LIR uploaded'});
+ if(doc.kind!=='text')return res.json({supported:false,reason:'PDF parsing is not available yet; original LIR and annotations remain available.'});
+ const source=await Lir.findById(doc._id).select('+original');
+ const parsed=require('../services/tkLirParser').parse(source.original.toString('utf8'));
+ res.json({supported:true,revision:doc.revision,...parsed});
+});
 router.get('/:flightId/:documentId/source', async (req,res) => {
   const doc = await Lir.findOne({ _id:req.params.documentId, turnaroundId:req.flight._id }).select('+original');
   if (!doc) return res.status(404).json({ error:'LIR not found' });
