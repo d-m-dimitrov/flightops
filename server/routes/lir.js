@@ -45,11 +45,6 @@ router.get('/:flightId', async (req,res) => {
   res.json({ flight:{ id:req.flight._id, display:req.flight.flightNumberDisplay || `${req.flight.arrivalFlight}/${req.flight.departureFlight}`, operatingDate:req.flight.operatingDate },
     permissions:req.lirPermissions, sequence:req.flight.lirSequence || 0, document:doc, revisions });
 });
-router.get('/:flightId/:documentId', async (req,res) => {
-  const doc = await Lir.findOne({ _id:req.params.documentId, turnaroundId:req.flight._id });
-  if (!doc) return res.status(404).json({ error:'LIR not found' });
-  res.json(doc);
-});
 router.get('/:flightId/loading-preview', async (req,res) => {
  const doc=await latest(req.flight._id);
  if(!doc)return res.status(404).json({error:'No LIR uploaded'});
@@ -59,6 +54,11 @@ router.get('/:flightId/loading-preview', async (req,res) => {
  if(!raw.includes('LOADING INSTRUCTION/REPORT') || !raw.includes(' TK '))return res.json({supported:false,reason:'Only TK text LIR is supported in this first preview.'});
  const parsed=require('../services/tkLirParser').parse(raw);
  res.json({supported:true,revision:doc.revision,...parsed});
+});
+router.get('/:flightId/:documentId', async (req,res) => {
+  const doc = await Lir.findOne({ _id:req.params.documentId, turnaroundId:req.flight._id });
+  if (!doc) return res.status(404).json({ error:'LIR not found' });
+  res.json(doc);
 });
 router.get('/:flightId/:documentId/source', async (req,res) => {
   const doc = await Lir.findOne({ _id:req.params.documentId, turnaroundId:req.flight._id }).select('+original');
