@@ -2,6 +2,9 @@ checkAuth();
 const $=id=>document.getElementById(id),token=localStorage.getItem('token');
 let generation=0,flights=[],busy=false;
 const airlineCache=new Map();
+const expandedAirlines=new Set();
+let lastFlightSnapshot=null;
+function updateCountdowns(){for(const clock of document.querySelectorAll('[data-flight]')){const flight=flights.find(f=>String(f._id)===clock.dataset.flight);if(flight)clock.textContent=countdown(flight);}}
 const parts=new Intl.DateTimeFormat('en-GB',{timeZone:'Europe/London',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date());
 const datePart=t=>parts.find(p=>p.type===t).value;
 $('date').value=`${datePart('year')}-${datePart('month')}-${datePart('day')}`;
@@ -36,9 +39,11 @@ function render(){
   if(/^[A-Z0-9]{2,3}$/.test(airlineCode)){
    const details=document.createElement('details');details.className='border rounded p-2 my-2';
    const summary=el('summary','Airline information · '+airlineCode,'fw-semibold');summary.style.cursor='pointer';details.append(summary);
+   details.open=expandedAirlines.has(String(f._id));
    const info=el('div','Open to load airline contacts and instructions','small mt-2');details.append(info);body.append(details);
    details.addEventListener('toggle',async()=>{
-    if(!details.open)return;
+    if(!details.open){expandedAirlines.delete(String(f._id));return;}
+    expandedAirlines.add(String(f._id));
     info.textContent='Loading airline information…';
     try{
      if(!airlineCache.has(airlineCode))airlineCache.set(airlineCode,request('/api/airline-directory/'+encodeURIComponent(airlineCode)).catch(e=>{airlineCache.delete(airlineCode);throw e;}));
@@ -72,6 +77,7 @@ function render(){
      const link=el('a','Open full Airline Directory','btn btn-sm btn-outline-primary mt-2');link.href='airline-directory.html?iata='+encodeURIComponent(airlineCode);info.append(link);
     }catch(e){info.textContent=e.message==='Airline not found'?'No directory entry for '+airlineCode+'.':e.message;}
    });
+   if(details.open)queueMicrotask(()=>{if(details.isConnected)details.dispatchEvent(new Event('toggle'));});
   }
   const buttons=el('div','','d-flex flex-wrap gap-2');body.append(buttons);
   if(!FlightTasks.closed(f))for(const a of f.assignments.filter(a=>!a.acceptedAt)){
@@ -81,9 +87,9 @@ function render(){
   $('cards').append(card);
  }
 }
-async function refresh(){const check=++generation;try{const data=await request(`/api/my-flights?date=${encodeURIComponent($('date').value)}`);if(check!==generation)return;flights=data.flights;$('identity').textContent=data.user.name;$('message').textContent=flights.length?`${flights.length} assigned flight(s) · actions first`:'No flights assigned to you for this operating date.';render();}catch(error){if(check===generation)$('message').textContent=error.message;}}
-$('refresh').onclick=refresh;$('date').onchange=refresh;
+async function refresh(){const check=++generation;try{const data=await request(`/api/my-flights?date=${encodeURIComponent($('date').value)}`);if(check!==generation)return;flights=data.flights;const snapshot=JSON.stringify(flights);const changed=snapshot!==lastFlightSnapshot;lastFlightSnapshot=snapshot;$('identity').textContent=data.user.name;$('message').textContent=flights.length?`${flights.length} assigned flight(s) · actions first` :'No flights assigned to you for this operating date.';if(changed)render();else updateCountdowns();}catch(error){if(check===generation)$('message').textContent=error.message;}}
+$('refresh').onclick=refresh;$('date').onchange=()=>{expandedAirlines.clear();lastFlightSnapshot=null;refresh();};
 let timer=setInterval(()=>{if(!document.hidden&&!busy)refresh();},15000);
 window.addEventListener('pagehide',()=>{clearInterval(timer);generation++;});window.addEventListener('pageshow',e=>{if(e.persisted)location.reload();});
-window.addEventListener('storage',e=>{if(e.key==='token'||e.key===null){flights=[];render();$('message').textContent='Account changed. Reload this page.';}});
+window.addEventListener('storage',e=>{if(e.key==='token'||e.key===null){flights=[];expandedAirlines.clear();lastFlightSnapshot=null;render();$('message').textContent='Account changed. Reload this page.';}});
 refresh();
