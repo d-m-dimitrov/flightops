@@ -3,6 +3,7 @@ const $=id=>document.getElementById(id),token=localStorage.getItem('token');
 let generation=0,flights=[],busy=false;
 const airlineCache=new Map();
 const expandedAirlines=new Set();
+const expandedExtras=new Set();
 let lastFlightSnapshot=null;
 function updateCountdowns(){for(const clock of document.querySelectorAll('[data-flight]')){const flight=flights.find(f=>String(f._id)===clock.dataset.flight);if(flight)clock.textContent=countdown(flight);}}
 const parts=new Intl.DateTimeFormat('en-GB',{timeZone:'Europe/London',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date());
@@ -27,14 +28,26 @@ function render(){
  $('cards').replaceChildren();
  for(const f of FlightTasks.sort(flights)){
   const tasks=FlightTasks.actions(f),card=el('article','',`card flight-card ${tasks.length?'attention':''}`),body=el('div','','card-body');card.append(body);
-  body.append(el('h2',f.flightNumberDisplay||`${f.arrivalFlight||'—'} / ${f.departureFlight||'—'}`,'h5'),el('p',`${f.assignments.map(a=>FlightTasks.label(a.role)).join(' · ')} · ${f.status}`,'small text-muted'),el('div',`Stand ${f.aircraft?.stand||'—'} · ${f.aircraft?.registration||'—'}`));
-  body.append(el('div',`STA ${f.arrival?.sta||time(f.arrival?.staAt)} · STD ${f.departure?.std||time(f.departure?.stdAt)}`,'small'));
-  if(f.dayLabel)body.append(el('p',f.dayLabel,'badge bg-info text-dark'));
-  const clock=el('p',countdown(f),'countdown mt-2');clock.dataset.flight=f._id;body.append(clock);
-  if(tasks.length){const list=el('ul','','action-list');tasks.forEach(t=>list.append(el('li',t)));body.append(list);}else body.append(el('p','No pending acknowledgements','text-muted'));
-  body.append(el('p',f.handover?`Handover v${f.handover.revision} · ${f.handover.received?'Received by Gate':'Awaiting Gate receipt'}`:'Check-in handover not sent','small'));
-  if(f.gateItems)body.append(el('p',`Gate items: ${f.gateItems.total} submitted · ${f.gateItems.received} received · ${f.gateItems.loaded} loaded`,'small'));
-  if(f.canLir)body.append(el('p',f.lir?`LIR v${f.lir.revision} · ${f.lir.status} · ${f.lir.received?'Read':'Awaiting receipt'}`:'LIR not uploaded','small'));
+  const headline=el('div','','d-flex flex-wrap justify-content-between align-items-start gap-2 mb-2');
+  const heading=el('h2',f.flightNumberDisplay||`${f.arrivalFlight||'—'} / ${f.departureFlight||'—'}`,'h5 mb-0');
+  const stand=el('span','Stand '+(f.aircraft?.stand||'—'),'badge bg-primary fs-6');
+  headline.append(heading,stand);body.append(headline);
+  const timing=el('div','','d-flex flex-wrap gap-3 small fw-semibold');
+  timing.append(el('span','STA '+(f.arrival?.sta||time(f.arrival?.staAt))),el('span','STD '+(f.departure?.std||time(f.departure?.stdAt))));
+  body.append(timing);
+  body.append(el('div',f.assignments.map(a=>FlightTasks.label(a.role)).join(' · ')+' · '+f.status,'small text-muted mt-1'));
+  if(f.dayLabel)body.append(el('span',f.dayLabel,'badge bg-info text-dark mt-1'));
+  const clock=el('p',countdown(f),'countdown fw-semibold mt-2 mb-2');clock.dataset.flight=f._id;body.append(clock);
+  if(tasks.length){const list=el('ul','','action-list mb-2');tasks.forEach(t=>list.append(el('li',t)));body.append(list);}
+  const extra=document.createElement('details');extra.className='border-top pt-2 mt-2 small';
+  const extraTitle=el('summary','More flight details','text-secondary');extraTitle.style.cursor='pointer';extra.append(extraTitle);
+  extra.append(el('div','Registration: '+(f.aircraft?.registration||'—'),'mt-2'));
+  extra.append(el('div',f.handover?`Handover v${f.handover.revision} · ${f.handover.received?'Received by Gate':'Awaiting Gate receipt'}`:'Check-in handover not sent','mt-1'));
+  if(f.gateItems)extra.append(el('div',`Gate items: ${f.gateItems.total} submitted · ${f.gateItems.received} received · ${f.gateItems.loaded} loaded`,'mt-1'));
+  if(f.canLir)extra.append(el('div',f.lir?`LIR v${f.lir.revision} · ${f.lir.status} · ${f.lir.received?'Read':'Awaiting receipt'}`:'LIR not uploaded','mt-1'));
+  extra.open=expandedExtras.has(String(f._id));
+  extra.addEventListener('toggle',()=>{if(extra.open)expandedExtras.add(String(f._id));else expandedExtras.delete(String(f._id));});
+  body.append(extra);
   const airlineCode=String(f.airline||'').trim().toUpperCase();
   if(/^[A-Z0-9]{2,3}$/.test(airlineCode)){
    const details=document.createElement('details');details.className='border rounded p-2 my-2';
@@ -83,12 +96,12 @@ function render(){
   if(!FlightTasks.closed(f))for(const a of f.assignments.filter(a=>!a.acceptedAt)){
    const button=el('button',`Accept ${FlightTasks.label(a.role)}`,'btn btn-success');button.onclick=async()=>{button.disabled=true;busy=true;try{await request(`/api/acknowledgements/${f._id}/assignments/${a._id}/accept`,{method:'POST'});await refresh();}catch(error){$('message').textContent=error.message;}finally{busy=false;button.disabled=false;}};buttons.append(button);
   }
-  for(const [label,url] of [['Open flight',`dashboard.html?id=${f._id}`],['Messages',`messages.html?id=${f._id}`],['Check-in → Gate',`handover.html?id=${f._id}`],['Gate items',`gate-items.html?id=${f._id}`],...(f.canLir?[['Open LIR',`lir.html?id=${f._id}`]]:[])]){const link=el('a',label,'btn btn-outline-primary');link.href=url;buttons.append(link);}
+  for(const [label,url] of [['Open flight',`dashboard.html?id=${f._id}`],['Messages',`messages.html?id=${f._id}`],['Check-in → Gate',`handover.html?id=${f._id}`],['Gate items',`gate-items.html?id=${f._id}`],...(f.canLir?[['Open LIR',`lir.html?id=${f._id}`]]:[])]){const link=el('a',label,label==='Open flight'?'btn btn-primary':'btn btn-sm btn-outline-secondary');link.href=url;buttons.append(link);}
   $('cards').append(card);
  }
 }
 async function refresh(){const check=++generation;try{const data=await request(`/api/my-flights?date=${encodeURIComponent($('date').value)}`);if(check!==generation)return;flights=data.flights;const snapshot=JSON.stringify(flights);const changed=snapshot!==lastFlightSnapshot;lastFlightSnapshot=snapshot;$('identity').textContent=data.user.name;$('message').textContent=flights.length?`${flights.length} assigned flight(s) · actions first` :'No flights assigned to you for this operating date.';if(changed)render();else updateCountdowns();}catch(error){if(check===generation)$('message').textContent=error.message;}}
-$('refresh').onclick=refresh;$('date').onchange=()=>{expandedAirlines.clear();lastFlightSnapshot=null;refresh();};
+$('refresh').onclick=refresh;$('date').onchange=()=>{expandedAirlines.clear();expandedExtras.clear();lastFlightSnapshot=null;refresh();};
 let timer=setInterval(()=>{if(!document.hidden&&!busy)refresh();},15000);
 window.addEventListener('pagehide',()=>{clearInterval(timer);generation++;});window.addEventListener('pageshow',e=>{if(e.persisted)location.reload();});
 window.addEventListener('storage',e=>{if(e.key==='token'||e.key===null){flights=[];expandedAirlines.clear();lastFlightSnapshot=null;render();$('message').textContent='Account changed. Reload this page.';}});
