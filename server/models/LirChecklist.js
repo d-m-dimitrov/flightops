@@ -1,0 +1,4 @@
+const mongoose=require('mongoose');
+const row=new mongoose.Schema({position:{type:String,required:true},plannedUld:String,uldType:String,load:[mongoose.Schema.Types.Mixed],needsReview:Boolean,actualPosition:String,actualUld:String,bags:Number,confirmedAt:Date,confirmedBy:String,discrepancy:Boolean},{_id:false});
+const schema=new mongoose.Schema({turnaroundId:{type:mongoose.Schema.Types.ObjectId,required:true,unique:true},lirId:{type:mongoose.Schema.Types.ObjectId,required:true},revision:Number,published:{type:Boolean,default:false},version:{type:Number,default:0},rows:[row],publishedBy:String,publishedAt:Date},{timestamps:true});
+module.exports=mongoose.model('LirChecklist',schema);
