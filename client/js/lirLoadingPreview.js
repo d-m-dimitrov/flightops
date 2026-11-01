@@ -12,7 +12,29 @@
   const data=await api('/checklist');actions.replaceChildren();
   const c=data.checklist;
   if(!c?.published){
-   if(data.permissions.publish){const publish=document.createElement('button');publish.className='btn btn-warning';publish.textContent='Publish checked TK list to RAMP';publish.onclick=async()=>{if(!confirm('Publish parsed positions to RAMP? Verify against the original LIR first.'))return;publish.disabled=true;try{await api('/checklist/publish','POST');await showChecklist();}catch(e){status.textContent=e.message;}finally{publish.disabled=false;}};actions.append(publish);}
+   if(data.permissions.publish){
+    const draft=c?.rows||window.tkPreviewRows||[];
+    const editor=document.createElement('div');editor.className='mb-3';
+    const inputs=[];
+    for(const row of draft){
+     const box=document.createElement('div');box.className='border rounded p-2 mb-2';
+     box.append(span('Position '+row.position,'fw-bold d-block'));
+     const uld=document.createElement('input');uld.className='form-control my-1';uld.placeholder='Planned ULD (optional)';uld.value=row.plannedUld||'';
+     const load=document.createElement('input');load.className='form-control my-1';load.placeholder='Planned load';load.value=row.load.map(x=>x.type==='REVIEWED'?x.value:x.type+'/'+x.value).join(' · ');
+     const label=document.createElement('label');label.className='d-flex align-items-center gap-2';
+     const reviewed=document.createElement('input');reviewed.type='checkbox';reviewed.checked=!!row.reviewed;label.append(reviewed,span('Checked against original LIR'));
+     box.append(uld,load,label);editor.append(box);inputs.push({position:row.position,uld,load,reviewed});
+    }
+    actions.append(editor);
+    const save=document.createElement('button');save.className='btn btn-primary me-2 mb-2';save.textContent='Save reviewed draft';
+    save.onclick=async()=>{save.disabled=true;try{await api('/checklist/draft','PUT',{rows:inputs.map(x=>({position:x.position,plannedUld:x.uld.value,load:x.load.value,reviewed:x.reviewed.checked}))});status.textContent='Draft saved';await showChecklist();}catch(e){status.textContent=e.message;save.disabled=false;}};
+    actions.append(save);
+    if(c?.rows?.length){
+     const publish=document.createElement('button');publish.className='btn btn-warning mb-2';publish.textContent='Publish to RAMP';publish.disabled=c.rows.some(x=>!x.reviewed);
+     publish.onclick=async()=>{if(!confirm('Publish reviewed loading plan to RAMP?'))return;publish.disabled=true;try{await api('/checklist/publish','POST');await showChecklist();}catch(e){status.textContent=e.message;publish.disabled=false;}};
+     actions.append(publish);
+    }
+   }else actions.append(span('Waiting for OPS to publish the checklist.','text-muted'));
    return;
   }
   const title=document.createElement('p');title.className='fw-bold';title.textContent='Published · '+c.rows.filter(x=>x.confirmedAt).length+'/'+c.rows.length+' confirmed';actions.append(title);
@@ -50,6 +72,7 @@
     rows.append(card);
    }
    for(const warning of data.warnings||[])rows.append(span(warning,'text-danger small'));
+   window.tkPreviewRows=data.rows;
    await showChecklist();
   }catch(e){status.textContent=e.message;}finally{btn.disabled=false;}
  });
