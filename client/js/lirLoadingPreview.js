@@ -3,6 +3,35 @@
  const id=new URLSearchParams(location.search).get('id');
  const btn=$('loadPreviewBtn'),status=$('loadPreviewStatus'),rows=$('loadPreviewRows');
  if(!id||!btn)return;
+ const actions=document.createElement('div');actions.className='mt-3';rows.after(actions);
+ const api=async(path,method='GET',body)=>{
+  const response=await fetch('/api/lir/'+encodeURIComponent(id)+path,{method,headers:{Authorization:'Bearer '+localStorage.getItem('token'),...(body?{'Content-Type':'application/json'}:{})},body:body?JSON.stringify(body):undefined,cache:'no-store'});
+  const data=await response.json();if(!response.ok)throw Error(data.error||'Request failed');return data;
+ };
+ async function showChecklist(){
+  const data=await api('/checklist');actions.replaceChildren();
+  const c=data.checklist;
+  if(!c?.published){
+   if(data.permissions.publish){const publish=document.createElement('button');publish.className='btn btn-warning';publish.textContent='Publish checked TK list to RAMP';publish.onclick=async()=>{if(!confirm('Publish parsed positions to RAMP? Verify against the original LIR first.'))return;publish.disabled=true;try{await api('/checklist/publish','POST');await showChecklist();}catch(e){status.textContent=e.message;}finally{publish.disabled=false;}};actions.append(publish);}
+   return;
+  }
+  const title=document.createElement('p');title.className='fw-bold';title.textContent='Published · '+c.rows.filter(x=>x.confirmedAt).length+'/'+c.rows.length+' confirmed';actions.append(title);
+  for(const row of c.rows){
+   const box=document.createElement('div');box.className='border rounded p-2 mb-2';
+   box.append(span(row.position+' · '+(row.plannedUld||'ULD required'),'fw-semibold d-block'));
+   box.append(span(row.load.map(x=>x.type+'/'+x.value).join(' · '),'small d-block'));
+   if(row.confirmedAt)box.append(span((row.discrepancy?'⚠ Difference · ':'✓ Confirmed · ')+(row.actualUld||'')+' @ '+row.actualPosition+(row.bags!=null?' · '+row.bags+' bags':''),'small d-block'));
+   if(data.permissions.confirm){
+    const pos=document.createElement('input');pos.className='form-control my-1';pos.value=row.actualPosition||row.position;pos.placeholder='Actual position';pos.setAttribute('aria-label','Actual position');
+    const uld=document.createElement('input');uld.className='form-control my-1';uld.value=row.actualUld||row.plannedUld||'';uld.placeholder='Actual ULD number';uld.setAttribute('aria-label','Actual ULD number');
+    const bags=document.createElement('input');bags.className='form-control my-1';bags.type='number';bags.min='0';bags.max='999';bags.placeholder='Bags (if baggage)';bags.value=row.bags??'';bags.setAttribute('aria-label','Actual bags');
+    const save=document.createElement('button');save.className='btn btn-sm btn-success';save.textContent='Confirm position';
+    save.onclick=async()=>{save.disabled=true;try{await api('/checklist/'+encodeURIComponent(row.position),'PUT',{actualPosition:pos.value,actualUld:uld.value,bags:bags.value===''?null:Number(bags.value),expectedVersion:c.version});await showChecklist();}catch(e){status.textContent=e.message;save.disabled=false;}};
+    box.append(pos,uld,bags,save);
+   }
+   actions.append(box);
+  }
+ }
  const span=(text,cls)=>{const e=document.createElement('span');e.className=cls||'';e.textContent=text;return e;};
  btn.addEventListener('click',async()=>{
   btn.disabled=true;rows.replaceChildren();status.textContent='Reading loading instructions…';
@@ -21,6 +50,7 @@
     rows.append(card);
    }
    for(const warning of data.warnings||[])rows.append(span(warning,'text-danger small'));
+   await showChecklist();
   }catch(e){status.textContent=e.message;}finally{btn.disabled=false;}
  });
 })();
