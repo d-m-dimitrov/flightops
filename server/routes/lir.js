@@ -52,21 +52,38 @@ router.get('/:flightId/checklist',async(req,res)=>{
  const ramp=await canAnnotate(req.user,req.flight._id);
  res.json({checklist:saved,permissions:{publish:req.lirPermissions.upload,confirm:ramp},revision:doc.revision});
 });
-router.post('/:flightId/checklist/publish',async(req,res)=>{
+router.put('/:flightId/checklist/draft',async(req,res)=>{
  if(!req.lirPermissions.upload)return res.status(403).json({error:'OPS only'});
- const doc=await latest(req.flight._id);
- if(!doc||doc.kind!=='text')return res.status(400).json({error:'TK text LIR required'});
+ const doc=await latest(req.flight._id);if(!doc||doc.kind!=='text')return res.status(400).json({error:'Text LIR required'});
  const existing=await Checklist.findOne({turnaroundId:req.flight._id});
- if(existing&&String(existing.lirId)===String(doc._id)&&existing.published)return res.status(409).json({error:'Already published for this LIR'});
+ if(existing?.published&&String(existing.lirId)===String(doc._id))return res.status(409).json({error:'Published checklist cannot be edited as a draft'});
  const source=await Lir.findById(doc._id).select('+original');
  const raw=source.original.toString('utf8');
  if(!raw.includes('LOADING INSTRUCTION/REPORT')||!raw.includes(' TK '))return res.status(400).json({error:'Unsupported LIR format'});
  const parsed=require('../services/tkLirParser').parse(raw);
- if(!parsed.rows.length||parsed.rows.some(r=>r.needsReview))return res.status(422).json({error:'Some rows require dispatcher review. Publishing is blocked until a review editor is available.'});
- const rows=parsed.rows.map(r=>({...r,actualPosition:'',actualUld:'',bags:null,confirmedAt:null}));
- const result=await Checklist.findOneAndUpdate({turnaroundId:req.flight._id},{ $set:{lirId:doc._id,revision:doc.revision,published:true,rows,publishedBy:req.user.name,publishedAt:new Date(),version:0}},{upsert:true,new:true,runValidators:true});
- req.app.get('io').to(String(req.flight._id)).emit('lirChecklistUpdated',{revision:doc.revision});
+ const input=req.body.rows;
+ if(!Array.isArray(input)||input.length!==parsed.rows.length)return res.status(400).json({error:'All parsed positions must be reviewed'});
+ const rows=parsed.rows.map((row,i)=>{
+  const edit=input[i];
+  if(!edit||edit.position!==row.position)throw new Error('Position order changed');
+  const plannedUld=String(edit.plannedUld||'').trim().toUpperCase();
+  if(plannedUld&&!/^[A-Z]{3}[A-Z0-9]{5,12}$/.test(plannedUld))throw new Error('Invalid ULD at '+row.position);
+  const load=String(edit.load||'').trim().toUpperCase();
+  if(load.length>120)throw new Error('Load text too long');
+  return {...row,plannedUld,load:[{type:'REVIEWED',value:load}],needsReview:!edit.reviewed,reviewed:!!edit.reviewed};
+ });
+ const result=await Checklist.findOneAndUpdate({turnaroundId:req.flight._id,published:{$ne:true}},{$set:{lirId:doc._id,revision:doc.revision,published:false,rows,version:0}},{upsert:true,new:true,runValidators:true});
  res.json({checklist:result});
+});
+router.post('/:flightId/checklist/publish',async(req,res)=>{
+ if(!req.lirPermissions.upload)return res.status(403).json({error:'OPS only'});
+ const doc=await latest(req.flight._id);if(!doc)return res.status(404).json({error:'No LIR'});
+ const checklist=await Checklist.findOne({turnaroundId:req.flight._id,lirId:doc._id,published:false});
+ if(!checklist||!checklist.rows.length||checklist.rows.some(row=>row.needsReview||!row.reviewed))return res.status(422).json({error:'Save and review every position before publishing'});
+ checklist.published=true;checklist.publishedAt=new Date();checklist.publishedBy=req.user.name;
+ await checklist.save();
+ req.app.get('io').to(String(req.flight._id)).emit('lirChecklistUpdated',{revision:doc.revision});
+ res.json({checklist});
 });
 router.put('/:flightId/checklist/:position',async(req,res)=>{
  if(!await canAnnotate(req.user,req.flight._id))return res.status(403).json({error:'Assigned RAMP only'});
