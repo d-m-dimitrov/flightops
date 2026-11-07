@@ -41,7 +41,7 @@
   const title=document.createElement('p');title.className='fw-bold';title.textContent='Published · '+c.rows.filter(x=>x.confirmedAt).length+'/'+c.rows.length+' confirmed';actions.append(title);
   for(const row of c.rows){
    const box=document.createElement('div');box.className='border rounded p-2 mb-2';
-   box.append(span(row.position+' · '+(row.plannedUld||'ULD required'),'fw-semibold d-block'));
+   box.append(span(row.position+' · '+(row.confirmedAt && row.actualUld ? row.actualUld : row.plannedUld||'ULD required'),'fw-semibold d-block'));
    box.append(span(row.load.map(x=>x.type+'/'+x.value).join(' · '),'small d-block'));
    if(row.confirmedAt)box.append(span((row.discrepancy?'⚠ Difference · ':'✓ Confirmed · ')+(row.actualUld||'')+' @ '+row.actualPosition+(row.bags!=null?' · '+row.bags+' bags':''),'small d-block'));
    if(data.permissions.confirm){
