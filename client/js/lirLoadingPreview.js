@@ -38,18 +38,37 @@
    return;
   }
   if(!data.permissions.confirm){const note=document.createElement('p');note.className='alert alert-info';note.textContent='Read-only: '+(data.permissions.confirmReason||'Only the assigned Departure RAMP agent can confirm loading.')+'.';actions.append(note);}
-  const title=document.createElement('p');title.className='fw-bold';title.textContent='Published · '+c.rows.filter(x=>x.confirmedAt).length+'/'+c.rows.length+' confirmed';actions.append(title);
+  const count=c.rows.filter(x=>x.confirmedAt).length;
+  const title=document.createElement('div');title.className='mb-3';
+  title.append(span('Loading progress · '+count+'/'+c.rows.length+' confirmed','fw-bold d-block mb-2'));
+  const progress=document.createElement('div');progress.className='progress';progress.style.height='9px';
+  const bar=document.createElement('div');bar.className='progress-bar bg-success';bar.style.width=(c.rows.length?100*count/c.rows.length:0)+'%';progress.append(bar);title.append(progress);actions.append(title);
+  const suffixes=[...new Set(c.rows.map(x=>(x.plannedUld||'').match(/^[A-Z]{3}[A-Z0-9]{5,8}([A-Z]{2,3})$/)?.[1]).filter(Boolean))];
+  const defaultSuffix=suffixes.length===1?suffixes[0]:'TK';
   for(const row of c.rows){
    const box=document.createElement('div');box.className='border rounded p-2 mb-2';
+   box.style.borderLeft='5px solid '+(row.discrepancy&&row.confirmedAt?'#fd7e14':row.confirmedAt?'#198754':'#adb5bd');
+   box.style.backgroundColor=row.discrepancy&&row.confirmedAt?'#fff4e5':row.confirmedAt?'#eaf7ef':'#f8f9fa';
    box.append(span(row.position+' · '+(row.confirmedAt && row.actualUld ? row.actualUld : row.plannedUld||'ULD required'),'fw-semibold d-block'));
    box.append(span(row.load.map(x=>x.type+'/'+x.value).join(' · '),'small d-block'));
-   if(row.confirmedAt)box.append(span((row.discrepancy?'⚠ Difference · ':'✓ Confirmed · ')+(row.actualUld||'')+' @ '+row.actualPosition+(row.bags!=null?' · '+row.bags+' bags':''),'small d-block'));
+   const badge=span(row.confirmedAt?(row.discrepancy?'⚠ Difference':'✓ Confirmed'):'○ Pending','badge '+(row.confirmedAt?(row.discrepancy?'bg-warning text-dark':'bg-success'):'bg-secondary')+' my-1');
+   box.append(badge);
+   if(row.confirmedAt)box.append(span((row.actualUld||'')+' @ '+row.actualPosition+(row.bags!=null?' · '+row.bags+' bags':''),'small d-block'));
    if(data.permissions.confirm){
     const pos=document.createElement('input');pos.className='form-control my-1';pos.value=row.actualPosition||row.position;pos.placeholder='Actual position';pos.setAttribute('aria-label','Actual position');
-    const uld=document.createElement('input');uld.className='form-control my-1';uld.value=row.actualUld||row.plannedUld||'';uld.placeholder='Actual ULD number';uld.setAttribute('aria-label','Actual ULD number');
+    // ULD number is entered in three parts; suggest prefix/suffix, never invent the serial.
+    const known=row.actualUld||row.plannedUld||'';
+    const match=known.match(/^([A-Z]{3})([A-Z0-9]{5,8})([A-Z]{2,3})$/);
+    const group=document.createElement('div');group.className='input-group my-1';
+    const prefix=document.createElement('input');prefix.className='form-control';prefix.style.maxWidth='85px';prefix.maxLength=3;prefix.value=match?.[1]||row.uldType||'AKE';prefix.setAttribute('aria-label','ULD prefix');prefix.setAttribute('list','uld-prefix-suggestions');
+    const serial=document.createElement('input');serial.className='form-control';serial.inputMode='numeric';serial.placeholder='ULD serial';serial.maxLength=8;serial.value=match?.[2]&&!/^0+$/.test(match[2])?match[2]:'';serial.setAttribute('aria-label','ULD serial number');
+    const suffix=document.createElement('input');suffix.className='form-control';suffix.style.maxWidth='78px';suffix.maxLength=3;suffix.value=match?.[3]||defaultSuffix;suffix.setAttribute('aria-label','ULD suffix');suffix.setAttribute('list','uld-suffix-suggestions');
+    const prefixes=document.createElement('datalist');prefixes.id='uld-prefix-suggestions';for(const val of ['AKE','AKH','PMC','PAG','PLA']){const option=document.createElement('option');option.value=val;prefixes.append(option);}
+    const suffixList=document.createElement('datalist');suffixList.id='uld-suffix-suggestions';for(const val of [...new Set([...suffixes,'TK'])]){const option=document.createElement('option');option.value=val;suffixList.append(option);}
+    group.append(prefix,serial,suffix);box.append(group,prefixes,suffixList);
     const bags=document.createElement('input');bags.className='form-control my-1';bags.type='number';bags.min='0';bags.max='999';bags.placeholder='Bags (if baggage)';bags.value=row.bags??'';bags.setAttribute('aria-label','Actual bags');
     const save=document.createElement('button');save.className='btn btn-sm btn-success';save.textContent='Confirm position';
-    save.onclick=async()=>{save.disabled=true;try{await api('/checklist/'+encodeURIComponent(row.position),'PUT',{actualPosition:pos.value,actualUld:uld.value,bags:bags.value===''?null:Number(bags.value),expectedVersion:c.version});await showChecklist();}catch(e){status.textContent=e.message;save.disabled=false;}};
+    save.onclick=async()=>{save.disabled=true;try{await api('/checklist/'+encodeURIComponent(row.position),'PUT',{actualPosition:pos.value,actualUld:(prefix.value+serial.value+suffix.value).toUpperCase(),bags:bags.value===''?null:Number(bags.value),expectedVersion:c.version});await showChecklist();}catch(e){status.textContent=e.message;save.disabled=false;}};
     box.append(pos,uld,bags,save);
    }
    actions.append(box);
