@@ -50,7 +50,9 @@ router.get('/:flightId/checklist',async(req,res)=>{
  const doc=await latest(req.flight._id);if(!doc)return res.status(404).json({error:'No LIR'});
  const saved=await Checklist.findOne({turnaroundId:req.flight._id,lirId:doc._id}).lean();
  const ramp=await canAnnotate(req.user,req.flight._id);
- res.json({checklist:saved,permissions:{publish:req.lirPermissions.upload,confirm:ramp},revision:doc.revision});
+ const assigned=await require('../models/Assignment').find({turnaroundId:req.flight._id,role:'RAMP'}).select('userId').lean();
+ const reason=ramp?'':!req.user.active?'Your account is inactive':req.user.department!=='RAMP'?'This account is not in the RAMP department':assigned.length!==1?'Departure RAMP assignment is missing or ambiguous':String(assigned[0].userId)!==String(req.user._id)?'Another agent is assigned to Departure RAMP':'RAMP confirmation is unavailable';
+ res.json({checklist:saved,permissions:{publish:req.lirPermissions.upload,confirm:ramp,confirmReason:reason},revision:doc.revision});
 });
 router.put('/:flightId/checklist/draft',async(req,res)=>{
  if(!req.lirPermissions.upload)return res.status(403).json({error:'OPS only'});
