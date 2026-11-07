@@ -37,7 +37,7 @@
    }else actions.append(span('Waiting for OPS to review and publish the loading checklist. RAMP cannot confirm an unpublished plan.','alert alert-warning d-block'));
    return;
   }
-  if(!data.permissions.confirm){const note=document.createElement('p');note.className='alert alert-info';note.textContent='Read-only: only the assigned Departure RAMP agent can confirm loading. Check the RAMP assignment for this flight.';actions.append(note);}
+  if(!data.permissions.confirm){const note=document.createElement('p');note.className='alert alert-info';note.textContent='Read-only: '+(data.permissions.confirmReason||'Only the assigned Departure RAMP agent can confirm loading.')+'.';actions.append(note);}
   const title=document.createElement('p');title.className='fw-bold';title.textContent='Published · '+c.rows.filter(x=>x.confirmedAt).length+'/'+c.rows.length+' confirmed';actions.append(title);
   for(const row of c.rows){
    const box=document.createElement('div');box.className='border rounded p-2 mb-2';
