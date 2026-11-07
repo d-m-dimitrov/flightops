@@ -72,6 +72,28 @@
    await showChecklist();
   }catch(e){status.textContent=e.message;}finally{btn.disabled=false;}
  });
+ // Keep OPS and RAMP in sync without overwriting an operator's active edits.
+ if(typeof io==='function'){
+  const live=io();
+  let timer=null,pending=false;
+  const banner=document.createElement('div');banner.className='alert alert-info py-2 d-none';banner.setAttribute('role','status');
+  const refresh=document.createElement('button');refresh.type='button';refresh.className='btn btn-sm btn-outline-primary ms-2';refresh.textContent='Refresh now';
+  banner.append(document.createTextNode('Loading checklist updated by another user.'),refresh);
+  actions.before(banner);
+  const editing=()=>actions.contains(document.activeElement)&&['INPUT','TEXTAREA','SELECT'].includes(document.activeElement.tagName);
+  const refreshNow=async()=>{pending=false;banner.classList.add('d-none');btn.click();};
+  refresh.addEventListener('click',refreshNow);
+  live.on('connect',()=>live.emit('joinFlight',id));
+  live.on('lirChecklistUpdated',()=>{
+   clearTimeout(timer);
+   timer=setTimeout(()=>{
+    if(editing()){pending=true;banner.classList.remove('d-none');return;}
+    refreshNow();
+   },350);
+  });
+  live.on('lirUpdated',()=>{clearTimeout(timer);timer=setTimeout(()=>{if(editing()){pending=true;banner.classList.remove('d-none');}else refreshNow();},350);});
+  window.addEventListener('beforeunload',()=>{clearTimeout(timer);live.disconnect();});
+ }
  // Load the checklist immediately; RAMP should not need to discover a separate Read LIR action.
  setTimeout(()=>btn.click(),300);
 })();
