@@ -34,9 +34,10 @@
      publish.onclick=async()=>{if(!confirm('Publish reviewed loading plan to RAMP?'))return;publish.disabled=true;try{await api('/checklist/publish','POST');await showChecklist();}catch(e){status.textContent=e.message;publish.disabled=false;}};
      actions.append(publish);
     }
-   }else actions.append(span('Waiting for OPS to publish the checklist.','text-muted'));
+   }else actions.append(span('Waiting for OPS to review and publish the loading checklist. RAMP cannot confirm an unpublished plan.','alert alert-warning d-block'));
    return;
   }
+  if(!data.permissions.confirm){const note=document.createElement('p');note.className='alert alert-info';note.textContent='Read-only: only the assigned Departure RAMP agent can confirm loading. Check the RAMP assignment for this flight.';actions.append(note);}
   const title=document.createElement('p');title.className='fw-bold';title.textContent='Published · '+c.rows.filter(x=>x.confirmedAt).length+'/'+c.rows.length+' confirmed';actions.append(title);
   for(const row of c.rows){
    const box=document.createElement('div');box.className='border rounded p-2 mb-2';
@@ -76,4 +77,6 @@
    await showChecklist();
   }catch(e){status.textContent=e.message;}finally{btn.disabled=false;}
  });
+ // Load the checklist immediately; RAMP should not need to discover a separate Read LIR action.
+ setTimeout(()=>btn.click(),300);
 })();
