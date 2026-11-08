@@ -148,6 +148,51 @@ router.post('/:flightId/checklist/publish',async(req,res)=>{
  req.app.get('io').to(String(req.flight._id)).emit('lirChecklistUpdated',{revision:doc.revision});
  res.json({checklist});
 });
+// Confirm each physical BULK load separately; a change to an earlier confirmation is audited.
+router.put('/:flightId/checklist/:position/bulk-items/:itemIndex',async(req,res)=>{
+ if(!await canAnnotate(req.user,req.flight._id))return res.status(403).json({error:'Assigned RAMP only'});
+ const doc=await latest(req.flight._id);
+ if(!doc||doc.status==='COMPLETED')return res.status(409).json({error:'LIR completed or unavailable'});
+ const position=String(req.params.position||'').toUpperCase();
+ const index=Number(req.params.itemIndex);
+ if(!/^(?:51|52|53|BULK)$/.test(position)||!Number.isSafeInteger(index)||index<0)return res.status(400).json({error:'Invalid BULK item'});
+ const {expectedVersion,confirmed,reason}=req.body;
+ if(!Number.isInteger(expectedVersion)||typeof confirmed!=='boolean')return res.status(400).json({error:'Refresh checklist and choose a confirmation status'});
+ const checklist=await Checklist.findOne({turnaroundId:req.flight._id,lirId:doc._id,published:true,version:expectedVersion,'rows.position':position});
+ if(!checklist)return res.status(409).json({error:'Checklist changed; refresh'});
+ const row=checklist.rows.find(x=>x.position===position);
+ if(!isBulkRow(row))return res.status(400).json({error:'This position is not BULK'});
+ const allowed=bulkPositionRules(req.flight.aircraft?.aircraftType).positions;
+ if(row.position!=='BULK'&&!allowed.includes(row.position))return res.status(409).json({error:'BULK position is invalid for aircraft; ask OPS to review'});
+ // Previously published BULK rows may have separate legacy quantity columns.
+ if(!row.bulkItems?.length){
+  const legacy=[['bulkBaggage','BAGGAGE'],['bulkMail','MAIL'],['bulkCargo','CARGO']]
+   .filter(([field])=>row[field]!=null).map(([field,type])=>({type,pieces:row[field],details:''}));
+  if(legacy.length)row.bulkItems=legacy;
+ }
+ const item=row.bulkItems?.[index];
+ if(!item)return res.status(404).json({error:'BULK load item not found'});
+ const already=!!item.confirmedAt;
+ if(already===confirmed)return res.status(409).json({error:confirmed?'This item is already confirmed':'This item is not confirmed'});
+ const correctionReason=String(reason||'').trim();
+ if(already&&(!correctionReason||correctionReason.length>300))return res.status(400).json({error:'A reason (max 300 characters) is required to remove a confirmation'});
+ const before={confirmedAt:item.confirmedAt||null,confirmedBy:item.confirmedBy||null};
+ const now=new Date();
+ if(confirmed){item.confirmedAt=now;item.confirmedBy=req.user.name;}
+ else{item.confirmedAt=null;item.confirmedBy=null;}
+ // A position is no longer fully confirmed after an individual load is reopened.
+ const wasPositionConfirmed=!!row.confirmedAt;
+ if(!confirmed&&wasPositionConfirmed){row.confirmedAt=null;row.confirmedBy=null;}
+ const history={action:confirmed?'CONFIRM_BULK_ITEM':'REOPEN_BULK_ITEM',position,itemIndex:index,
+  itemLabel:item.type+(item.details?' · '+item.details:''),
+  before,after:{confirmedAt:item.confirmedAt||null,confirmedBy:item.confirmedBy||null,positionReopened:!confirmed&&wasPositionConfirmed},
+  reason:correctionReason,by:req.user.name,byId:req.user._id,at:now};
+ const result=await Checklist.findOneAndUpdate({_id:checklist._id,version:expectedVersion},
+  {$set:{rows:checklist.rows},$push:{history},$inc:{version:1}},{new:true,runValidators:true});
+ if(!result)return res.status(409).json({error:'Another operator changed the checklist; refresh'});
+ req.app.get('io').to(String(req.flight._id)).emit('lirChecklistUpdated',{revision:doc.revision});
+ res.json({checklist:result});
+});
 router.put('/:flightId/checklist/:position',async(req,res)=>{
  if(!await canAnnotate(req.user,req.flight._id))return res.status(403).json({error:'Assigned RAMP only'});
  const doc=await latest(req.flight._id);if(!doc||doc.status==='COMPLETED')return res.status(409).json({error:'LIR completed or unavailable'});
@@ -171,11 +216,27 @@ router.put('/:flightId/checklist/:position',async(req,res)=>{
  }else if(!/^[A-Z]{3}[A-Z0-9]{5,12}$/.test(actualUld)){
   return res.status(400).json({error:'Valid ULD number required'});
  }
+ if(isBulkRow(row)){
+  // Do not allow an entire BULK hold to be confirmed with unchecked individual loads.
+  const items=row.bulkItems?.length?row.bulkItems:
+   [['bulkBaggage','BAGGAGE'],['bulkMail','MAIL'],['bulkCargo','CARGO']].filter(([field])=>row[field]!=null).map(([field,type])=>({type,pieces:row[field]}));
+  if(items.some(item=>!item.confirmedAt))return res.status(409).json({error:'Confirm every individual BULK item before confirming the position'});
+ }
  const openChange=await LoadingChange.exists({turnaroundId:req.flight._id,lirId:doc._id,status:{$in:['REQUESTED','AUTHORISED']},$or:[{from:position},{to:position}]});
  if(openChange)return res.status(409).json({error:'Loading change pending for this position. Complete the approved change before reconfirming.'});
- if(row.plannedUld&&row.plannedUld!==actualUld||position!==actualPosition){row.discrepancy=true;}else row.discrepancy=false;
- row.actualPosition=actualPosition;row.actualUld=actualUld;row.bags=bags??null;row.confirmedAt=new Date();row.confirmedBy=req.user.name;
- const result=await Checklist.findOneAndUpdate({_id:checklist._id,version:req.body.expectedVersion},{ $set:{rows:checklist.rows},$inc:{version:1}},{new:true,runValidators:true});
+ const hadConfirmation=!!row.confirmedAt;
+ const correctionReason=String(req.body.correctionReason||'').trim();
+ if(hadConfirmation&&(correctionReason.length<3||correctionReason.length>300))return res.status(400).json({error:'Please give a reason (3–300 characters) when correcting a confirmed position'});
+ const before={actualPosition:row.actualPosition||null,actualUld:row.actualUld||'',bags:row.bags??null,
+  confirmedAt:row.confirmedAt||null,confirmedBy:row.confirmedBy||null};
+ const now=new Date();
+ row.discrepancy=Boolean((row.plannedUld&&row.plannedUld!==actualUld)||(!isBulkRow(row)&&position!==actualPosition)||(isBulkRow(row)&&position!=='BULK'&&position!==actualPosition));
+ row.actualPosition=actualPosition;row.actualUld=actualUld;row.bags=bags??null;row.confirmedAt=now;row.confirmedBy=req.user.name;
+ const history={action:hadConfirmation?'CORRECT_POSITION':'CONFIRM_POSITION',position,before,
+  after:{actualPosition,actualUld,bags:row.bags,confirmedAt:now,confirmedBy:req.user.name},
+  reason:hadConfirmation?correctionReason:'',by:req.user.name,byId:req.user._id,at:now};
+ const result=await Checklist.findOneAndUpdate({_id:checklist._id,version:req.body.expectedVersion},
+  {$set:{rows:checklist.rows},$push:{history},$inc:{version:1}},{new:true,runValidators:true});
  if(!result)return res.status(409).json({error:'Another update occurred; refresh'});
  req.app.get('io').to(String(req.flight._id)).emit('lirChecklistUpdated',{revision:doc.revision});
  res.json({checklist:result});
