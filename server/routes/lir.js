@@ -64,7 +64,7 @@ router.put('/:flightId/checklist/draft',async(req,res)=>{
  if(!raw.includes('LOADING INSTRUCTION/REPORT')||!raw.includes(' TK '))return res.status(400).json({error:'Unsupported LIR format'});
  const parsed=require('../services/tkLirParser').parse(raw);
  const input=req.body.rows;
- if(!Array.isArray(input)||input.length!==parsed.rows.length)return res.status(400).json({error:'All parsed positions must be reviewed'});
+ if(!Array.isArray(input)||input.length<parsed.rows.length||input.length>parsed.rows.length+1)return res.status(400).json({error:'All parsed positions must be reviewed'});
  const rows=parsed.rows.map((row,i)=>{
   const edit=input[i];
   if(!edit||edit.position!==row.position)throw new Error('Position order changed');
@@ -75,6 +75,14 @@ router.put('/:flightId/checklist/draft',async(req,res)=>{
   const dgStatus=['UNKNOWN','NO_DG','DG_PRESENT'].includes(edit.dgStatus)?edit.dgStatus:'UNKNOWN';
   return {...row,plannedUld,load:[{type:'REVIEWED',value:load}],dgStatus,needsReview:!edit.reviewed,reviewed:!!edit.reviewed};
  });
+ const bulk=input.slice(parsed.rows.length);
+ if(bulk.length){
+  const edit=bulk[0];
+  if(edit.position!=='BULK')return res.status(400).json({error:'Invalid BULK position'});
+  const load=String(edit.load||'').trim().toUpperCase();
+  if(load.length>120)return res.status(400).json({error:'BULK load text too long'});
+  rows.push({position:'BULK',plannedUld:'',uldType:'BULK',load:[{type:'REVIEWED',value:load}],dgStatus:edit.dgStatus==='DG_PRESENT'?'DG_PRESENT':'UNKNOWN',needsReview:!edit.reviewed,reviewed:!!edit.reviewed});
+ }
  // A flight has one checklist (unique turnaroundId). A new LIR revision replaces
  // its prior checklist; an upsert filtered by published:false would try to
  // INSERT a second checklist and fail with E11000 when the old one is published.
@@ -96,6 +104,39 @@ router.post('/:flightId/checklist/publish',async(req,res)=>{
  req.app.get('io').to(String(req.flight._id)).emit('lirChecklistUpdated',{revision:doc.revision});
  res.json({checklist});
 });
+router.post('/:flightId/checklist/confirm-all',async(req,res)=>{
+ if(!await canAnnotate(req.user,req.flight._id))return res.status(403).json({error:'Assigned RAMP only'});
+ const doc=await latest(req.flight._id);
+ if(!doc||doc.status==='COMPLETED')return res.status(409).json({error:'LIR unavailable or completed'});
+ const {expectedVersion,positions}=req.body;
+ if(!Number.isInteger(expectedVersion)||!Array.isArray(positions)||!positions.length)return res.status(400).json({error:'Valid positions and checklist version required'});
+ const c=await Checklist.findOne({turnaroundId:req.flight._id,lirId:doc._id,published:true,version:expectedVersion});
+ if(!c)return res.status(409).json({error:'Checklist changed; refresh'});
+ const unique=new Set();
+ for(const item of positions){
+  const position=String(item.position||'').toUpperCase(),actualPosition=String(item.actualPosition||'').toUpperCase(),actualUld=String(item.actualUld||'').toUpperCase();
+  if(unique.has(position))return res.status(400).json({error:'Duplicate position'});
+  unique.add(position);
+  const row=c.rows.find(x=>x.position===position);
+  if(!row||actualPosition!==position)return res.status(400).json({error:'Invalid position or discrepancy; confirm individually: '+position});
+  if(position!=='BULK'&&!validUld(actualUld))return res.status(400).json({error:'Enter a valid ULD for '+position});
+  if(position==='BULK'&&actualUld)return res.status(400).json({error:'BULK has no ULD number'});
+  if(row.plannedUld&&row.plannedUld!==actualUld)return res.status(409).json({error:'ULD differs from plan at '+position+'; confirm individually'});
+  if(item.bags!=null&&(!Number.isInteger(item.bags)||item.bags<0||item.bags>999))return res.status(400).json({error:'Invalid bag count at '+position});
+ }
+ const open=await LoadingChange.exists({turnaroundId:req.flight._id,lirId:doc._id,status:{$in:['REQUESTED','AUTHORISED']},$or:[{from:{$in:[...unique]}},{to:{$in:[...unique]}}]});
+ if(open)return res.status(409).json({error:'A loading change is pending; resolve it before confirming all'});
+ const now=new Date();
+ for(const item of positions){
+  const row=c.rows.find(x=>x.position===item.position.toUpperCase());
+  row.actualPosition=row.position;row.actualUld=String(item.actualUld||'').toUpperCase();row.bags=item.bags??null;
+  row.confirmedAt=now;row.confirmedBy=req.user.name;row.discrepancy=false;
+ }
+ const saved=await Checklist.findOneAndUpdate({_id:c._id,version:expectedVersion},{$set:{rows:c.rows},$inc:{version:1}},{new:true,runValidators:true});
+ if(!saved)return res.status(409).json({error:'Checklist changed; refresh'});
+ req.app.get('io').to(String(req.flight._id)).emit('lirChecklistUpdated',{revision:doc.revision});
+ res.json({checklist:saved});
+});
 router.put('/:flightId/checklist/:position',async(req,res)=>{
  if(!await canAnnotate(req.user,req.flight._id))return res.status(403).json({error:'Assigned RAMP only'});
  const doc=await latest(req.flight._id);if(!doc||doc.status==='COMPLETED')return res.status(409).json({error:'LIR completed or unavailable'});
@@ -103,7 +144,7 @@ router.put('/:flightId/checklist/:position',async(req,res)=>{
  const actualPosition=String(req.body.actualPosition||'').trim().toUpperCase();
  const actualUld=String(req.body.actualUld||'').trim().toUpperCase();
  const bags=req.body.bags;
- if(!/^[0-9]{2}[LPR]?$/.test(position)||! /^[0-9]{2}[LPR]?$/.test(actualPosition)||! /^[A-Z]{3}[A-Z0-9]{5,12}$/.test(actualUld))return res.status(400).json({error:'Valid position and ULD number required'});
+ if(!/^(?:[0-9]{2}[LPR]?|BULK)$/.test(position)||! /^(?:[0-9]{2}[LPR]?|BULK)$/.test(actualPosition)||!(position==='BULK' ? actualUld==='' : /^[A-Z]{3}[A-Z0-9]{5,12}$/.test(actualUld)))return res.status(400).json({error:'Valid position and ULD number required'});
  if(bags!==null&&bags!==undefined&&(!Number.isInteger(bags)||bags<0||bags>999))return res.status(400).json({error:'Invalid bag count'});
  if(!Number.isInteger(req.body.expectedVersion))return res.status(400).json({error:'Refresh checklist before confirming'});
  const checklist=await Checklist.findOne({turnaroundId:req.flight._id,lirId:doc._id,published:true,version:req.body.expectedVersion,'rows.position':position});
