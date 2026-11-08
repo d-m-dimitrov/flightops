@@ -112,9 +112,10 @@ const LoadingChange=require('../models/LirLoadingChange');
 const validUld=value=>/^[A-Z]{3}[A-Z0-9]{5,12}$/.test(value);
 router.get('/:flightId/checklist/changes',async(req,res)=>{
  const doc=await latest(req.flight._id);
- if(!doc)return res.json({changes:[]});
+ if(!doc)return res.json({changes:[],latestRevision:null,otherRevisionCount:0});
  const changes=await LoadingChange.find({turnaroundId:req.flight._id,lirId:doc._id}).sort({requestedAt:-1}).limit(100).lean();
- res.json({changes});
+ const otherRevisionCount=await LoadingChange.countDocuments({turnaroundId:req.flight._id,lirId:{$ne:doc._id}});
+ res.json({changes,latestRevision:doc.revision,otherRevisionCount});
 });
 router.post('/:flightId/checklist/changes',async(req,res)=>{
  if(!await canAnnotate(req.user,req.flight._id))return res.status(403).json({error:'Assigned Departure RAMP only'});
