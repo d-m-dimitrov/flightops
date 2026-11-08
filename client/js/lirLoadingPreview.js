@@ -43,6 +43,31 @@
   title.append(span('Loading progress · '+count+'/'+c.rows.length+' confirmed','fw-bold d-block mb-2'));
   const progress=document.createElement('div');progress.className='progress';progress.style.height='9px';
   const bar=document.createElement('div');bar.className='progress-bar bg-success';bar.style.width=(c.rows.length?100*count/c.rows.length:0)+'%';progress.append(bar);title.append(progress);actions.append(title);
+  const changes=(await api('/checklist/changes')).changes||[];
+  const changeSection=document.createElement('div');changeSection.className='mb-3';
+  const open=changes.filter(x=>['REQUESTED','AUTHORISED'].includes(x.status));
+  if(open.length)changeSection.append(span('⚠ Loading changes · '+open.length+' open','fw-bold d-block mb-2'));
+  for(const change of changes.slice(0,15)){
+   const line=document.createElement('div');line.className='border rounded p-2 mb-2';
+   line.style.backgroundColor=change.status==='REQUESTED'?'#fff4e5':change.status==='AUTHORISED'?'#e8f3ff':'#f8f9fa';
+   line.append(span(change.action+' · '+change.from+(change.to?' → '+change.to:'')+(change.replacementUld?' · '+change.replacementUld:'')+' · '+change.status,'fw-semibold d-block'));
+   line.append(span(change.reason+' · Requested by '+(change.requestedBy||'RAMP'),'small d-block mb-1'));
+   const act=async(endpoint,body,button)=>{button.disabled=true;try{await api('/checklist/changes/'+change._id+'/'+endpoint,'POST',body);await showChecklist();}catch(e){status.textContent=e.message;button.disabled=false;}};
+   if(change.status==='REQUESTED'&&data.permissions.publish){
+    const note=span('Verify with Load Control / approved loading procedure before authorising.','small text-danger d-block');
+    line.append(note);
+    for(const decision of ['AUTHORISED','REJECTED']){
+     const b=document.createElement('button');b.className='btn btn-sm '+(decision==='AUTHORISED'?'btn-outline-primary':'btn-outline-danger')+' me-2 mt-1';b.textContent=decision==='AUTHORISED'?'Mark authorised':'Reject';
+     b.onclick=()=>{if(confirm('Confirm '+decision+'? Only mark authorised after required operational approval.'))act('review',{decision},b);};line.append(b);
+    }
+   }
+   if(change.status==='AUTHORISED'&&data.permissions.confirm){
+    const b=document.createElement('button');b.className='btn btn-sm btn-primary mt-1';b.textContent='Mark physically completed';
+    b.onclick=()=>{if(confirm('Has this change physically been carried out? Positions will need reconfirmation.'))act('execute',{expectedVersion:c.version},b);};line.append(b);
+   }
+   changeSection.append(line);
+  }
+  actions.append(changeSection);
   const suffixes=[...new Set(c.rows.map(x=>(x.plannedUld||'').match(/^[A-Z]{3}[A-Z0-9]{5,8}([A-Z]{2,3})$/)?.[1]).filter(Boolean))];
   const defaultSuffix=suffixes.length===1?suffixes[0]:'TK';
   for(const row of c.rows){
@@ -55,6 +80,19 @@
    box.append(badge);
    if(row.confirmedAt)box.append(span((row.actualUld||'')+' @ '+row.actualPosition+(row.bags!=null?' · '+row.bags+' bags':''),'small d-block'));
    if(data.permissions.confirm){
+    const toggle=document.createElement('button');toggle.type='button';toggle.className='btn btn-sm btn-outline-secondary ms-2';toggle.textContent='⋮ Change';
+    const form=document.createElement('div');form.className='border rounded p-2 mt-2 d-none';form.style.backgroundColor='#fff';
+    const action=document.createElement('select');action.className='form-select my-1';for(const [value,label] of [['SWAP','Swap with position'],['MOVE','Move to empty position'],['REPLACE','Replace ULD']]){const o=document.createElement('option');o.value=value;o.textContent=label;action.append(o);}
+    const target=document.createElement('select');target.className='form-select my-1';for(const other of c.rows.filter(x=>x.position!==row.position)){const o=document.createElement('option');o.value=other.position;o.textContent=other.position+' · '+(other.actualUld||other.plannedUld||'Empty');target.append(o);}
+    const replacement=document.createElement('input');replacement.className='form-control my-1';replacement.placeholder='Replacement ULD (e.g. AKE12345TK)';replacement.maxLength=15;
+    const reason=document.createElement('input');reason.className='form-control my-1';reason.placeholder='Reason for change (required)';reason.maxLength=300;
+    const updateFields=()=>{target.classList.toggle('d-none',action.value==='REPLACE');replacement.classList.toggle('d-none',action.value!=='REPLACE');};
+    action.onchange=updateFields;updateFields();
+    const submit=document.createElement('button');submit.type='button';submit.className='btn btn-sm btn-warning mt-1';submit.textContent='Request OPS review';
+    submit.onclick=async()=>{submit.disabled=true;try{await api('/checklist/changes','POST',{action:action.value,from:row.position,to:target.value,replacementUld:replacement.value,reason:reason.value});await showChecklist();}catch(e){status.textContent=e.message;submit.disabled=false;}};
+    form.append(action,target,replacement,reason,submit);
+    toggle.onclick=()=>form.classList.toggle('d-none');
+    box.append(toggle,form);
     const pos=document.createElement('input');pos.className='form-control my-1';pos.value=row.actualPosition||row.position;pos.placeholder='Actual position';pos.setAttribute('aria-label','Actual position');
     // ULD number is entered in three parts; suggest prefix/suffix, never invent the serial.
     const known=row.actualUld||row.plannedUld||'';
