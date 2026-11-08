@@ -179,6 +179,11 @@
    return;
   }
   if(!data.permissions.confirm){const note=document.createElement('p');note.className='alert alert-info';note.textContent='Read-only: '+(data.permissions.confirmReason||'Only the assigned Departure RAMP agent can confirm loading.')+'.';actions.append(note);}
+  const bulkItemsForDisplay=row=>{
+   if(Array.isArray(row.bulkItems)&&row.bulkItems.length)return row.bulkItems;
+   return [['bulkBaggage','BAGGAGE'],['bulkMail','MAIL'],['bulkCargo','CARGO']]
+    .filter(([field])=>row[field]!=null).map(([field,type])=>({type,pieces:row[field],details:''}));
+  };
   const rowIsComplete=row=>!!row.confirmedAt&&(!isBulkRow(row)||bulkItemsForDisplay(row).every(item=>!!item.confirmedAt));
   const count=c.rows.filter(rowIsComplete).length;
   const title=document.createElement('div');title.className='mb-3';
@@ -188,11 +193,6 @@
   const labelBulkItem=item=>{
    const labels={BAGGAGE:'Baggage',CREW_BAGS:'Crew bags',MAIL:'Mail',CARGO:'Cargo',BLANKETS:'Blankets',EQUIPMENT:'Equipment',OTHER:'Other'};
    return (item.pieces==null?'':item.pieces+' pcs ')+(labels[item.type]||item.type)+(item.details?' · '+item.details:'');
-  };
-  const bulkItemsForDisplay=row=>{
-   if(Array.isArray(row.bulkItems)&&row.bulkItems.length)return row.bulkItems;
-   return [['bulkBaggage','BAGGAGE'],['bulkMail','MAIL'],['bulkCargo','CARGO']]
-    .filter(([field])=>row[field]!=null).map(([field,type])=>({type,pieces:row[field],details:''}));
   };
   const suffixes=[...new Set(c.rows.map(x=>(x.plannedUld||'').match(/^[A-Z]{3}[A-Z0-9]{5,8}([A-Z]{2,3})$/)?.[1]).filter(Boolean))];
   const defaultSuffix=suffixes.length===1?suffixes[0]:'TK';
