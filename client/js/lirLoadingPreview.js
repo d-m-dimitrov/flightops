@@ -67,7 +67,16 @@
      for(const [value,text] of [['UNKNOWN','DG: Unknown / not verified'],['NO_DG','DG: No dangerous goods (verified)'],['DG_PRESENT','DG PRESENT']]){const option=document.createElement('option');option.value=value;option.textContent=text;dg.append(option);}
      dg.value=row.dgStatus||'UNKNOWN';
      const dgLabel=span('Dangerous goods status (check NOTOC / load documents)','small fw-semibold d-block');
-     box.append(uld,load,dgLabel,dg,label);editor.append(box);inputs.push({position:row.position,uld,load,reviewed,dg});
+     const dgAlert=span('⚠ DANGEROUS GOODS · DG PRESENT','fw-bold d-block px-2 py-2 my-2 d-none');
+     dgAlert.style.cssText='color:#b00020;background:#fff;border:3px solid #b00020;border-radius:4px';
+     const paintDg=()=>{
+      const present=dg.value==='DG_PRESENT';
+      dgAlert.classList.toggle('d-none',!present);
+      box.style.borderLeft=present?'5px solid #b00020':'';
+      box.style.backgroundColor=present?'#fff7f7':'';
+     };
+     dg.addEventListener('change',paintDg);paintDg();
+     box.append(uld,load,dgLabel,dg,dgAlert,label);editor.append(box);inputs.push({position:row.position,uld,load,reviewed,dg});
     }
     actions.append(editor);
     const save=document.createElement('button');save.className='btn btn-primary me-2 mb-2';save.textContent='Save reviewed draft';
