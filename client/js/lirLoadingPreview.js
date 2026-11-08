@@ -28,6 +28,12 @@
     ?change.from+' · '+sourceUld+'  →  '+change.to+' · '+destUld
     :change.from+' · '+sourceUld+'  →  '+change.replacementUld;
    line.append(span(details,'fw-bold d-block my-1'));
+   const affected=[fromRow,...(change.to?[toRow]:[])].filter(Boolean);
+   if(affected.some(r=>r.dgStatus==='DG_PRESENT')){
+    const warning=span('⚠ DANGEROUS GOODS PRESENT — verify NOTOC and loading restrictions with Load Control before authorising.','fw-bold d-block p-2 my-1');
+    warning.style.cssText='color:#b00020;background:white;border:3px solid #b00020;border-radius:4px';
+    line.append(warning);
+   }else if(affected.some(r=>!r.dgStatus||r.dgStatus==='UNKNOWN'))line.append(span('⚠ DG status unknown — verify before authorising.','text-warning fw-bold d-block'));
    line.append(span('Reason: '+change.reason+' · Requested by '+(change.requestedBy||'RAMP'),'small d-block mb-1'));
    const act=async(endpoint,body,button)=>{button.disabled=true;try{await api('/checklist/changes/'+change._id+'/'+endpoint,'POST',body);await showChecklist();}catch(e){status.textContent=e.message;button.disabled=false;}};
    if(change.status==='REQUESTED'&&data.permissions.publish){
@@ -57,11 +63,15 @@
      const load=document.createElement('input');load.className='form-control my-1';load.placeholder='Planned load';load.value=row.load.map(x=>x.type==='REVIEWED'?x.value:x.type+'/'+x.value).join(' · ');
      const label=document.createElement('label');label.className='d-flex align-items-center gap-2';
      const reviewed=document.createElement('input');reviewed.type='checkbox';reviewed.checked=!!row.reviewed;label.append(reviewed,span('Checked against original LIR'));
-     box.append(uld,load,label);editor.append(box);inputs.push({position:row.position,uld,load,reviewed});
+     const dg=document.createElement('select');dg.className='form-select my-1';dg.setAttribute('aria-label','Dangerous goods status for '+row.position);
+     for(const [value,text] of [['UNKNOWN','DG: Unknown / not verified'],['NO_DG','DG: No dangerous goods (verified)'],['DG_PRESENT','DG PRESENT']]){const option=document.createElement('option');option.value=value;option.textContent=text;dg.append(option);}
+     dg.value=row.dgStatus||'UNKNOWN';
+     const dgLabel=span('Dangerous goods status (check NOTOC / load documents)','small fw-semibold d-block');
+     box.append(uld,load,dgLabel,dg,label);editor.append(box);inputs.push({position:row.position,uld,load,reviewed,dg});
     }
     actions.append(editor);
     const save=document.createElement('button');save.className='btn btn-primary me-2 mb-2';save.textContent='Save reviewed draft';
-    save.onclick=async()=>{save.disabled=true;try{await api('/checklist/draft','PUT',{rows:inputs.map(x=>({position:x.position,plannedUld:x.uld.value,load:x.load.value,reviewed:x.reviewed.checked}))});status.textContent='Draft saved';await showChecklist();}catch(e){status.textContent=e.message;save.disabled=false;}};
+    save.onclick=async()=>{save.disabled=true;try{await api('/checklist/draft','PUT',{rows:inputs.map(x=>({position:x.position,plannedUld:x.uld.value,load:x.load.value,reviewed:x.reviewed.checked,dgStatus:x.dg.value}))});status.textContent='Draft saved';await showChecklist();}catch(e){status.textContent=e.message;save.disabled=false;}};
     actions.append(save);
     if(c?.rows?.length){
      const publish=document.createElement('button');publish.className='btn btn-warning mb-2';publish.textContent='Publish to RAMP';publish.disabled=c.rows.some(x=>!x.reviewed);
@@ -85,6 +95,11 @@
    box.style.backgroundColor=row.discrepancy&&row.confirmedAt?'#fff4e5':row.confirmedAt?'#eaf7ef':'#f8f9fa';
    box.append(span(row.position+' · '+(row.confirmedAt && row.actualUld ? row.actualUld : row.plannedUld||'ULD required'),'fw-semibold d-block'));
    box.append(span(row.load.map(x=>x.type+'/'+x.value).join(' · '),'small d-block'));
+   const dgStatus=row.dgStatus||'UNKNOWN';
+   const dgBadge=span(dgStatus==='DG_PRESENT'?'⚠ DANGEROUS GOODS · DG PRESENT':dgStatus==='NO_DG'?'DG: NO DG (verified)':'DG: UNKNOWN / NOT VERIFIED','d-inline-block fw-bold px-2 py-1 my-1');
+   if(dgStatus==='DG_PRESENT'){dgBadge.style.cssText='color:#b00020;background:#fff;border:3px solid #b00020;border-radius:4px;letter-spacing:.02em';box.style.borderLeft='5px solid #b00020';}
+   else dgBadge.classList.add('small',dgStatus==='UNKNOWN'?'text-warning':'text-muted');
+   box.append(dgBadge);
    const executedChange=changes.find(x=>x.status==='EXECUTED'&&(x.from===row.position||x.to===row.position));
    const pendingChange=changes.find(x=>['REQUESTED','AUTHORISED'].includes(x.status)&&(x.from===row.position||x.to===row.position));
    const needsRecheck=!row.confirmedAt&&!!executedChange;
