@@ -12,6 +12,9 @@
  async function showChecklist(){
   const data=await api('/checklist');actions.replaceChildren();
   const c=data.checklist;
+  const bulkRules=data.bulkRules||{aircraftType:'',positions:['51','52','53'],known:false};
+  const validBulk=bulkRules.positions;
+  if(!bulkRules.known)actions.append(span('⚠ Aircraft type '+(bulkRules.aircraftType||'not set')+' — BULK position limits could not be determined. Verify the loading plan and aircraft configuration before confirming.','alert alert-warning d-block'));
   let changes=[],changeInfo={};try{changeInfo=await api('/checklist/changes');changes=changeInfo.changes||[];}catch(e){actions.append(span('⚠ Could not load change requests: '+e.message,'alert alert-danger d-block'));}
   const changeSection=document.createElement('div');changeSection.className='mb-3';
   const open=changes.filter(x=>['REQUESTED','AUTHORISED'].includes(x.status));
@@ -69,10 +72,10 @@
     const bulkPositionSelect=(box,selected='')=>{
      const label=document.createElement('label');label.className='small fw-semibold d-block mb-1';label.textContent='BULK loading position';
      const select=document.createElement('select');select.className='form-select mb-2';select.setAttribute('aria-label','BULK position');
-     for(const value of ['', '51','52','53']){
-      const option=document.createElement('option');option.value=value;option.textContent=value||'Select 51, 52 or 53';select.append(option);
+     for(const value of ['',...validBulk]){
+      const option=document.createElement('option');option.value=value;option.textContent=value||'Select BULK position';select.append(option);
      }
-     select.value=['51','52','53'].includes(selected)?selected:'';
+     select.value=validBulk.includes(selected)?selected:'';
      box.append(label,select);return select;
     };
     for(const row of draft){
@@ -98,14 +101,14 @@
     actions.append(editor);
     const addBulk=document.createElement('button');addBulk.type='button';addBulk.className='btn btn-outline-secondary mb-2';addBulk.textContent='+ Add BULK position (51 / 52 / 53)';
     const updateAddBulk=()=>{
-     const used=new Set(inputs.filter(x=>x.isBulk).map(x=>x.positionSelect?.value).filter(Boolean));
-     addBulk.disabled=used.size===3||inputs.filter(x=>x.isBulk).length>=3;
-     addBulk.textContent=addBulk.disabled?'All three BULK positions added':'+ Add BULK position (51 / 52 / 53)';
+     const used=new Set(inputs.map(x=>x.positionSelect?.value||x.position).filter(Boolean));
+     addBulk.disabled=!validBulk.some(p=>!used.has(p))||inputs.filter(x=>x.isBulk).length>=validBulk.length;
+     addBulk.textContent=addBulk.disabled?'All available BULK positions added':'+ Add BULK position ('+validBulk.join(' / ')+')';
     };
     addBulk.onclick=()=>{
      const used=new Set(inputs.map(x=>x.positionSelect?.value||x.position));
-     const available=['51','52','53'].filter(x=>!used.has(x));
-     if(!available.length){status.textContent='BULK positions 51, 52 and 53 are already assigned.';return;}
+     const available=validBulk.filter(x=>!used.has(x));
+     if(!available.length){status.textContent='No unused BULK positions for this aircraft.';return;}
      const box=document.createElement('div');box.className='border rounded p-2 mb-2';
      box.append(span('BULK · Loose-loaded items (no ULD)','fw-bold d-block'));
      const positionSelect=bulkPositionSelect(box,available[0]);positionSelect.addEventListener('change',updateAddBulk);
@@ -125,8 +128,8 @@
     save.onclick=async()=>{
      const bulkInputs=inputs.filter(x=>x.isBulk);
      const positions=bulkInputs.map(x=>x.positionSelect?.value||'');
-     if(positions.some(p=>!['51','52','53'].includes(p))||new Set(positions).size!==positions.length){
-      status.textContent='Choose a unique BULK position: 51, 52 or 53.';return;
+     if(positions.some(p=>!validBulk.includes(p))||new Set(positions).size!==positions.length){
+      status.textContent='Choose unique BULK positions allowed for this aircraft: '+validBulk.join(', ')+'.';return;
      }
      save.disabled=true;
      try{
@@ -149,6 +152,8 @@
   for(const bulkRow of c.rows.filter(isBulkRow)){
    const parts=[['Mail',bulkRow.bulkMail],['Cargo',bulkRow.bulkCargo],['Baggage',bulkRow.bulkBaggage]].filter(([,v])=>v!=null).map(([name,v])=>name+': '+v+' pcs');
    actions.append(span('BULK · '+(bulkRow.position==='BULK'?(bulkRow.actualPosition||'position not selected'):bulkRow.position)+(parts.length?' · '+parts.join(' · '):''),'fw-semibold d-block mb-2'));
+   if(bulkRow.position!=='BULK'&&!validBulk.includes(bulkRow.position))actions.append(span('⚠ Planned BULK '+bulkRow.position+' is not valid for aircraft '+(bulkRules.aircraftType||'unknown')+'. OPS must review this LIR.','alert alert-danger d-block'));
+
   }
   const count=c.rows.filter(x=>x.confirmedAt).length;
   const title=document.createElement('div');title.className='mb-3';
@@ -162,7 +167,8 @@
    const isBulk=isBulkRow(row);
    box.style.borderLeft='5px solid '+(row.discrepancy&&row.confirmedAt?'#fd7e14':row.confirmedAt?'#198754':'#adb5bd');
    box.style.backgroundColor=row.discrepancy&&row.confirmedAt?'#fff4e5':row.confirmedAt?'#eaf7ef':'#f8f9fa';
-   box.append(span(isBulk?'BULK · '+(row.position==='BULK'?(row.actualPosition||'select 51 / 52 / 53'):row.position):row.position+' · '+(row.confirmedAt && row.actualUld ? row.actualUld : row.plannedUld||'ULD required'),'fw-semibold d-block'));
+   box.append(span(isBulk?'BULK · '+(row.position==='BULK'?(row.actualPosition||'select BULK position'):row.position):row.position+' · '+(row.confirmedAt && row.actualUld ? row.actualUld : row.plannedUld||'ULD required'),'fw-semibold d-block'));
+
    box.append(span(row.load.map(x=>x.type+'/'+x.value).join(' · '),'small d-block'));
    const dgStatus=row.dgStatus||'UNKNOWN';
    const dgBadge=span(dgStatus==='DG_PRESENT'?'⚠ DANGEROUS GOODS · DG PRESENT':dgStatus==='NO_DG'?'DG: NO DG (verified)':'DG: UNKNOWN / NOT VERIFIED','d-inline-block fw-bold px-2 py-1 my-1');
@@ -199,10 +205,10 @@
     if(!isBulk)box.append(toggle,form);
     const pos=document.createElement(isBulk?'select':'input');pos.className='form-control my-1';
     if(isBulk){
-     for(const value of ['', '51','52','53']){
+     for(const value of ['',...validBulk]){
       const option=document.createElement('option');option.value=value;option.textContent=value||'Select BULK hold';pos.append(option);
      }
-     pos.value=['51','52','53'].includes(row.actualPosition)?row.actualPosition:['51','52','53'].includes(row.position)?row.position:'';
+     pos.value=validBulk.includes(row.actualPosition)?row.actualPosition:validBulk.includes(row.position)?row.position:'';
     }else{pos.value=row.actualPosition||row.position;pos.placeholder='Actual position';}
     pos.setAttribute('aria-label','Actual position');
     // ULD number is entered in three parts; suggest prefix/suffix, never invent the serial.
