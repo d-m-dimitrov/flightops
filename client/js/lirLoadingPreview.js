@@ -60,14 +60,44 @@
     const draft=c?.rows||window.tkPreviewRows||[];
     const editor=document.createElement('div');editor.className='mb-3';
     const inputs=[];
-    const bulkFields=(box,row)=>{
-     const fields={};
-     for(const [key,title] of [['bulkMail','Mail (pcs)'],['bulkCargo','Cargo (pcs)'],['bulkBaggage','Baggage (pcs)']]){
-      const label=document.createElement('label');label.className='d-block small fw-semibold mt-2';label.textContent=title;
-      const input=document.createElement('input');input.type='number';input.min='0';input.max='9999';input.step='1';input.className='form-control';input.placeholder='0';input.value=row?.[key]??'';
-      box.append(label,input);fields[key]=input;
-     }
-     return fields;
+    const bulkCategories=[
+     ['BAGGAGE','Baggage'],['CREW_BAGS','Crew bags'],['MAIL','Mail'],['CARGO','Cargo'],
+     ['BLANKETS','Blankets'],['EQUIPMENT','Equipment'],['OTHER','Other']
+    ];
+    const bulkItemsEditor=(box,row={})=>{
+     box.append(span('Contents of this BULK position','fw-semibold d-block mt-2'));
+     const list=document.createElement('div');list.className='d-grid gap-2 mb-2';box.append(list);
+     const refs=[];
+     const add=document.createElement('button');add.type='button';add.className='btn btn-sm btn-outline-primary mb-2';add.textContent='+ Add load item';
+     const update=()=>{add.disabled=refs.length>=30;};
+     const makeItem=(data={})=>{
+      if(refs.length>=30)return;
+      const wrap=document.createElement('div');wrap.className='border rounded p-2';
+      const group=document.createElement('div');group.className='d-flex flex-wrap gap-2 align-items-center';
+      const kind=document.createElement('select');kind.className='form-select flex-grow-1';kind.style.minWidth='135px';kind.style.width='auto';kind.setAttribute('aria-label','BULK load category');
+      for(const [value,title] of bulkCategories){const option=document.createElement('option');option.value=value;option.textContent=title;kind.append(option);}
+      kind.value=bulkCategories.some(([value])=>value===data.type)?data.type:'OTHER';
+      const pieces=document.createElement('input');pieces.className='form-control';pieces.style.width='110px';pieces.type='number';pieces.min='0';pieces.max='9999';pieces.step='1';pieces.placeholder='Pcs (opt.)';pieces.value=data.pieces??'';pieces.setAttribute('aria-label','Pieces, optional');
+      const remove=document.createElement('button');remove.type='button';remove.className='btn btn-sm btn-outline-danger';remove.textContent='Remove';
+      group.append(kind,pieces,remove);
+      const details=document.createElement('input');details.className='form-control mt-2';details.maxLength=120;details.value=data.details||'';
+      details.setAttribute('aria-label','Item details');
+      const updatePlaceholder=()=>{details.placeholder=kind.value==='OTHER'?'Describe item (required)':'Details, if needed (optional)';};
+      kind.addEventListener('change',updatePlaceholder);updatePlaceholder();
+      wrap.append(group,details);list.append(wrap);
+      const item={kind,pieces,details};
+      refs.push(item);
+      remove.addEventListener('click',()=>{refs.splice(refs.indexOf(item),1);wrap.remove();update();});
+      update();
+     };
+     const previous=Array.isArray(row.bulkItems)&&row.bulkItems.length
+      ?row.bulkItems
+      :[['bulkBaggage','BAGGAGE'],['bulkMail','MAIL'],['bulkCargo','CARGO']]
+       .filter(([field])=>row[field]!=null).map(([field,type])=>({type,pieces:row[field],details:''}));
+     for(const item of previous)makeItem(item);
+     add.addEventListener('click',()=>makeItem({type:'BAGGAGE',pieces:null,details:''}));
+     box.append(add);
+     return ()=>refs.map(x=>({type:x.kind.value,pieces:x.pieces.value===''?null:Number(x.pieces.value),details:x.details.value.trim()}));
     };
     const bulkPositionSelect=(box,selected='')=>{
      const label=document.createElement('label');label.className='small fw-semibold d-block mb-1';label.textContent='BULK loading position';
@@ -95,7 +125,7 @@
      const paintDg=()=>{dgAlert.classList.toggle('d-none',!dg.checked);box.style.borderLeft=dg.checked?'5px solid #b00020':'';box.style.backgroundColor=dg.checked?'#fff7f7':'';};
      dg.addEventListener('change',paintDg);paintDg();
      box.append(...(isBulk?[]:[uld]),load);
-     const bulk=isBulk?bulkFields(box,row):{};
+     const bulk=isBulk?{bulkItems:bulkItemsEditor(box,row)}:{};
      box.append(dgLabel,dgAlert,label);editor.append(box);inputs.push({position:row.position,positionSelect,isBulk,uld,load,reviewed,dg,...bulk});
     }
     actions.append(editor);
@@ -117,7 +147,7 @@
      const dgLabel=document.createElement('label');dgLabel.className='form-check d-flex gap-2 align-items-center';dgLabel.append(dg,span('DG Present'));
      const reviewed=document.createElement('input');reviewed.type='checkbox';reviewed.className='form-check-input';
      const reviewLabel=document.createElement('label');reviewLabel.className='form-check d-flex gap-2 align-items-center';reviewLabel.append(reviewed,span('Checked against original LIR'));
-     box.append(load);const bulk=bulkFields(box,{});box.append(dgLabel,reviewLabel);editor.append(box);
+     box.append(load);const bulk={bulkItems:bulkItemsEditor(box,{})};box.append(dgLabel,reviewLabel);editor.append(box);
      inputs.push({position:available[0],positionSelect,isBulk:true,uld:{value:''},load,reviewed,dg,...bulk});
      updateAddBulk();
     };actions.append(addBulk);updateAddBulk();
@@ -135,7 +165,7 @@
      try{
       const payload=inputs.map(x=>({position:x.isBulk?x.positionSelect.value:x.position,plannedUld:x.isBulk?'':x.uld.value,load:x.load.value,
        reviewed:x.reviewed.checked,dgStatus:x.dg.checked?'DG_PRESENT':'UNKNOWN',
-       ...(x.isBulk?Object.fromEntries(['bulkMail','bulkCargo','bulkBaggage'].map(k=>[k,x[k].value===''?null:Number(x[k].value)])):{})}));
+       ...(x.isBulk?{bulkItems:x.bulkItems()}:{})}));
       await api('/checklist/draft','PUT',{rows:payload});status.textContent='Draft saved';await showChecklist();
      }catch(e){status.textContent=e.message;save.disabled=false;}
     };
@@ -149,17 +179,20 @@
    return;
   }
   if(!data.permissions.confirm){const note=document.createElement('p');note.className='alert alert-info';note.textContent='Read-only: '+(data.permissions.confirmReason||'Only the assigned Departure RAMP agent can confirm loading.')+'.';actions.append(note);}
-  for(const bulkRow of c.rows.filter(isBulkRow)){
-   const parts=[['Mail',bulkRow.bulkMail],['Cargo',bulkRow.bulkCargo],['Baggage',bulkRow.bulkBaggage]].filter(([,v])=>v!=null).map(([name,v])=>name+': '+v+' pcs');
-   actions.append(span('BULK · '+(bulkRow.position==='BULK'?(bulkRow.actualPosition||'position not selected'):bulkRow.position)+(parts.length?' · '+parts.join(' · '):''),'fw-semibold d-block mb-2'));
-   if(bulkRow.position!=='BULK'&&!validBulk.includes(bulkRow.position))actions.append(span('⚠ Planned BULK '+bulkRow.position+' is not valid for aircraft '+(bulkRules.aircraftType||'unknown')+'. OPS must review this LIR.','alert alert-danger d-block'));
-
-  }
   const count=c.rows.filter(x=>x.confirmedAt).length;
   const title=document.createElement('div');title.className='mb-3';
   title.append(span('Loading progress · '+count+'/'+c.rows.length+' confirmed','fw-bold d-block mb-2'));
   const progress=document.createElement('div');progress.className='progress';progress.style.height='9px';
   const bar=document.createElement('div');bar.className='progress-bar bg-success';bar.style.width=(c.rows.length?100*count/c.rows.length:0)+'%';progress.append(bar);title.append(progress);actions.append(title);
+  const labelBulkItem=item=>{
+   const labels={BAGGAGE:'Baggage',CREW_BAGS:'Crew bags',MAIL:'Mail',CARGO:'Cargo',BLANKETS:'Blankets',EQUIPMENT:'Equipment',OTHER:'Other'};
+   return (item.pieces==null?'':item.pieces+' pcs ')+(labels[item.type]||item.type)+(item.details?' · '+item.details:'');
+  };
+  const bulkItemsForDisplay=row=>{
+   if(Array.isArray(row.bulkItems)&&row.bulkItems.length)return row.bulkItems;
+   return [['bulkBaggage','BAGGAGE'],['bulkMail','MAIL'],['bulkCargo','CARGO']]
+    .filter(([field])=>row[field]!=null).map(([field,type])=>({type,pieces:row[field],details:''}));
+  };
   const suffixes=[...new Set(c.rows.map(x=>(x.plannedUld||'').match(/^[A-Z]{3}[A-Z0-9]{5,8}([A-Z]{2,3})$/)?.[1]).filter(Boolean))];
   const defaultSuffix=suffixes.length===1?suffixes[0]:'TK';
   for(const row of c.rows){
@@ -169,7 +202,16 @@
    box.style.backgroundColor=row.discrepancy&&row.confirmedAt?'#fff4e5':row.confirmedAt?'#eaf7ef':'#f8f9fa';
    box.append(span(isBulk?'BULK · '+(row.position==='BULK'?(row.actualPosition||'select BULK position'):row.position):row.position+' · '+(row.confirmedAt && row.actualUld ? row.actualUld : row.plannedUld||'ULD required'),'fw-semibold d-block'));
 
-   box.append(span(row.load.map(x=>x.type+'/'+x.value).join(' · '),'small d-block'));
+   if(isBulk){
+    const contents=bulkItemsForDisplay(row);
+    if(contents.length){
+     const list=document.createElement('ul');list.className='mb-2 mt-2 ps-4';
+     for(const item of contents){const li=document.createElement('li');li.textContent=labelBulkItem(item);list.append(li);}
+     box.append(list);
+    }
+    const note=row.load.map(x=>x.value||'').filter(Boolean).join(' · ');
+    if(note)box.append(span('Notes: '+note,'small d-block mb-1'));
+   }else box.append(span(row.load.map(x=>x.type+'/'+x.value).join(' · '),'small d-block'));
    const dgStatus=row.dgStatus||'UNKNOWN';
    const dgBadge=span(dgStatus==='DG_PRESENT'?'⚠ DANGEROUS GOODS · DG PRESENT':dgStatus==='NO_DG'?'DG: NO DG (verified)':'DG: UNKNOWN / NOT VERIFIED','d-inline-block fw-bold px-2 py-1 my-1');
    if(dgStatus==='DG_PRESENT'){dgBadge.style.cssText='color:#b00020;background:#fff;border:3px solid #b00020;border-radius:4px;letter-spacing:.02em';box.style.borderLeft='5px solid #b00020';}
