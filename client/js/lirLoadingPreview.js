@@ -11,10 +11,10 @@
  async function showChecklist(){
   const data=await api('/checklist');actions.replaceChildren();
   const c=data.checklist;
-  let changes=[];try{changes=(await api('/checklist/changes')).changes||[];}catch(e){actions.append(span('⚠ Could not load change requests: '+e.message,'alert alert-danger d-block'));}
+  let changes=[],changeInfo={};try{changeInfo=await api('/checklist/changes');changes=changeInfo.changes||[];}catch(e){actions.append(span('⚠ Could not load change requests: '+e.message,'alert alert-danger d-block'));}
   const changeSection=document.createElement('div');changeSection.className='mb-3';
   const open=changes.filter(x=>['REQUESTED','AUTHORISED'].includes(x.status));
-  changeSection.append(span('Loading change requests · '+open.length+' open','fw-bold d-block mb-2'));if(!changes.length)changeSection.append(span('No loading change requests recorded for this LIR version.','small text-muted d-block mb-2'));
+  changeSection.append(span('Loading change requests · '+open.length+' open · LIR v'+(changeInfo.latestRevision??data.revision),'fw-bold d-block mb-2'));if(!changes.length)changeSection.append(span('No loading change requests recorded for this LIR version.','small text-muted d-block mb-2'));if(changeInfo.otherRevisionCount)changeSection.append(span('⚠ '+changeInfo.otherRevisionCount+' request(s) belong to an earlier LIR revision and cannot be approved against the current plan.','alert alert-warning d-block'));
   for(const change of changes.slice(0,15)){
    const line=document.createElement('div');line.className='border rounded p-2 mb-2';
    line.style.backgroundColor=change.status==='REQUESTED'?'#fff4e5':change.status==='AUTHORISED'?'#e8f3ff':'#f8f9fa';
@@ -89,7 +89,7 @@
     const updateFields=()=>{target.classList.toggle('d-none',action.value==='REPLACE');replacement.classList.toggle('d-none',action.value!=='REPLACE');};
     action.onchange=updateFields;updateFields();
     const submit=document.createElement('button');submit.type='button';submit.className='btn btn-sm btn-warning mt-1';submit.textContent='Request OPS review';
-    submit.onclick=async()=>{submit.disabled=true;try{await api('/checklist/changes','POST',{action:action.value,from:row.position,to:target.value,replacementUld:replacement.value,reason:reason.value});await showChecklist();}catch(e){status.textContent=e.message;submit.disabled=false;}};
+    submit.onclick=async()=>{submit.disabled=true;try{const result=await api('/checklist/changes','POST',{action:action.value,from:row.position,to:target.value,replacementUld:replacement.value,reason:reason.value});await showChecklist();status.textContent='✓ Loading change request saved: '+result.change.action+' '+result.change.from+' · '+result.change.status;}catch(e){status.textContent='⚠ Change request NOT saved: '+e.message;submit.disabled=false;}};
     form.append(action,target,replacement,reason,submit);
     toggle.onclick=()=>form.classList.toggle('d-none');
     box.append(toggle,form);
