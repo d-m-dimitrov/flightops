@@ -72,7 +72,8 @@ router.put('/:flightId/checklist/draft',async(req,res)=>{
   if(plannedUld&&!/^[A-Z]{3}[A-Z0-9]{5,12}$/.test(plannedUld))throw new Error('Invalid ULD at '+row.position);
   const load=String(edit.load||'').trim().toUpperCase();
   if(load.length>120)throw new Error('Load text too long');
-  return {...row,plannedUld,load:[{type:'REVIEWED',value:load}],needsReview:!edit.reviewed,reviewed:!!edit.reviewed};
+  const dgStatus=['UNKNOWN','NO_DG','DG_PRESENT'].includes(edit.dgStatus)?edit.dgStatus:'UNKNOWN';
+  return {...row,plannedUld,load:[{type:'REVIEWED',value:load}],dgStatus,needsReview:!edit.reviewed,reviewed:!!edit.reviewed};
  });
  const result=await Checklist.findOneAndUpdate({turnaroundId:req.flight._id,published:{$ne:true}},{$set:{lirId:doc._id,revision:doc.revision,published:false,rows,version:0}},{upsert:true,new:true,runValidators:true});
  res.json({checklist:result});
