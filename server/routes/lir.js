@@ -107,6 +107,73 @@ router.put('/:flightId/checklist/:position',async(req,res)=>{
  req.app.get('io').to(String(req.flight._id)).emit('lirChecklistUpdated',{revision:doc.revision});
  res.json({checklist:result});
 });
+
+const LoadingChange=require('../models/LirLoadingChange');
+const validUld=value=>/^[A-Z]{3}[A-Z0-9]{5,12}$/.test(value);
+router.get('/:flightId/checklist/changes',async(req,res)=>{
+ const doc=await latest(req.flight._id);
+ if(!doc)return res.json({changes:[]});
+ const changes=await LoadingChange.find({turnaroundId:req.flight._id,lirId:doc._id}).sort({requestedAt:-1}).limit(100).lean();
+ res.json({changes});
+});
+router.post('/:flightId/checklist/changes',async(req,res)=>{
+ if(!await canAnnotate(req.user,req.flight._id))return res.status(403).json({error:'Assigned Departure RAMP only'});
+ const doc=await latest(req.flight._id);
+ if(!doc||doc.status==='COMPLETED')return res.status(409).json({error:'LIR is completed or unavailable'});
+ const c=await Checklist.findOne({turnaroundId:req.flight._id,lirId:doc._id,published:true});
+ if(!c)return res.status(409).json({error:'Published checklist required'});
+ const action=String(req.body.action||'').toUpperCase(),from=String(req.body.from||'').toUpperCase(),to=String(req.body.to||'').toUpperCase();
+ const replacementUld=String(req.body.replacementUld||'').trim().toUpperCase();
+ const reason=String(req.body.reason||'').trim().slice(0,300);
+ const source=c.rows.find(r=>r.position===from),target=c.rows.find(r=>r.position===to);
+ if(!['SWAP','MOVE','REPLACE'].includes(action)||!source||!reason)return res.status(400).json({error:'Action, source and reason required'});
+ if(action!=='REPLACE'&&(!target||to===from))return res.status(400).json({error:'Select a different existing destination position'});
+ if(action==='REPLACE'&&!validUld(replacementUld))return res.status(400).json({error:'Valid replacement ULD required'});
+ if(!source.actualUld&&!source.plannedUld)return res.status(422).json({error:'Source has no ULD'});
+ if(action==='SWAP'&&!target.actualUld&&!target.plannedUld)return res.status(422).json({error:'Swap requires two ULDs'});
+ if(action==='MOVE'&&(target.actualUld||target.plannedUld||target.confirmedAt))return res.status(422).json({error:'Destination is occupied; use Swap'});
+ const affected=action==='REPLACE'?[from]:[from,to];
+ const pending=await LoadingChange.exists({turnaroundId:req.flight._id,lirId:doc._id,status:{$in:['REQUESTED','AUTHORISED']},$or:[{from:{$in:affected}},{to:{$in:affected}}]});
+ if(pending)return res.status(409).json({error:'A loading change is already open for one of these positions'});
+ const change=await LoadingChange.create({turnaroundId:req.flight._id,lirId:doc._id,action,from,to:action==='REPLACE'?undefined:to,replacementUld:action==='REPLACE'?replacementUld:undefined,reason,requestedBy:req.user.name});
+ req.app.get('io').to(String(req.flight._id)).emit('lirChecklistUpdated',{revision:doc.revision});
+ res.status(201).json({change});
+});
+router.post('/:flightId/checklist/changes/:changeId/review',async(req,res)=>{
+ if(!req.lirPermissions.upload)return res.status(403).json({error:'OPS only'});
+ const doc=await latest(req.flight._id);
+ if(!doc||doc.status==='COMPLETED')return res.status(409).json({error:'LIR completed or unavailable'});
+ const decision=String(req.body.decision||'').toUpperCase();
+ if(!['AUTHORISED','REJECTED'].includes(decision))return res.status(400).json({error:'Invalid decision'});
+ const change=await LoadingChange.findOneAndUpdate({_id:req.params.changeId,turnaroundId:req.flight._id,lirId:doc._id,status:'REQUESTED'},{$set:{status:decision,reviewedBy:req.user.name,reviewedAt:new Date()}},{new:true});
+ if(!change)return res.status(409).json({error:'Change no longer pending; refresh'});
+ req.app.get('io').to(String(req.flight._id)).emit('lirChecklistUpdated',{revision:doc.revision});
+ res.json({change});
+});
+router.post('/:flightId/checklist/changes/:changeId/execute',async(req,res)=>{
+ if(!await canAnnotate(req.user,req.flight._id))return res.status(403).json({error:'Assigned Departure RAMP only'});
+ const doc=await latest(req.flight._id);
+ if(!doc||doc.status==='COMPLETED')return res.status(409).json({error:'LIR completed or unavailable'});
+ const change=await LoadingChange.findOne({_id:req.params.changeId,turnaroundId:req.flight._id,lirId:doc._id,status:'AUTHORISED'});
+ if(!change)return res.status(409).json({error:'Change is not authorised or is already executed'});
+ const c=await Checklist.findOne({turnaroundId:req.flight._id,lirId:doc._id,published:true});
+ if(!c||c.version!==req.body.expectedVersion)return res.status(409).json({error:'Checklist changed; refresh before executing'});
+ const from=c.rows.find(r=>r.position===change.from),to=c.rows.find(r=>r.position===change.to);
+ if(!from||(change.action!=='REPLACE'&&!to))return res.status(409).json({error:'Positions no longer available'});
+ const sourceUld=from.actualUld||from.plannedUld||'',destUld=to&&(to.actualUld||to.plannedUld||'');
+ if(!sourceUld)return res.status(409).json({error:'Source ULD missing'});
+ if(change.action==='SWAP'&&!destUld)return res.status(409).json({error:'Swap destination ULD missing'});
+ if(change.action==='MOVE'&&destUld)return res.status(409).json({error:'Move destination occupied'});
+ if(change.action==='REPLACE'){from.actualUld=change.replacementUld;from.actualPosition=from.position;}
+ if(change.action==='SWAP'){from.actualUld=destUld;to.actualUld=sourceUld;from.actualPosition=from.position;to.actualPosition=to.position;}
+ if(change.action==='MOVE'){from.actualUld='';from.actualPosition=from.position;to.actualUld=sourceUld;to.actualPosition=to.position;}
+ for(const row of [from,...(to?[to]:[])]){row.confirmedAt=undefined;row.confirmedBy=undefined;row.discrepancy=true;row.bags=undefined;}
+ const result=await Checklist.findOneAndUpdate({_id:c._id,version:c.version},{$set:{rows:c.rows},$inc:{version:1}},{new:true,runValidators:true});
+ if(!result)return res.status(409).json({error:'Another operator changed the checklist; refresh'});
+ await LoadingChange.updateOne({_id:change._id,status:'AUTHORISED'},{$set:{status:'EXECUTED',executedBy:req.user.name,executedAt:new Date()}});
+ req.app.get('io').to(String(req.flight._id)).emit('lirChecklistUpdated',{revision:doc.revision});
+ res.json({checklist:result});
+});
 router.get('/:flightId/loading-preview', async (req,res) => {
  const doc=await latest(req.flight._id);
  if(!doc)return res.status(404).json({error:'No LIR uploaded'});
