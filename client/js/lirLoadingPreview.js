@@ -11,6 +11,31 @@
  async function showChecklist(){
   const data=await api('/checklist');actions.replaceChildren();
   const c=data.checklist;
+  const changes=(await api('/checklist/changes')).changes||[];
+  const changeSection=document.createElement('div');changeSection.className='mb-3';
+  const open=changes.filter(x=>['REQUESTED','AUTHORISED'].includes(x.status));
+  if(open.length)changeSection.append(span('⚠ Loading changes · '+open.length+' open','fw-bold d-block mb-2'));
+  for(const change of changes.slice(0,15)){
+   const line=document.createElement('div');line.className='border rounded p-2 mb-2';
+   line.style.backgroundColor=change.status==='REQUESTED'?'#fff4e5':change.status==='AUTHORISED'?'#e8f3ff':'#f8f9fa';
+   line.append(span(change.action+' · '+change.from+(change.to?' → '+change.to:'')+(change.replacementUld?' · '+change.replacementUld:'')+' · '+change.status,'fw-semibold d-block'));
+   line.append(span(change.reason+' · Requested by '+(change.requestedBy||'RAMP'),'small d-block mb-1'));
+   const act=async(endpoint,body,button)=>{button.disabled=true;try{await api('/checklist/changes/'+change._id+'/'+endpoint,'POST',body);await showChecklist();}catch(e){status.textContent=e.message;button.disabled=false;}};
+   if(change.status==='REQUESTED'&&data.permissions.publish){
+    const note=span('Verify with Load Control / approved loading procedure before authorising.','small text-danger d-block');
+    line.append(note);
+    for(const decision of ['AUTHORISED','REJECTED']){
+     const b=document.createElement('button');b.className='btn btn-sm '+(decision==='AUTHORISED'?'btn-outline-primary':'btn-outline-danger')+' me-2 mt-1';b.textContent=decision==='AUTHORISED'?'Mark authorised':'Reject';
+     b.onclick=()=>{if(confirm('Confirm '+decision+'? Only mark authorised after required operational approval.'))act('review',{decision},b);};line.append(b);
+    }
+   }
+   if(change.status==='AUTHORISED'&&data.permissions.confirm){
+    const b=document.createElement('button');b.className='btn btn-sm btn-primary mt-1';b.textContent='Mark physically completed';
+    b.onclick=()=>{if(confirm('Has this change physically been carried out? Positions will need reconfirmation.'))act('execute',{expectedVersion:c.version},b);};line.append(b);
+   }
+   changeSection.append(line);
+  }
+  actions.append(changeSection);
   if(!c?.published){
    if(data.permissions.publish){
     const draft=c?.rows||window.tkPreviewRows||[];
@@ -43,31 +68,6 @@
   title.append(span('Loading progress · '+count+'/'+c.rows.length+' confirmed','fw-bold d-block mb-2'));
   const progress=document.createElement('div');progress.className='progress';progress.style.height='9px';
   const bar=document.createElement('div');bar.className='progress-bar bg-success';bar.style.width=(c.rows.length?100*count/c.rows.length:0)+'%';progress.append(bar);title.append(progress);actions.append(title);
-  const changes=(await api('/checklist/changes')).changes||[];
-  const changeSection=document.createElement('div');changeSection.className='mb-3';
-  const open=changes.filter(x=>['REQUESTED','AUTHORISED'].includes(x.status));
-  if(open.length)changeSection.append(span('⚠ Loading changes · '+open.length+' open','fw-bold d-block mb-2'));
-  for(const change of changes.slice(0,15)){
-   const line=document.createElement('div');line.className='border rounded p-2 mb-2';
-   line.style.backgroundColor=change.status==='REQUESTED'?'#fff4e5':change.status==='AUTHORISED'?'#e8f3ff':'#f8f9fa';
-   line.append(span(change.action+' · '+change.from+(change.to?' → '+change.to:'')+(change.replacementUld?' · '+change.replacementUld:'')+' · '+change.status,'fw-semibold d-block'));
-   line.append(span(change.reason+' · Requested by '+(change.requestedBy||'RAMP'),'small d-block mb-1'));
-   const act=async(endpoint,body,button)=>{button.disabled=true;try{await api('/checklist/changes/'+change._id+'/'+endpoint,'POST',body);await showChecklist();}catch(e){status.textContent=e.message;button.disabled=false;}};
-   if(change.status==='REQUESTED'&&data.permissions.publish){
-    const note=span('Verify with Load Control / approved loading procedure before authorising.','small text-danger d-block');
-    line.append(note);
-    for(const decision of ['AUTHORISED','REJECTED']){
-     const b=document.createElement('button');b.className='btn btn-sm '+(decision==='AUTHORISED'?'btn-outline-primary':'btn-outline-danger')+' me-2 mt-1';b.textContent=decision==='AUTHORISED'?'Mark authorised':'Reject';
-     b.onclick=()=>{if(confirm('Confirm '+decision+'? Only mark authorised after required operational approval.'))act('review',{decision},b);};line.append(b);
-    }
-   }
-   if(change.status==='AUTHORISED'&&data.permissions.confirm){
-    const b=document.createElement('button');b.className='btn btn-sm btn-primary mt-1';b.textContent='Mark physically completed';
-    b.onclick=()=>{if(confirm('Has this change physically been carried out? Positions will need reconfirmation.'))act('execute',{expectedVersion:c.version},b);};line.append(b);
-   }
-   changeSection.append(line);
-  }
-  actions.append(changeSection);
   const suffixes=[...new Set(c.rows.map(x=>(x.plannedUld||'').match(/^[A-Z]{3}[A-Z0-9]{5,8}([A-Z]{2,3})$/)?.[1]).filter(Boolean))];
   const defaultSuffix=suffixes.length===1?suffixes[0]:'TK';
   for(const row of c.rows){
@@ -119,7 +119,7 @@
    const token=localStorage.getItem('token');
    const response=await fetch('/api/lir/'+encodeURIComponent(id)+'/loading-preview',{headers:{Authorization:'Bearer '+token},cache:'no-store'});
    const data=await response.json();if(!response.ok)throw Error(data.error||'Could not read LIR');
-   if(!data.supported){status.textContent=data.reason;return;}
+   if(!data.supported){status.textContent=data.reason;await showChecklist();return;}
    status.textContent='TK LIR v'+data.revision+' · '+data.rows.length+' positions';
    // The extracted rows feed the editable draft or published confirmation list.
    // Do not render a second, read-only ULD list above the working checklist.
