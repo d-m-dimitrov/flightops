@@ -85,7 +85,10 @@
    box.style.backgroundColor=row.discrepancy&&row.confirmedAt?'#fff4e5':row.confirmedAt?'#eaf7ef':'#f8f9fa';
    box.append(span(row.position+' · '+(row.confirmedAt && row.actualUld ? row.actualUld : row.plannedUld||'ULD required'),'fw-semibold d-block'));
    box.append(span(row.load.map(x=>x.type+'/'+x.value).join(' · '),'small d-block'));
-   const badge=span(row.confirmedAt?(row.discrepancy?'⚠ Difference':'✓ Confirmed'):'○ Pending','badge '+(row.confirmedAt?(row.discrepancy?'bg-warning text-dark':'bg-success'):'bg-secondary')+' my-1');
+   const executedChange=changes.find(x=>x.status==='EXECUTED'&&(x.from===row.position||x.to===row.position));
+   const pendingChange=changes.find(x=>['REQUESTED','AUTHORISED'].includes(x.status)&&(x.from===row.position||x.to===row.position));
+   const needsRecheck=!row.confirmedAt&&!!executedChange;
+   const badge=span(row.confirmedAt?(row.discrepancy?'⚠ Difference':'✓ Confirmed'):pendingChange?'⏳ Change pending':needsRecheck?'↻ RAMP reconfirmation required':'○ Pending','badge '+(row.confirmedAt?(row.discrepancy?'bg-warning text-dark':'bg-success'):pendingChange||needsRecheck?'bg-warning text-dark':'bg-secondary')+' my-1');
    box.append(badge);
    if(row.confirmedAt)box.append(span((row.actualUld||'')+' @ '+row.actualPosition+(row.bags!=null?' · '+row.bags+' bags':''),'small d-block'));
    if(data.permissions.confirm){
@@ -123,6 +126,7 @@
     group.append(prefix,serial,suffix);box.append(group,prefixes,suffixList);
     const bags=document.createElement('input');bags.className='form-control my-1';bags.type='number';bags.min='0';bags.max='999';bags.placeholder='Bags (if baggage)';bags.value=row.bags??'';bags.setAttribute('aria-label','Actual bags');
     const save=document.createElement('button');save.className='btn btn-sm btn-success';save.textContent='Confirm position';
+    save.disabled=!!pendingChange;save.textContent=pendingChange?'Await change completion':needsRecheck?'Reconfirm position':'Confirm position';
     save.onclick=async()=>{save.disabled=true;try{await api('/checklist/'+encodeURIComponent(row.position),'PUT',{actualPosition:pos.value,actualUld:(prefix.value+serial.value+suffix.value).toUpperCase(),bags:bags.value===''?null:Number(bags.value),expectedVersion:c.version});await showChecklist();}catch(e){status.textContent=e.message;save.disabled=false;}};
     box.append(pos,bags,save);
    }
