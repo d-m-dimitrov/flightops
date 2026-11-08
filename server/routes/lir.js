@@ -81,7 +81,13 @@ router.put('/:flightId/checklist/draft',async(req,res)=>{
   if(edit.position!=='BULK')return res.status(400).json({error:'Invalid BULK position'});
   const load=String(edit.load||'').trim().toUpperCase();
   if(load.length>120)return res.status(400).json({error:'BULK load text too long'});
-  rows.push({position:'BULK',plannedUld:'',uldType:'BULK',load:[{type:'REVIEWED',value:load}],dgStatus:edit.dgStatus==='DG_PRESENT'?'DG_PRESENT':'UNKNOWN',needsReview:!edit.reviewed,reviewed:!!edit.reviewed});
+  const quantities={};
+  for(const [field,key] of [['bulkMail','Mail'],['bulkCargo','Cargo'],['bulkBaggage','Baggage']]){
+   const value=edit[field];
+   if(value!==''&&value!==null&&value!==undefined&&(!Number.isInteger(value)||value<0||value>9999))return res.status(400).json({error:'Invalid BULK '+key+' pieces'});
+   quantities[field]=value===''||value==null?null:value;
+  }
+  rows.push({position:'BULK',plannedUld:'',uldType:'BULK',load:[{type:'REVIEWED',value:load}],...quantities,dgStatus:edit.dgStatus==='DG_PRESENT'?'DG_PRESENT':'UNKNOWN',needsReview:!edit.reviewed,reviewed:!!edit.reviewed});
  }
  // A flight has one checklist (unique turnaroundId). A new LIR revision replaces
  // its prior checklist; an upsert filtered by published:false would try to
