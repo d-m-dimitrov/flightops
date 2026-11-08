@@ -8,7 +8,17 @@ const validate = require('../services/lirValidation');
 const canAnnotate = require('../services/lirAccess');
 const addSystemMessage = require('../services/systemMessage');
 const router = express.Router();
-const BULK_POSITIONS = new Set(['51','52','53']);
+const DEFAULT_BULK_POSITIONS = ['51','52','53'];
+// Airline and IATA aircraft codes are both used in flight records.
+// Unknown types remain configurable but are explicitly flagged for manual checking.
+const bulkPositionRules = aircraftType => {
+ const type=String(aircraftType||'').toUpperCase().replace(/[^A-Z0-9]/g,'');
+ const one=/(?:A350|A358|A359|A35K|AIRBUS350|B787|B788|B789|B78X|BOEING787)/.test(type);
+ const two=/(?:B777|B772|B773|B77W|B77L|B77F|BOEING777)/.test(type);
+ const three=/(?:A321|A21N|AIRBUS321|A330|A332|A333|A338|A339|AIRBUS330|A380|A388|AIRBUS380)/.test(type);
+ const count=one?1:two?2:three?3:null;
+ return {aircraftType:String(aircraftType||'').trim(),positions:count?DEFAULT_BULK_POSITIONS.slice(0,count):DEFAULT_BULK_POSITIONS.slice(),known:count!==null};
+};
 const isBulkRow = row => row?.uldType === 'BULK' || row?.position === 'BULK';
 router.use(requireUser);
 router.use((req,res,next) => {
@@ -54,7 +64,7 @@ router.get('/:flightId/checklist',async(req,res)=>{
  const ramp=await canAnnotate(req.user,req.flight._id);
  const assigned=await require('../models/Assignment').find({turnaroundId:req.flight._id,role:'RAMP'}).select('userId').lean();
  const reason=ramp?'':!req.user.active?'Your account is inactive':req.user.department!=='RAMP'?'This account is not in the RAMP department':assigned.length!==1?'Departure RAMP assignment is missing or ambiguous':String(assigned[0].userId)!==String(req.user._id)?'Another agent is assigned to Departure RAMP':'RAMP confirmation is unavailable';
- res.json({checklist:saved,permissions:{publish:req.lirPermissions.upload,confirm:ramp,confirmReason:reason},revision:doc.revision});
+ res.json({checklist:saved,permissions:{publish:req.lirPermissions.upload,confirm:ramp,confirmReason:reason},revision:doc.revision,bulkRules:bulkPositionRules(req.flight.aircraft?.aircraftType)});
 });
 router.put('/:flightId/checklist/draft',async(req,res)=>{
  if(!req.lirPermissions.upload)return res.status(403).json({error:'OPS only'});
@@ -78,10 +88,12 @@ router.put('/:flightId/checklist/draft',async(req,res)=>{
   return {...row,plannedUld,load:[{type:'REVIEWED',value:load}],dgStatus,needsReview:!edit.reviewed,reviewed:!!edit.reviewed};
  });
  const bulk=input.slice(parsed.rows.length);
+ const allowedBulk=bulkPositionRules(req.flight.aircraft?.aircraftType).positions;
+ if(bulk.length>allowedBulk.length)return res.status(400).json({error:'Too many BULK positions for aircraft '+(req.flight.aircraft?.aircraftType||'(unknown)')});
  const usedPositions=new Set(rows.map(row=>row.position));
  for(const edit of bulk){
   const position=String(edit?.position||'').trim().toUpperCase();
-  if(!BULK_POSITIONS.has(position))return res.status(400).json({error:'Select BULK position 51, 52 or 53'});
+  if(!allowedBulk.includes(position))return res.status(400).json({error:'BULK position '+position+' is not allowed for aircraft '+(req.flight.aircraft?.aircraftType||'(unknown)')+'. Allowed: '+allowedBulk.join(', ')});
   if(usedPositions.has(position))return res.status(400).json({error:'Duplicate loading position: '+position});
   usedPositions.add(position);
   const load=String(edit.load||'').trim().toUpperCase();
@@ -129,7 +141,9 @@ router.put('/:flightId/checklist/:position',async(req,res)=>{
  if(!checklist)return res.status(409).json({error:'Checklist changed; refresh'});
  const row=checklist.rows.find(r=>r.position===position);
  if(isBulkRow(row)){
-  if(!BULK_POSITIONS.has(actualPosition))return res.status(400).json({error:'BULK must be confirmed in position 51, 52 or 53'});
+  const allowedBulk=bulkPositionRules(req.flight.aircraft?.aircraftType).positions;
+  if(!allowedBulk.includes(actualPosition))return res.status(400).json({error:'For aircraft '+(req.flight.aircraft?.aircraftType||'(unknown)')+', valid BULK positions: '+allowedBulk.join(', ')});
+  if(row.position!=='BULK'&&!allowedBulk.includes(row.position))return res.status(409).json({error:'BULK loading plan does not match current aircraft type; ask OPS to review the LIR'});
   if(actualUld)return res.status(400).json({error:'BULK does not require a ULD number'});
   if(checklist.rows.some(r=>r.position!==position&&isBulkRow(r)&&r.confirmedAt&&r.actualPosition===actualPosition))
    return res.status(409).json({error:'Another BULK load was already confirmed in position '+actualPosition});
