@@ -19,7 +19,16 @@
    const line=document.createElement('div');line.className='border rounded p-2 mb-2';
    line.style.backgroundColor=change.status==='REQUESTED'?'#fff4e5':change.status==='AUTHORISED'?'#e8f3ff':'#f8f9fa';
    line.append(span(change.action+' · '+change.from+(change.to?' → '+change.to:'')+(change.replacementUld?' · '+change.replacementUld:'')+' · '+change.status,'fw-semibold d-block'));
-   line.append(span(change.reason+' · Requested by '+(change.requestedBy||'RAMP'),'small d-block mb-1'));
+   const fromRow=c?.rows?.find(r=>r.position===change.from),toRow=c?.rows?.find(r=>r.position===change.to);
+   const sourceUld=change.sourceUld||(fromRow?.actualUld||fromRow?.plannedUld||'Unknown');
+   const destUld=change.destinationUld||(toRow?.actualUld||toRow?.plannedUld||'Empty');
+   const details=change.action==='SWAP'
+    ?change.from+' · '+sourceUld+'  ⇄  '+change.to+' · '+destUld
+    :change.action==='MOVE'
+    ?change.from+' · '+sourceUld+'  →  '+change.to+' · '+destUld
+    :change.from+' · '+sourceUld+'  →  '+change.replacementUld;
+   line.append(span(details,'fw-bold d-block my-1'));
+   line.append(span('Reason: '+change.reason+' · Requested by '+(change.requestedBy||'RAMP'),'small d-block mb-1'));
    const act=async(endpoint,body,button)=>{button.disabled=true;try{await api('/checklist/changes/'+change._id+'/'+endpoint,'POST',body);await showChecklist();}catch(e){status.textContent=e.message;button.disabled=false;}};
    if(change.status==='REQUESTED'&&data.permissions.publish){
     const note=span('Verify with Load Control / approved loading procedure before authorising.','small text-danger d-block');
