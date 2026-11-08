@@ -100,6 +100,8 @@ router.put('/:flightId/checklist/:position',async(req,res)=>{
  const checklist=await Checklist.findOne({turnaroundId:req.flight._id,lirId:doc._id,published:true,version:req.body.expectedVersion,'rows.position':position});
  if(!checklist)return res.status(409).json({error:'Checklist changed; refresh'});
  const row=checklist.rows.find(r=>r.position===position);
+ const openChange=await LoadingChange.exists({turnaroundId:req.flight._id,lirId:doc._id,status:{$in:['REQUESTED','AUTHORISED']},$or:[{from:position},{to:position}]});
+ if(openChange)return res.status(409).json({error:'Loading change pending for this position. Complete the approved change before reconfirming.'});
  if(row.plannedUld&&row.plannedUld!==actualUld||position!==actualPosition){row.discrepancy=true;}else row.discrepancy=false;
  row.actualPosition=actualPosition;row.actualUld=actualUld;row.bags=bags??null;row.confirmedAt=new Date();row.confirmedBy=req.user.name;
  const result=await Checklist.findOneAndUpdate({_id:checklist._id,version:req.body.expectedVersion},{ $set:{rows:checklist.rows},$inc:{version:1}},{new:true,runValidators:true});
@@ -169,6 +171,7 @@ router.post('/:flightId/checklist/changes/:changeId/execute',async(req,res)=>{
  if(change.action==='REPLACE'){from.actualUld=change.replacementUld;from.actualPosition=from.position;}
  if(change.action==='SWAP'){from.actualUld=destUld;to.actualUld=sourceUld;from.actualPosition=from.position;to.actualPosition=to.position;}
  if(change.action==='MOVE'){from.actualUld='';from.actualPosition=from.position;to.actualUld=sourceUld;to.actualPosition=to.position;}
+ // Any changed position must be independently checked again by RAMP after execution.
  for(const row of [from,...(to?[to]:[])]){row.confirmedAt=undefined;row.confirmedBy=undefined;row.discrepancy=true;row.bags=undefined;}
  const result=await Checklist.findOneAndUpdate({_id:c._id,version:c.version},{$set:{rows:c.rows},$inc:{version:1}},{new:true,runValidators:true});
  if(!result)return res.status(409).json({error:'Another operator changed the checklist; refresh'});
