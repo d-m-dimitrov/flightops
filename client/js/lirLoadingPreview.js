@@ -63,24 +63,18 @@
      const load=document.createElement('input');load.className='form-control my-1';load.placeholder='Planned load';load.value=row.load.map(x=>x.type==='REVIEWED'?x.value:x.type+'/'+x.value).join(' · ');
      const label=document.createElement('label');label.className='d-flex align-items-center gap-2';
      const reviewed=document.createElement('input');reviewed.type='checkbox';reviewed.checked=!!row.reviewed;label.append(reviewed,span('Checked against original LIR'));
-     const dg=document.createElement('select');dg.className='form-select my-1';dg.setAttribute('aria-label','Dangerous goods status for '+row.position);
-     for(const [value,text] of [['UNKNOWN','DG: Unknown / not verified'],['NO_DG','DG: No dangerous goods (verified)'],['DG_PRESENT','DG PRESENT']]){const option=document.createElement('option');option.value=value;option.textContent=text;dg.append(option);}
-     dg.value=row.dgStatus||'UNKNOWN';
-     const dgLabel=span('Dangerous goods status (check NOTOC / load documents)','small fw-semibold d-block');
-     const dgAlert=span('⚠ DANGEROUS GOODS · DG PRESENT','fw-bold d-block px-2 py-2 my-2 d-none');
+     const dg=document.createElement('input');dg.type='checkbox';dg.className='form-check-input';dg.checked=row.dgStatus==='DG_PRESENT';dg.setAttribute('aria-label','DG Present for '+row.position);
+     const dgLabel=document.createElement('label');dgLabel.className='form-check d-flex align-items-center gap-2 my-2';
+     dgLabel.append(dg,span('DG Present','fw-semibold'));
+     const dgAlert=span('⚠ DG PRESENT','fw-bold d-block px-2 py-2 my-2 d-none');
      dgAlert.style.cssText='color:#b00020;background:#fff;border:3px solid #b00020;border-radius:4px';
-     const paintDg=()=>{
-      const present=dg.value==='DG_PRESENT';
-      dgAlert.classList.toggle('d-none',!present);
-      box.style.borderLeft=present?'5px solid #b00020':'';
-      box.style.backgroundColor=present?'#fff7f7':'';
-     };
+     const paintDg=()=>{dgAlert.classList.toggle('d-none',!dg.checked);box.style.borderLeft=dg.checked?'5px solid #b00020':'';box.style.backgroundColor=dg.checked?'#fff7f7':'';};
      dg.addEventListener('change',paintDg);paintDg();
-     box.append(uld,load,dgLabel,dg,dgAlert,label);editor.append(box);inputs.push({position:row.position,uld,load,reviewed,dg});
+     box.append(uld,load,dgLabel,dgAlert,label);editor.append(box);inputs.push({position:row.position,uld,load,reviewed,dg});
     }
     actions.append(editor);
     const save=document.createElement('button');save.className='btn btn-primary me-2 mb-2';save.textContent='Save reviewed draft';
-    save.onclick=async()=>{save.disabled=true;try{await api('/checklist/draft','PUT',{rows:inputs.map(x=>({position:x.position,plannedUld:x.uld.value,load:x.load.value,reviewed:x.reviewed.checked,dgStatus:x.dg.value}))});status.textContent='Draft saved';await showChecklist();}catch(e){status.textContent=e.message;save.disabled=false;}};
+    save.onclick=async()=>{save.disabled=true;try{await api('/checklist/draft','PUT',{rows:inputs.map(x=>({position:x.position,plannedUld:x.uld.value,load:x.load.value,reviewed:x.reviewed.checked,dgStatus:x.dg.checked?'DG_PRESENT':'UNKNOWN'}))});status.textContent='Draft saved';await showChecklist();}catch(e){status.textContent=e.message;save.disabled=false;}};
     actions.append(save);
     if(c?.rows?.length){
      const publish=document.createElement('button');publish.className='btn btn-warning mb-2';publish.textContent='Publish to RAMP';publish.disabled=c.rows.some(x=>!x.reviewed);
