@@ -75,7 +75,15 @@ router.put('/:flightId/checklist/draft',async(req,res)=>{
   const dgStatus=['UNKNOWN','NO_DG','DG_PRESENT'].includes(edit.dgStatus)?edit.dgStatus:'UNKNOWN';
   return {...row,plannedUld,load:[{type:'REVIEWED',value:load}],dgStatus,needsReview:!edit.reviewed,reviewed:!!edit.reviewed};
  });
- const result=await Checklist.findOneAndUpdate({turnaroundId:req.flight._id,published:{$ne:true}},{$set:{lirId:doc._id,revision:doc.revision,published:false,rows,version:0}},{upsert:true,new:true,runValidators:true});
+ // A flight has one checklist (unique turnaroundId). A new LIR revision replaces
+ // its prior checklist; an upsert filtered by published:false would try to
+ // INSERT a second checklist and fail with E11000 when the old one is published.
+ const result=await Checklist.findOneAndUpdate(
+  {turnaroundId:req.flight._id},
+  {$set:{lirId:doc._id,revision:doc.revision,published:false,rows,version:0},
+   $unset:{publishedBy:'',publishedAt:''}},
+  {upsert:true,new:true,runValidators:true}
+ );
  res.json({checklist:result});
 });
 router.post('/:flightId/checklist/publish',async(req,res)=>{
