@@ -179,7 +179,8 @@
    return;
   }
   if(!data.permissions.confirm){const note=document.createElement('p');note.className='alert alert-info';note.textContent='Read-only: '+(data.permissions.confirmReason||'Only the assigned Departure RAMP agent can confirm loading.')+'.';actions.append(note);}
-  const count=c.rows.filter(x=>x.confirmedAt).length;
+  const rowIsComplete=row=>!!row.confirmedAt&&(!isBulkRow(row)||bulkItemsForDisplay(row).every(item=>!!item.confirmedAt));
+  const count=c.rows.filter(rowIsComplete).length;
   const title=document.createElement('div');title.className='mb-3';
   title.append(span('Loading progress · '+count+'/'+c.rows.length+' confirmed','fw-bold d-block mb-2'));
   const progress=document.createElement('div');progress.className='progress';progress.style.height='9px';
@@ -206,8 +207,40 @@
     const contents=bulkItemsForDisplay(row);
     if(contents.length){
      const list=document.createElement('ul');list.className='mb-2 mt-2 ps-4';
-     for(const item of contents){const li=document.createElement('li');li.textContent=labelBulkItem(item);list.append(li);}
+     for(const [index,item] of contents.entries()){
+      const li=document.createElement('li');li.className='mb-2';
+      const itemText=span(labelBulkItem(item),'fw-semibold');
+      const itemStatus=span(item.confirmedAt?' ✓ Loaded · '+(item.confirmedBy||'RAMP')+' · '+new Date(item.confirmedAt).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'}):' ○ Not confirmed','small d-block');
+      li.append(itemText,itemStatus);
+      if(data.permissions.confirm){
+       if(!item.confirmedAt){
+        const confirmItem=document.createElement('button');confirmItem.type='button';confirmItem.className='btn btn-sm btn-outline-success mt-1';confirmItem.textContent='✓ Confirm item loaded';
+        confirmItem.onclick=async()=>{
+         confirmItem.disabled=true;
+         try{await api('/checklist/'+encodeURIComponent(row.position)+'/bulk-items/'+index,'PUT',{confirmed:true,expectedVersion:c.version});await showChecklist();status.textContent='✓ '+labelBulkItem(item)+' confirmed in BULK '+row.position;}
+         catch(e){status.textContent=e.message;confirmItem.disabled=false;}
+        };
+        li.append(confirmItem);
+       }else{
+        const reopen=document.createElement('button');reopen.type='button';reopen.className='btn btn-sm btn-outline-warning mt-1';reopen.textContent='↶ Correct item';
+        const edit=document.createElement('div');edit.className='mt-2 d-none';
+        const reason=document.createElement('input');reason.className='form-control mb-2';reason.maxLength=300;reason.placeholder='Reason for correction (required)';reason.setAttribute('aria-label','Reason to reopen '+labelBulkItem(item));
+        const apply=document.createElement('button');apply.type='button';apply.className='btn btn-sm btn-warning';apply.textContent='Remove confirmation';
+        apply.onclick=async()=>{
+         if(!reason.value.trim()){status.textContent='Enter a correction reason first.';reason.focus();return;}
+         if(!confirm('Remove confirmation for '+labelBulkItem(item)+'? The position will also reopen if previously complete.'))return;
+         apply.disabled=true;
+         try{await api('/checklist/'+encodeURIComponent(row.position)+'/bulk-items/'+index,'PUT',{confirmed:false,reason:reason.value.trim(),expectedVersion:c.version});await showChecklist();status.textContent='Item reopened for rechecking';}
+         catch(e){status.textContent=e.message;apply.disabled=false;}
+        };
+        edit.append(reason,apply);reopen.onclick=()=>edit.classList.toggle('d-none');li.append(reopen,edit);
+       }
+      }
+      list.append(li);
+     }
      box.append(list);
+     const confirmedCount=contents.filter(x=>x.confirmedAt).length;
+     box.append(span('BULK items confirmed: '+confirmedCount+'/'+contents.length,'small fw-bold d-block mb-2'));
     }
     const note=row.load.map(x=>x.value||'').filter(Boolean).join(' · ');
     if(note)box.append(span('Notes: '+note,'small d-block mb-1'));
@@ -220,7 +253,8 @@
    const executedChange=changes.find(x=>x.status==='EXECUTED'&&(x.from===row.position||x.to===row.position));
    const pendingChange=changes.find(x=>['REQUESTED','AUTHORISED'].includes(x.status)&&(x.from===row.position||x.to===row.position));
    const needsRecheck=!row.confirmedAt&&!!executedChange;
-   const badge=span(row.confirmedAt?(row.discrepancy?'⚠ Difference':'✓ Confirmed'):pendingChange?'⏳ Change pending':needsRecheck?'↻ RAMP reconfirmation required':'○ Pending','badge '+(row.confirmedAt?(row.discrepancy?'bg-warning text-dark':'bg-success'):pendingChange||needsRecheck?'bg-warning text-dark':'bg-secondary')+' my-1');
+   const complete=rowIsComplete(row);
+   const badge=span(complete?(row.discrepancy?'⚠ Difference':'✓ Confirmed'):isBulk&&row.confirmedAt?'↻ Verify individual BULK items':pendingChange?'⏳ Change pending':needsRecheck?'↻ RAMP reconfirmation required':'○ Pending','badge '+(complete?(row.discrepancy?'bg-warning text-dark':'bg-success'):isBulk&&row.confirmedAt?'bg-warning text-dark':pendingChange||needsRecheck?'bg-warning text-dark':'bg-secondary')+' my-1');
    box.append(badge);
    if(row.confirmedAt)box.append(span((isBulk?'BULK':row.actualUld||'')+' @ '+row.actualPosition+(row.bags!=null?' · '+row.bags+' bags':''),'small d-block'));
    if(data.permissions.confirm){
@@ -264,10 +298,49 @@
     const suffixList=document.createElement('datalist');suffixList.id='uld-suffix-suggestions';for(const val of [...new Set([...suffixes,'TK'])]){const option=document.createElement('option');option.value=val;suffixList.append(option);}
     group.append(prefix,serial,suffix);if(!isBulk)box.append(group,prefixes,suffixList);
     const bags=document.createElement('input');bags.className='form-control my-1';bags.type='number';bags.min='0';bags.max='999';bags.placeholder='Bags (if baggage)';bags.value=row.bags??'';bags.setAttribute('aria-label','Actual bags');
-    const save=document.createElement('button');save.className='btn btn-sm btn-success';save.textContent='Confirm position';
-    save.disabled=!!pendingChange;save.textContent=pendingChange?'Await change completion':needsRecheck?'Reconfirm position':'Confirm position';
-    save.onclick=async()=>{save.disabled=true;try{await api('/checklist/'+encodeURIComponent(row.position),'PUT',{actualPosition:pos.value,actualUld:isBulk?'':(prefix.value+serial.value+suffix.value).toUpperCase(),bags:bags.value===''?null:Number(bags.value),expectedVersion:c.version});await showChecklist();}catch(e){status.textContent=e.message;save.disabled=false;}};
-    box.append(pos,bags,save);
+    const positionForm=document.createElement('div');positionForm.className='mt-2';
+    const correctionReason=document.createElement('input');correctionReason.className='form-control my-2';correctionReason.maxLength=300;
+    correctionReason.placeholder='Reason for correction (required)';correctionReason.setAttribute('aria-label','Reason for changing a confirmed position');
+    if(row.confirmedAt){
+     positionForm.classList.add('d-none');
+     const editPosition=document.createElement('button');editPosition.type='button';editPosition.className='btn btn-sm btn-outline-warning mt-2';
+     editPosition.textContent='✎ Edit confirmed position';
+     editPosition.onclick=()=>{positionForm.classList.toggle('d-none');if(!positionForm.classList.contains('d-none'))correctionReason.focus();};
+     box.append(editPosition);
+     positionForm.append(span('Correcting a record does not authorise a physical loading change; use OPS-approved change workflow for SWAP / MOVE / REPLACE.','small text-warning d-block mb-2'));
+    }
+    const save=document.createElement('button');save.type='button';save.className='btn btn-sm '+(row.confirmedAt?'btn-warning':'btn-success');
+    save.textContent=pendingChange?'Await change completion':row.confirmedAt?'Save correction':needsRecheck?'Reconfirm position':'Confirm position';
+    const pendingBulkItems=isBulk&&bulkItemsForDisplay(row).some(item=>!item.confirmedAt);
+    save.disabled=!!pendingChange||!!pendingBulkItems;
+    if(pendingBulkItems)positionForm.append(span('Confirm all individual BULK items before confirming the whole position.','small text-warning d-block my-2'));
+    save.onclick=async()=>{
+     if(row.confirmedAt&&correctionReason.value.trim().length<3){status.textContent='Enter a correction reason (at least 3 characters).';correctionReason.focus();return;}
+     save.disabled=true;
+     try{
+      await api('/checklist/'+encodeURIComponent(row.position),'PUT',{
+       actualPosition:pos.value,actualUld:isBulk?'':(prefix.value+serial.value+suffix.value).toUpperCase(),
+       bags:bags.value===''?null:Number(bags.value),expectedVersion:c.version,
+       ...(row.confirmedAt?{correctionReason:correctionReason.value.trim()}:{})
+      });
+      await showChecklist();status.textContent=row.confirmedAt?'✓ Position correction saved in history':'✓ Position confirmed';
+     }catch(e){status.textContent=e.message;save.disabled=false;}
+    };
+    positionForm.append(pos,...(isBulk?[]:[]),bags,...(row.confirmedAt?[correctionReason]:[]),save);
+    box.append(positionForm);
+   }
+   const history=(c.history||[]).filter(x=>x.position===row.position).slice(-3).reverse();
+   if(history.length){
+    const details=document.createElement('details');details.className='mt-2';
+    const summary=document.createElement('summary');summary.textContent='Confirmation history ('+(c.history||[]).filter(x=>x.position===row.position).length+')';
+    details.append(summary);
+    for(const entry of history){
+     const when=entry.at?new Date(entry.at).toLocaleString('en-GB',{dateStyle:'short',timeStyle:'short'}):'';
+     const label=entry.action==='CORRECT_POSITION'?'Position corrected':entry.action==='CONFIRM_POSITION'?'Position confirmed':entry.action==='REOPEN_BULK_ITEM'?'BULK item reopened':'BULK item confirmed';
+     details.append(span(when+' · '+label+(entry.itemLabel?' · '+entry.itemLabel:'')+' · '+(entry.by||'RAMP')+(entry.reason?' · '+entry.reason:''),
+      'small text-muted d-block my-1'));
+    }
+    box.append(details);
    }
    actions.append(box);
   }
