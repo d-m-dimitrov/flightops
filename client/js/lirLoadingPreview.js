@@ -296,7 +296,7 @@
     const suffix=document.createElement('input');suffix.className='form-control';suffix.style.maxWidth='78px';suffix.maxLength=3;suffix.value=match?.[3]||defaultSuffix;suffix.setAttribute('aria-label','ULD suffix');suffix.setAttribute('list','uld-suffix-suggestions');
     const prefixes=document.createElement('datalist');prefixes.id='uld-prefix-suggestions';for(const val of ['AKE','AKH','PMC','PAG','PLA']){const option=document.createElement('option');option.value=val;prefixes.append(option);}
     const suffixList=document.createElement('datalist');suffixList.id='uld-suffix-suggestions';for(const val of [...new Set([...suffixes,'TK'])]){const option=document.createElement('option');option.value=val;suffixList.append(option);}
-    group.append(prefix,serial,suffix);if(!isBulk)box.append(group,prefixes,suffixList);
+    group.append(prefix,serial,suffix);
     const bags=document.createElement('input');bags.className='form-control my-1';bags.type='number';bags.min='0';bags.max='999';bags.placeholder='Bags (if baggage)';bags.value=row.bags??'';bags.setAttribute('aria-label','Actual bags');
     const positionForm=document.createElement('div');positionForm.className='mt-2';
     const correctionReason=document.createElement('input');correctionReason.className='form-control my-2';correctionReason.maxLength=300;
@@ -326,7 +326,8 @@
       await showChecklist();status.textContent=row.confirmedAt?'✓ Position correction saved in history':'✓ Position confirmed';
      }catch(e){status.textContent=e.message;save.disabled=false;}
     };
-    positionForm.append(pos,...(isBulk?[]:[]),bags,...(row.confirmedAt?[correctionReason]:[]),save);
+    positionForm.append(pos);if(!isBulk)positionForm.append(group,prefixes,suffixList);
+    positionForm.append(bags,...(row.confirmedAt?[correctionReason]:[]),save);
     box.append(positionForm);
    }
    const history=(c.history||[]).filter(x=>x.position===row.position).slice(-3).reverse();
@@ -337,7 +338,11 @@
     for(const entry of history){
      const when=entry.at?new Date(entry.at).toLocaleString('en-GB',{dateStyle:'short',timeStyle:'short'}):'';
      const label=entry.action==='CORRECT_POSITION'?'Position corrected':entry.action==='CONFIRM_POSITION'?'Position confirmed':entry.action==='REOPEN_BULK_ITEM'?'BULK item reopened':'BULK item confirmed';
-     details.append(span(when+' · '+label+(entry.itemLabel?' · '+entry.itemLabel:'')+' · '+(entry.by||'RAMP')+(entry.reason?' · '+entry.reason:''),
+     const change=entry.action==='CORRECT_POSITION'&&entry.before&&entry.after
+      ?' · '+(entry.before.actualUld||entry.before.actualPosition||'BULK')+' → '+(entry.after.actualUld||entry.after.actualPosition||'BULK')
+       +(entry.before.bags!==entry.after.bags?' · bags '+(entry.before.bags??'—')+' → '+(entry.after.bags??'—'):'')
+      :'';
+     details.append(span(when+' · '+label+(entry.itemLabel?' · '+entry.itemLabel:'')+' · '+(entry.by||'RAMP')+change+(entry.reason?' · Reason: '+entry.reason:''),
       'small text-muted d-block my-1'));
     }
     box.append(details);
