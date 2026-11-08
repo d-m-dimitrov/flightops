@@ -56,6 +56,15 @@
     const draft=c?.rows||window.tkPreviewRows||[];
     const editor=document.createElement('div');editor.className='mb-3';
     const inputs=[];
+    const bulkFields=(box,row)=>{
+     const fields={};
+     for(const [key,title] of [['bulkMail','Mail (pcs)'],['bulkCargo','Cargo (pcs)'],['bulkBaggage','Baggage (pcs)']]){
+      const label=document.createElement('label');label.className='d-block small fw-semibold mt-2';label.textContent=title;
+      const input=document.createElement('input');input.type='number';input.min='0';input.max='9999';input.step='1';input.className='form-control';input.placeholder='0';input.value=row?.[key]??'';
+      box.append(label,input);fields[key]=input;
+     }
+     return fields;
+    };
     for(const row of draft){
      const box=document.createElement('div');box.className='border rounded p-2 mb-2';
      box.append(span('Position '+row.position,'fw-bold d-block'));
@@ -70,7 +79,9 @@
      dgAlert.style.cssText='color:#b00020;background:#fff;border:3px solid #b00020;border-radius:4px';
      const paintDg=()=>{dgAlert.classList.toggle('d-none',!dg.checked);box.style.borderLeft=dg.checked?'5px solid #b00020':'';box.style.backgroundColor=dg.checked?'#fff7f7':'';};
      dg.addEventListener('change',paintDg);paintDg();
-     box.append(uld,load,dgLabel,dgAlert,label);editor.append(box);inputs.push({position:row.position,uld,load,reviewed,dg});
+     box.append(...(row.position==='BULK'?[]:[uld]),load);
+     const bulk=row.position==='BULK'?bulkFields(box,row):{};
+     box.append(dgLabel,dgAlert,label);editor.append(box);inputs.push({position:row.position,uld,load,reviewed,dg,...bulk});
     }
     actions.append(editor);
     if(!inputs.some(x=>x.position==='BULK')){
@@ -83,8 +94,8 @@
       const dgLabel=document.createElement('label');dgLabel.className='form-check d-flex gap-2 align-items-center';dgLabel.append(dg,span('DG Present'));
       const reviewed=document.createElement('input');reviewed.type='checkbox';reviewed.className='form-check-input';
       const reviewLabel=document.createElement('label');reviewLabel.className='form-check d-flex gap-2 align-items-center';reviewLabel.append(reviewed,span('Checked against original LIR'));
-      box.append(load,dgLabel,reviewLabel);editor.append(box);
-      inputs.push({position:'BULK',uld:{value:''},load,reviewed,dg});
+      box.append(load);const bulk=bulkFields(box,{});box.append(dgLabel,reviewLabel);editor.append(box);
+      inputs.push({position:'BULK',uld:{value:''},load,reviewed,dg,...bulk});
       addBulk.disabled=true;addBulk.textContent='BULK added';
      };actions.append(addBulk);
     }
@@ -92,7 +103,7 @@
     reviewAll.onclick=()=>{for(const x of inputs)x.reviewed.checked=true;status.textContent='All positions marked reviewed. Save reviewed draft to persist.';};
     actions.append(reviewAll);
     const save=document.createElement('button');save.className='btn btn-primary me-2 mb-2';save.textContent='Save reviewed draft';
-    save.onclick=async()=>{save.disabled=true;try{await api('/checklist/draft','PUT',{rows:inputs.map(x=>({position:x.position,plannedUld:x.uld.value,load:x.load.value,reviewed:x.reviewed.checked,dgStatus:x.dg.checked?'DG_PRESENT':'UNKNOWN'}))});status.textContent='Draft saved';await showChecklist();}catch(e){status.textContent=e.message;save.disabled=false;}};
+    save.onclick=async()=>{save.disabled=true;try{await api('/checklist/draft','PUT',{rows:inputs.map(x=>({position:x.position,plannedUld:x.uld.value,load:x.load.value,reviewed:x.reviewed.checked,dgStatus:x.dg.checked?'DG_PRESENT':'UNKNOWN',...(x.position==='BULK'?Object.fromEntries(['bulkMail','bulkCargo','bulkBaggage'].map(k=>[k,x[k].value===''?null:Number(x[k].value)])): {})}))});status.textContent='Draft saved';await showChecklist();}catch(e){status.textContent=e.message;save.disabled=false;}};
     actions.append(save);
     if(c?.rows?.length){
      const publish=document.createElement('button');publish.className='btn btn-warning mb-2';publish.textContent='Publish to RAMP';publish.disabled=c.rows.some(x=>!x.reviewed);
@@ -103,6 +114,11 @@
    return;
   }
   if(!data.permissions.confirm){const note=document.createElement('p');note.className='alert alert-info';note.textContent='Read-only: '+(data.permissions.confirmReason||'Only the assigned Departure RAMP agent can confirm loading.')+'.';actions.append(note);}
+  const bulkRow=c.rows.find(x=>x.position==='BULK');
+  if(bulkRow){
+   const parts=[['Mail',bulkRow.bulkMail],['Cargo',bulkRow.bulkCargo],['Baggage',bulkRow.bulkBaggage]].filter(([,v])=>v!=null).map(([name,v])=>name+': '+v+' pcs');
+   if(parts.length)actions.append(span('BULK · '+parts.join(' · '),'fw-semibold d-block mb-2'));
+  }
   const count=c.rows.filter(x=>x.confirmedAt).length;
   const title=document.createElement('div');title.className='mb-3';
   title.append(span('Loading progress · '+count+'/'+c.rows.length+' confirmed','fw-bold d-block mb-2'));
