@@ -11,10 +11,10 @@
  async function showChecklist(){
   const data=await api('/checklist');actions.replaceChildren();
   const c=data.checklist;
-  const changes=(await api('/checklist/changes')).changes||[];
+  let changes=[];try{changes=(await api('/checklist/changes')).changes||[];}catch(e){actions.append(span('⚠ Could not load change requests: '+e.message,'alert alert-danger d-block'));}
   const changeSection=document.createElement('div');changeSection.className='mb-3';
   const open=changes.filter(x=>['REQUESTED','AUTHORISED'].includes(x.status));
-  if(open.length)changeSection.append(span('⚠ Loading changes · '+open.length+' open','fw-bold d-block mb-2'));
+  changeSection.append(span('Loading change requests · '+open.length+' open','fw-bold d-block mb-2'));if(!changes.length)changeSection.append(span('No loading change requests recorded for this LIR version.','small text-muted d-block mb-2'));
   for(const change of changes.slice(0,15)){
    const line=document.createElement('div');line.className='border rounded p-2 mb-2';
    line.style.backgroundColor=change.status==='REQUESTED'?'#fff4e5':change.status==='AUTHORISED'?'#e8f3ff':'#f8f9fa';
