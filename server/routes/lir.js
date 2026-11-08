@@ -98,13 +98,34 @@ router.put('/:flightId/checklist/draft',async(req,res)=>{
   usedPositions.add(position);
   const load=String(edit.load||'').trim().toUpperCase();
   if(load.length>120)return res.status(400).json({error:'BULK load text too long'});
-  const quantities={};
-  for(const [field,key] of [['bulkMail','Mail'],['bulkCargo','Cargo'],['bulkBaggage','Baggage']]){
-   const value=edit[field];
-   if(value!==''&&value!==null&&value!==undefined&&(!Number.isInteger(value)||value<0||value>9999))return res.status(400).json({error:'Invalid BULK '+key+' pieces'});
-   quantities[field]=value===''||value==null?null:value;
+  const allowedTypes=new Set(['BAGGAGE','CREW_BAGS','MAIL','CARGO','BLANKETS','EQUIPMENT','OTHER']);
+  let bulkItems=[];
+  if(edit.bulkItems!==undefined){
+   if(!Array.isArray(edit.bulkItems)||edit.bulkItems.length>30)return res.status(400).json({error:'BULK '+position+': up to 30 load items permitted'});
+   for(const item of edit.bulkItems){
+    const type=String(item?.type||'').toUpperCase();
+    const details=String(item?.details||'').trim();
+    const pieces=item?.pieces===''||item?.pieces==null?null:item.pieces;
+    if(!allowedTypes.has(type))return res.status(400).json({error:'BULK '+position+': invalid load type'});
+    if(details.length>120||(type==='OTHER'&&!details))return res.status(400).json({error:'BULK '+position+': specify details for Other (max 120 characters)'});
+    if(pieces!==null&&(!Number.isInteger(pieces)||pieces<0||pieces>9999))return res.status(400).json({error:'BULK '+position+': piece count must be 0–9999'});
+    bulkItems.push({type,pieces,details});
+   }
+  }else{
+   // Older clients submitted three separate quantity fields; preserve those as items.
+   for(const [field,type] of [['bulkMail','MAIL'],['bulkCargo','CARGO'],['bulkBaggage','BAGGAGE']]){
+    const value=edit[field];
+    if(value!==''&&value!=null&&(!Number.isInteger(value)||value<0||value>9999))return res.status(400).json({error:'Invalid BULK '+type+' pieces'});
+    if(value!==''&&value!=null)bulkItems.push({type,pieces:value,details:''});
+   }
   }
-  rows.push({position,plannedUld:'',uldType:'BULK',load:[{type:'REVIEWED',value:load}],...quantities,dgStatus:edit.dgStatus==='DG_PRESENT'?'DG_PRESENT':'UNKNOWN',needsReview:!edit.reviewed,reviewed:!!edit.reviewed});
+  // Populate legacy fields for clients that still display the older columns.
+  const legacy={bulkMail:null,bulkCargo:null,bulkBaggage:null};
+  for(const [field,type] of [['bulkMail','MAIL'],['bulkCargo','CARGO'],['bulkBaggage','BAGGAGE']]){
+   const counts=bulkItems.filter(x=>x.type===type&&x.pieces!==null).map(x=>x.pieces);
+   if(counts.length)legacy[field]=counts.reduce((a,b)=>a+b,0);
+  }
+  rows.push({position,plannedUld:'',uldType:'BULK',load:[{type:'REVIEWED',value:load}],...legacy,bulkItems,dgStatus:edit.dgStatus==='DG_PRESENT'?'DG_PRESENT':'UNKNOWN',needsReview:!edit.reviewed,reviewed:!!edit.reviewed});
  }
  // A flight has one checklist (unique turnaroundId). A new LIR revision replaces
  // its prior checklist; an upsert filtered by published:false would try to
