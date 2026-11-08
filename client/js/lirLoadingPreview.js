@@ -88,6 +88,9 @@
       addBulk.disabled=true;addBulk.textContent='BULK added';
      };actions.append(addBulk);
     }
+    const reviewAll=document.createElement('button');reviewAll.type='button';reviewAll.className='btn btn-outline-success me-2 mb-2';reviewAll.textContent='✓ Mark all positions reviewed';
+    reviewAll.onclick=()=>{for(const x of inputs)x.reviewed.checked=true;status.textContent='All positions marked reviewed. Save reviewed draft to persist.';};
+    actions.append(reviewAll);
     const save=document.createElement('button');save.className='btn btn-primary me-2 mb-2';save.textContent='Save reviewed draft';
     save.onclick=async()=>{save.disabled=true;try{await api('/checklist/draft','PUT',{rows:inputs.map(x=>({position:x.position,plannedUld:x.uld.value,load:x.load.value,reviewed:x.reviewed.checked,dgStatus:x.dg.checked?'DG_PRESENT':'UNKNOWN'}))});status.textContent='Draft saved';await showChecklist();}catch(e){status.textContent=e.message;save.disabled=false;}};
     actions.append(save);
@@ -105,30 +108,6 @@
   title.append(span('Loading progress · '+count+'/'+c.rows.length+' confirmed','fw-bold d-block mb-2'));
   const progress=document.createElement('div');progress.className='progress';progress.style.height='9px';
   const bar=document.createElement('div');bar.className='progress-bar bg-success';bar.style.width=(c.rows.length?100*count/c.rows.length:0)+'%';progress.append(bar);title.append(progress);actions.append(title);
-  const confirmationInputs=new Map();
-  if(data.permissions.confirm){
-   const bulkConfirm=document.createElement('button');bulkConfirm.type='button';bulkConfirm.className='btn btn-outline-success mb-3';bulkConfirm.textContent='✓ Confirm all positions';
-   bulkConfirm.onclick=async()=>{
-    const items=[];
-    for(const row of c.rows){
-     if(row.confirmedAt)continue;
-     const inputs=confirmationInputs.get(row.position);
-     if(!inputs)continue;
-     const actualUld=row.position==='BULK'?'':(inputs.prefix.value+inputs.serial.value+inputs.suffix.value).trim().toUpperCase();
-     const actualPosition=inputs.pos.value.trim().toUpperCase();
-     if(actualPosition!==row.position||(row.position!=='BULK'&&!/^[A-Z]{3}[A-Z0-9]{5,12}$/.test(actualUld))||(row.plannedUld&&row.plannedUld!==actualUld)){
-      status.textContent='Check '+row.position+' individually before confirming all (missing ULD or discrepancy).';return;
-     }
-     items.push({position:row.position,actualPosition,actualUld,bags:inputs.bags.value===''?null:Number(inputs.bags.value)});
-    }
-    if(!items.length){status.textContent='No unconfirmed positions.';return;}
-    if(!confirm('Have you physically checked ALL '+items.length+' listed positions and ULD numbers? This will record your RAMP confirmation for each.'))return;
-    bulkConfirm.disabled=true;
-    try{await api('/checklist/confirm-all','POST',{expectedVersion:c.version,positions:items});status.textContent='✓ '+items.length+' positions confirmed by RAMP';await showChecklist();}
-    catch(e){status.textContent='⚠ Confirm all failed: '+e.message;bulkConfirm.disabled=false;}
-   };
-   actions.append(bulkConfirm);
-  }
   const suffixes=[...new Set(c.rows.map(x=>(x.plannedUld||'').match(/^[A-Z]{3}[A-Z0-9]{5,8}([A-Z]{2,3})$/)?.[1]).filter(Boolean))];
   const defaultSuffix=suffixes.length===1?suffixes[0]:'TK';
   for(const row of c.rows){
@@ -185,7 +164,6 @@
     const save=document.createElement('button');save.className='btn btn-sm btn-success';save.textContent='Confirm position';
     save.disabled=!!pendingChange;save.textContent=pendingChange?'Await change completion':needsRecheck?'Reconfirm position':'Confirm position';
     save.onclick=async()=>{save.disabled=true;try{await api('/checklist/'+encodeURIComponent(row.position),'PUT',{actualPosition:pos.value,actualUld:(prefix.value+serial.value+suffix.value).toUpperCase(),bags:bags.value===''?null:Number(bags.value),expectedVersion:c.version});await showChecklist();}catch(e){status.textContent=e.message;save.disabled=false;}};
-    confirmationInputs.set(row.position,{pos,prefix,serial,suffix,bags});
     box.append(pos,bags,save);
    }
    actions.append(box);
