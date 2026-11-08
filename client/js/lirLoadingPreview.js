@@ -73,6 +73,21 @@
      box.append(uld,load,dgLabel,dgAlert,label);editor.append(box);inputs.push({position:row.position,uld,load,reviewed,dg});
     }
     actions.append(editor);
+    if(!inputs.some(x=>x.position==='BULK')){
+     const addBulk=document.createElement('button');addBulk.type='button';addBulk.className='btn btn-outline-secondary mb-2';addBulk.textContent='+ Add BULK position';
+     addBulk.onclick=()=>{
+      const box=document.createElement('div');box.className='border rounded p-2 mb-2';
+      box.append(span('BULK · Loose-loaded items (no ULD)','fw-bold d-block'));
+      const load=document.createElement('input');load.className='form-control my-1';load.placeholder='BULK load / pieces';
+      const dg=document.createElement('input');dg.type='checkbox';dg.className='form-check-input';
+      const dgLabel=document.createElement('label');dgLabel.className='form-check d-flex gap-2 align-items-center';dgLabel.append(dg,span('DG Present'));
+      const reviewed=document.createElement('input');reviewed.type='checkbox';reviewed.className='form-check-input';
+      const reviewLabel=document.createElement('label');reviewLabel.className='form-check d-flex gap-2 align-items-center';reviewLabel.append(reviewed,span('Checked against original LIR'));
+      box.append(load,dgLabel,reviewLabel);editor.append(box);
+      inputs.push({position:'BULK',uld:{value:''},load,reviewed,dg});
+      addBulk.disabled=true;addBulk.textContent='BULK added';
+     };actions.append(addBulk);
+    }
     const save=document.createElement('button');save.className='btn btn-primary me-2 mb-2';save.textContent='Save reviewed draft';
     save.onclick=async()=>{save.disabled=true;try{await api('/checklist/draft','PUT',{rows:inputs.map(x=>({position:x.position,plannedUld:x.uld.value,load:x.load.value,reviewed:x.reviewed.checked,dgStatus:x.dg.checked?'DG_PRESENT':'UNKNOWN'}))});status.textContent='Draft saved';await showChecklist();}catch(e){status.textContent=e.message;save.disabled=false;}};
     actions.append(save);
@@ -90,6 +105,30 @@
   title.append(span('Loading progress · '+count+'/'+c.rows.length+' confirmed','fw-bold d-block mb-2'));
   const progress=document.createElement('div');progress.className='progress';progress.style.height='9px';
   const bar=document.createElement('div');bar.className='progress-bar bg-success';bar.style.width=(c.rows.length?100*count/c.rows.length:0)+'%';progress.append(bar);title.append(progress);actions.append(title);
+  const confirmationInputs=new Map();
+  if(data.permissions.confirm){
+   const bulkConfirm=document.createElement('button');bulkConfirm.type='button';bulkConfirm.className='btn btn-outline-success mb-3';bulkConfirm.textContent='✓ Confirm all positions';
+   bulkConfirm.onclick=async()=>{
+    const items=[];
+    for(const row of c.rows){
+     if(row.confirmedAt)continue;
+     const inputs=confirmationInputs.get(row.position);
+     if(!inputs)continue;
+     const actualUld=row.position==='BULK'?'':(inputs.prefix.value+inputs.serial.value+inputs.suffix.value).trim().toUpperCase();
+     const actualPosition=inputs.pos.value.trim().toUpperCase();
+     if(actualPosition!==row.position||(row.position!=='BULK'&&!/^[A-Z]{3}[A-Z0-9]{5,12}$/.test(actualUld))||(row.plannedUld&&row.plannedUld!==actualUld)){
+      status.textContent='Check '+row.position+' individually before confirming all (missing ULD or discrepancy).';return;
+     }
+     items.push({position:row.position,actualPosition,actualUld,bags:inputs.bags.value===''?null:Number(inputs.bags.value)});
+    }
+    if(!items.length){status.textContent='No unconfirmed positions.';return;}
+    if(!confirm('Have you physically checked ALL '+items.length+' listed positions and ULD numbers? This will record your RAMP confirmation for each.'))return;
+    bulkConfirm.disabled=true;
+    try{await api('/checklist/confirm-all','POST',{expectedVersion:c.version,positions:items});status.textContent='✓ '+items.length+' positions confirmed by RAMP';await showChecklist();}
+    catch(e){status.textContent='⚠ Confirm all failed: '+e.message;bulkConfirm.disabled=false;}
+   };
+   actions.append(bulkConfirm);
+  }
   const suffixes=[...new Set(c.rows.map(x=>(x.plannedUld||'').match(/^[A-Z]{3}[A-Z0-9]{5,8}([A-Z]{2,3})$/)?.[1]).filter(Boolean))];
   const defaultSuffix=suffixes.length===1?suffixes[0]:'TK';
   for(const row of c.rows){
@@ -113,7 +152,7 @@
     const toggle=document.createElement('button');toggle.type='button';toggle.className='btn btn-sm btn-outline-secondary ms-2';toggle.textContent='⋮ Change';
     const form=document.createElement('div');form.className='border rounded p-2 mt-2 d-none';form.style.backgroundColor='#fff';
     const action=document.createElement('select');action.className='form-select my-1';for(const [value,label] of [['SWAP','Swap with position'],['MOVE','Move to empty position'],['REPLACE','Replace ULD']]){const o=document.createElement('option');o.value=value;o.textContent=label;action.append(o);}
-    const target=document.createElement('select');target.className='form-select my-1';for(const other of c.rows.filter(x=>x.position!==row.position)){const o=document.createElement('option');o.value=other.position;o.textContent=other.position+' · '+(other.actualUld||other.plannedUld||'Empty');target.append(o);}
+    const target=document.createElement('select');target.className='form-select my-1';for(const other of c.rows.filter(x=>x.position!==row.position&&x.position!=='BULK')){const o=document.createElement('option');o.value=other.position;o.textContent=other.position+' · '+(other.actualUld||other.plannedUld||'Empty');target.append(o);}
     const replacement=document.createElement('input');replacement.className='form-control my-1';replacement.placeholder='Replacement ULD (e.g. AKE12345TK)';replacement.maxLength=15;
     const reason=document.createElement('select');reason.className='form-select my-1';reason.required=true;reason.setAttribute('aria-label','Reason for loading change');
     const reasonChoices={
@@ -130,7 +169,7 @@
     submit.onclick=async()=>{const why=(reason.value==='Other'?otherReason.value:reason.value).trim();if(!why){reason.classList.add('is-invalid');(reason.value==='Other'?otherReason:reason).focus();status.textContent='Select a reason (or specify Other) before submitting.';return;}reason.classList.remove('is-invalid');if(action.value!=='REPLACE'&&!target.value){status.textContent='Select a destination position.';target.focus();return;}if(action.value==='REPLACE'&&!replacement.value.trim()){status.textContent='Enter the replacement ULD number.';replacement.focus();return;}submit.disabled=true;try{const result=await api('/checklist/changes','POST',{action:action.value,from:row.position,to:target.value,replacementUld:replacement.value,reason:why});await showChecklist();status.textContent='✓ Loading change request saved: '+result.change.action+' '+result.change.from+' · '+result.change.status;}catch(e){status.textContent='⚠ Change request NOT saved: '+e.message;submit.disabled=false;}};
     form.append(action,target,replacement,reason,otherReason,submit);
     toggle.onclick=()=>form.classList.toggle('d-none');
-    box.append(toggle,form);
+    if(row.position!=='BULK')box.append(toggle,form);
     const pos=document.createElement('input');pos.className='form-control my-1';pos.value=row.actualPosition||row.position;pos.placeholder='Actual position';pos.setAttribute('aria-label','Actual position');
     // ULD number is entered in three parts; suggest prefix/suffix, never invent the serial.
     const known=row.actualUld||row.plannedUld||'';
@@ -141,11 +180,12 @@
     const suffix=document.createElement('input');suffix.className='form-control';suffix.style.maxWidth='78px';suffix.maxLength=3;suffix.value=match?.[3]||defaultSuffix;suffix.setAttribute('aria-label','ULD suffix');suffix.setAttribute('list','uld-suffix-suggestions');
     const prefixes=document.createElement('datalist');prefixes.id='uld-prefix-suggestions';for(const val of ['AKE','AKH','PMC','PAG','PLA']){const option=document.createElement('option');option.value=val;prefixes.append(option);}
     const suffixList=document.createElement('datalist');suffixList.id='uld-suffix-suggestions';for(const val of [...new Set([...suffixes,'TK'])]){const option=document.createElement('option');option.value=val;suffixList.append(option);}
-    group.append(prefix,serial,suffix);box.append(group,prefixes,suffixList);
+    group.append(prefix,serial,suffix);if(row.position!=='BULK')box.append(group,prefixes,suffixList);
     const bags=document.createElement('input');bags.className='form-control my-1';bags.type='number';bags.min='0';bags.max='999';bags.placeholder='Bags (if baggage)';bags.value=row.bags??'';bags.setAttribute('aria-label','Actual bags');
     const save=document.createElement('button');save.className='btn btn-sm btn-success';save.textContent='Confirm position';
     save.disabled=!!pendingChange;save.textContent=pendingChange?'Await change completion':needsRecheck?'Reconfirm position':'Confirm position';
     save.onclick=async()=>{save.disabled=true;try{await api('/checklist/'+encodeURIComponent(row.position),'PUT',{actualPosition:pos.value,actualUld:(prefix.value+serial.value+suffix.value).toUpperCase(),bags:bags.value===''?null:Number(bags.value),expectedVersion:c.version});await showChecklist();}catch(e){status.textContent=e.message;save.disabled=false;}};
+    confirmationInputs.set(row.position,{pos,prefix,serial,suffix,bags});
     box.append(pos,bags,save);
    }
    actions.append(box);
