@@ -136,6 +136,7 @@ router.post('/:flightId/checklist/changes',async(req,res)=>{
  const pending=await LoadingChange.exists({turnaroundId:req.flight._id,lirId:doc._id,status:{$in:['REQUESTED','AUTHORISED']},$or:[{from:{$in:affected}},{to:{$in:affected}}]});
  if(pending)return res.status(409).json({error:'A loading change is already open for one of these positions'});
  const change=await LoadingChange.create({turnaroundId:req.flight._id,lirId:doc._id,action,from,to:action==='REPLACE'?undefined:to,replacementUld:action==='REPLACE'?replacementUld:undefined,reason,requestedBy:req.user.name});
+ try { await addSystemMessage(req,req.flight._id,`⚠ LOADING CHANGE REQUESTED — ${action} ${from}${to?' → '+to:''}${replacementUld?' / '+replacementUld:''} — ${reason} — requested by ${req.user.name}. OPS: review in eLIR Loading Checklist.`); } catch(error){console.error('Loading change notification failed:',error.message);}
  req.app.get('io').to(String(req.flight._id)).emit('lirChecklistUpdated',{revision:doc.revision});
  res.status(201).json({change});
 });
