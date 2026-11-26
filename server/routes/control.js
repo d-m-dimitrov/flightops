@@ -7,6 +7,9 @@ const User = require('../models/User');
 const Handover = require('../models/Handover');
 const Lir = require('../models/Lir');
 const GateItems = require('../models/GateItems');
+const AircraftGroundStay = require('../models/AircraftGroundStay');
+const AogShiftHandover = require('../models/AogShiftHandover');
+const time = require('../../client/js/operationalTime');
 const assignmentRoles = require('../services/assignmentAccess');
 const view = require('../services/turnaroundView');
 const router = express.Router();
@@ -19,6 +22,49 @@ router.get('/', async (req, res) => {
     return res.status(400).json({error:'Select a valid operating date'});
   }
   const flights = await Flight.find(flightDay.query(date)).lean();
+  // Carry forward grounded aircraft across calendar days, independently of the
+  // daily scheduled flight board. Date boundaries follow London DST.
+  const dayStart=time.fromLocal(date+'T00:00');
+  const nextDayStart=time.fromLocal(time.addDays(date,1)+'T00:00');
+  const groundStays=await AircraftGroundStay.find({
+    groundedAt:{$lt:nextDayStart},
+    $or:[{closedAt:null},{closedAt:{$gte:dayStart}}]
+  }).sort({groundedAt:1}).limit(200).lean();
+  const aogIds=groundStays.map(stay=>stay._id);
+  const flightRefs=[...new Set(groundStays.flatMap(stay=>[stay.sourceTurnaroundId,stay.recoveryTurnaroundId]).filter(Boolean).map(String))];
+  const [aogHandovers,aogFlights]=await Promise.all([
+    AogShiftHandover.find({groundStayId:{$in:aogIds}}).sort({revision:-1}).lean(),
+    Flight.find({_id:{$in:flightRefs}}).select('arrivalFlight departureFlight operatingDate status aircraft departure departureStatus').lean()
+  ]);
+  const latestByStay=new Map(), aogFlightById=new Map(aogFlights.map(f=>[String(f._id),f]));
+  for(const note of aogHandovers){
+    const key=String(note.groundStayId);
+    if(!latestByStay.has(key))latestByStay.set(key,note);
+  }
+  const aogCases=groundStays.map(stay=>{
+    const source=aogFlightById.get(String(stay.sourceTurnaroundId));
+    const recovery=aogFlightById.get(String(stay.recoveryTurnaroundId));
+    const latestHandover=latestByStay.get(String(stay._id))||null;
+    const recoveryDeparted=Boolean(recovery&&(recovery.status==='DEPARTED'||recovery.departure?.atd||recovery.departure?.airborne));
+    return {
+      _id:stay._id,sourceTurnaroundId:stay.sourceTurnaroundId,recoveryTurnaroundId:stay.recoveryTurnaroundId,
+      registration:stay.registration,aircraftType:stay.aircraftType,stand:stay.stand,airline:stay.airline,
+      arrivalFlight:stay.arrivalFlight,originalDepartureFlight:stay.originalDepartureFlight,
+      originalOperatingDate:stay.originalOperatingDate,reason:stay.reason,notes:stay.notes,
+      status:stay.status,displayStatus:recoveryDeparted?'RECOVERY_DEPARTED':stay.status,
+      groundedAt:stay.groundedAt,expectedReleaseAt:stay.expectedReleaseAt,closedAt:stay.closedAt,
+      source:source?{_id:source._id,arrivalFlight:source.arrivalFlight,departureFlight:source.departureFlight}:null,
+      recovery:recovery?{_id:recovery._id,flightNumber:recovery.departureFlight,
+        date:recovery.operatingDate,stdAt:recovery.departure?.stdAt,
+        std:recovery.departure?.std,status:recovery.status}:null,
+      handoverSequence:stay.handoverSequence||0,
+      latestHandover:latestHandover?{
+        _id:latestHandover._id,revision:latestHandover.revision,notes:latestHandover.notes,
+        sentBy:latestHandover.sentBy,sentByName:latestHandover.sentByName,createdAt:latestHandover.createdAt,
+        receipts:latestHandover.receipts
+      }:null
+    };
+  });
   const ids = flights.map(f => f._id), filter = {turnaroundId:{$in:ids}};
   const [assignments, staff, handovers, lirs, gateItems] = await Promise.all([
     Assignment.find(filter).populate('userId','name active department role skills airlineQualifications').lean(),
@@ -54,6 +100,10 @@ router.get('/', async (req, res) => {
         loaded:activeItems.filter(i => i.status === 'LOADED').length}
     });
   }
-  res.set('Cache-Control','no-store').json({user:{name:req.user.name,position:req.user.position},roles,staff:staff.map(u=>({...u,canManageShift:require('../services/staffShifts').canManage(req.user,u)})),flights:output});
+  res.set('Cache-Control','no-store').json({user:{id:req.user._id,name:req.user.name,position:req.user.position},
+  permissions:{aogHandover:departmentAccess.superAdmin(req.user)||
+    (req.user.active&&req.user.department==='OPERATIONS'&&req.user.position==='OPERATIONS_DM')},
+  roles,staff:staff.map(u=>({...u,canManageShift:require('../services/staffShifts').canManage(req.user,u)})),
+  flights:output,aogCases});
 });
 module.exports = router;
