@@ -2,6 +2,7 @@ const express=require('express');
 const mongoose=require('mongoose');
 const Turnaround=require('../models/Turnaround');
 const FlightSchedule=require('../models/FlightSchedule');
+const Lir=require('../models/Lir');
 const AircraftGroundStay=require('../models/AircraftGroundStay');
 const requireUser=require('../middleware/requireUser');
 const access=require('../services/departmentAccess');
@@ -172,6 +173,15 @@ router.put('/:id/recovery',requireManager,async(req,res)=>{
  if(stay.recoveryTurnaroundId&&!existing)return res.status(409).json({error:'Linked recovery flight is missing; contact administrator'});
  if(existing&&(existing.departure?.atd||existing.departure?.airborne||existing.status==='DEPARTED'))
   return res.status(409).json({error:'A departed recovery flight cannot be edited'});
+ // Preserve the integrity of any loading documentation already attached to a
+ // recovery flight. The operator must open a fresh LIR plan for material changes.
+ if(existing&&(
+   existing.operatingDate!==date||
+   (existing.departureFlight||'')!==number||
+   (existing.departure?.std||'')!==(req.body.std||'')||
+   (existing.departure?.flightType||'PASSENGER')!==kind
+ )&&await Lir.exists({turnaroundId:existing._id}))
+   return res.status(409).json({error:'Recovery already has a LIR. Do not change flight number/date/STD/type without starting a new documented loading plan; contact OPS Control.'});
  if(await duplicateFlight(number,date,existing?._id))return res.status(409).json({error:'Flight '+number+' already exists for '+date+'. Use the actual recovery number, not the regular service.'});
  const payload={
   operatingDate:date,flightDate:time.fromLocal(date+'T00:00'),
