@@ -88,7 +88,8 @@ router.get('/', async (req, res) => {
     const activeItems = (manifest?.items || []).filter(i => i.status !== 'CANCELLED');
     output.push({
       ...day, _id:item._id, airline:item.airline, arrivalFlight:item.arrivalFlight, departureFlight:item.departureFlight,
-      operatingDate:item.operatingDate, status:item.status, aircraft:item.aircraft, arrival:item.arrival, departure:item.departure,
+      operatingDate:item.operatingDate, status:item.status, isRecovery:item.isRecovery, departureStatus:item.departureStatus,
+      groundStayId:item.groundStayId,aircraft:item.aircraft, arrival:item.arrival, departure:item.departure,
       operationalTimeError:item.operationalTimeError,
       assignmentRoles:departmentAccess.roles(req.user).filter(role=>flightDay.roleOnDay(item,role,date)),
       canLir:departmentAccess.superAdmin(req.user)||['OPERATIONS','RAMP'].includes(req.user.department),
