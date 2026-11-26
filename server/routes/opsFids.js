@@ -30,8 +30,8 @@ const checklistProgress=checklist=>{
  return complete.length===rows.length?'LOADED':complete.length?'LOADING '+complete.length+'/'+rows.length:'PUBLISHED';
 };
 const members=(rows,role)=>{
- const names=[...new Set(rows.filter(a=>a.role===role&&a.userId?.active!==false&&a.userId?.name)
-  .map(a=>a.userId.name.trim()).filter(Boolean))];
+ const names=[...new Set(rows.filter(a=>a.role===role&&a.userId?.name)
+  .map(a=>a.userId.name.trim()+(a.userId.active===false?' (inactive)':'')).filter(Boolean))];
  return names;
 };
 router.get('/',async(req,res)=>{
@@ -67,7 +67,7 @@ router.get('/',async(req,res)=>{
   Lir.find({turnaroundId:{$in:ids}}).select('turnaroundId revision status').sort({revision:-1}).lean(),
   LirChecklist.find({turnaroundId:{$in:ids}}).select('turnaroundId published rows').lean(),
   AircraftGroundStay.find({groundedAt:{$lt:groundEnd},$or:[{closedAt:null},{closedAt:{$gte:groundStart}}]})
-   .select('registration aircraftType stand arrivalFlight originalDepartureFlight reason status groundedAt expectedReleaseAt closedAt originalOperatingDate recoveryTurnaroundId')
+   .select('sourceTurnaroundId registration aircraftType stand arrivalFlight originalDepartureFlight reason status groundedAt expectedReleaseAt closedAt originalOperatingDate recoveryTurnaroundId')
    .sort({groundedAt:-1}).limit(200).lean()
  ]);
  const byFlight=new Map();
@@ -111,7 +111,9 @@ router.get('/',async(req,res)=>{
    arrivalFlight:g.arrivalFlight||'',originalDepartureFlight:g.originalDepartureFlight||'',
    status:g.status,reason:g.reason,groundedAt:g.groundedAt,expectedReleaseAt:g.expectedReleaseAt,
    recoveryFlight:recovery?.departureFlight||'',recoveryDate:recovery?.operatingDate||'',
-   recoveryStatus:recovery?.status||'',recoveryFlightId:recovery?._id||null};
+   recoveryStatus:recovery?.status||'',recoveryFlightId:recovery?._id||null,
+   originalFlightId:g.sourceTurnaroundId||null,
+   displayStatus:recovery?.status==='DEPARTED'||recovery?.departure?.atd?'RECOVERY DEPARTED':g.status};
  });
  res.set('Cache-Control','no-store').json({date,asOf:new Date().toISOString(),flights:rows,aog});
 });
