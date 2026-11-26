@@ -4,6 +4,7 @@ const Turnaround=require('../models/Turnaround');
 const FlightSchedule=require('../models/FlightSchedule');
 const Lir=require('../models/Lir');
 const AircraftGroundStay=require('../models/AircraftGroundStay');
+const AogShiftHandover=require('../models/AogShiftHandover');
 const requireUser=require('../middleware/requireUser');
 const access=require('../services/departmentAccess');
 const addSystemMessage=require('../services/systemMessage');
@@ -70,6 +71,51 @@ router.get('/flight/:flightId',async(req,res)=>{
  if(!mongoose.isObjectIdOrHexString(req.params.flightId))return res.status(400).json({error:'Invalid flight ID'});
  const stay=await AircraftGroundStay.findOne({$or:[{sourceTurnaroundId:req.params.flightId},{recoveryTurnaroundId:req.params.flightId}]}).lean();
  res.json({stay:stay?(await withFlights([stay]))[0]:null,permissions:{manage:canManage(req.user)}});
+});
+
+// Shift handovers are separate from the Check-in → Gate passenger handover.
+router.get('/:id/shift-handovers',async(req,res)=>{
+ if(!mongoose.isObjectIdOrHexString(req.params.id))return res.status(400).json({error:'Invalid Ground Stay'});
+ const stay=await AircraftGroundStay.findById(req.params.id).lean();
+ if(!stay)return res.status(404).json({error:'Ground Stay not found'});
+ const handovers=await AogShiftHandover.find({groundStayId:stay._id}).sort({revision:-1}).limit(50).lean();
+ res.set('Cache-Control','no-store').json({handovers,sequence:stay.handoverSequence||0,permissions:{manage:canManage(req.user)}});
+});
+router.post('/:id/shift-handovers',requireManager,async(req,res)=>{
+ if(!mongoose.isObjectIdOrHexString(req.params.id))return res.status(400).json({error:'Invalid Ground Stay'});
+ const notes=String(req.body?.notes||'').trim();
+ if(notes.length<10||notes.length>2000)return res.status(400).json({error:'Shift handover note must be 10–2000 characters'});
+ const expected=req.body?.expectedSequence;
+ if(!Number.isInteger(expected)||expected<0)return res.status(400).json({error:'Refresh the AOG handover before sending'});
+ const filter={_id:req.params.id,status:{$ne:'CLOSED'}};
+ if(expected===0)filter.$or=[{handoverSequence:0},{handoverSequence:{$exists:false}}];
+ else filter.handoverSequence=expected;
+ const stay=await AircraftGroundStay.findOneAndUpdate(filter,
+  {$inc:{handoverSequence:1}},{new:true});
+ if(!stay)return res.status(409).json({error:'AOG handover was changed or closed. Refresh before sending'});
+ const handover=await AogShiftHandover.create({groundStayId:stay._id,revision:stay.handoverSequence,
+  notes,sentBy:req.user._id,sentByName:req.user.name});
+ notify(req,[stay.sourceTurnaroundId,stay.recoveryTurnaroundId]);
+ res.status(201).json({handover,sequence:stay.handoverSequence});
+});
+router.post('/:id/shift-handovers/:handoverId/receive',requireManager,async(req,res)=>{
+ if(!mongoose.isObjectIdOrHexString(req.params.id)||!mongoose.isObjectIdOrHexString(req.params.handoverId))
+  return res.status(400).json({error:'Invalid handover'});
+ const stay=await AircraftGroundStay.findById(req.params.id).lean();
+ if(!stay)return res.status(404).json({error:'Ground Stay not found'});
+ // The incoming manager must acknowledge the CURRENT handover, not a superseded version.
+ const latest=await AogShiftHandover.findOne({groundStayId:stay._id}).sort({revision:-1}).lean();
+ if(!latest||String(latest._id)!==req.params.handoverId)
+  return res.status(409).json({error:'Handover changed. Read the latest revision before acknowledging'});
+ if(String(latest.sentBy)===String(req.user._id))
+  return res.status(403).json({error:'The sending manager cannot acknowledge their own handover'});
+ const result=await AogShiftHandover.findOneAndUpdate(
+  {_id:latest._id,groundStayId:stay._id,receipts:{$not:{$elemMatch:{userId:req.user._id}}}},
+  {$push:{receipts:{userId:req.user._id,name:req.user.name,receivedAt:new Date()}}},
+  {new:true,runValidators:true});
+ if(!result)return res.status(409).json({error:'You already acknowledged this handover or it changed'});
+ notify(req,[stay.sourceTurnaroundId,stay.recoveryTurnaroundId]);
+ res.json({handover:result});
 });
 
 // Original arrival remains intact; only its *departure* is cancelled.
