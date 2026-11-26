@@ -187,10 +187,25 @@ async(req,res)=>{
         if(completed.includes("AIRBORNE"))
             status = "DEPARTED";
 
-        flight.status =
-        status;
-
+        // AOG original arrivals do not become ordinary turnarounds when an
+        // arrival event is edited. Their departure was explicitly cancelled.
+        if(flight.departureStatus==='CANCELLED'&&flight.groundStayId&&!flight.isRecovery)
+            status=flight.status;
+        flight.status=status;
         await flight.save();
+        if(status==='DEPARTED'&&flight.isRecovery&&flight.groundStayId){
+            const Stay=require('../models/AircraftGroundStay');
+            const closed=await Stay.findOneAndUpdate(
+                {_id:flight.groundStayId,status:{$ne:'CLOSED'},recoveryTurnaroundId:flight._id},
+                {$set:{status:'CLOSED',closedAt:flight.departure?.airborne||flight.departure?.atd||new Date()},
+                 $push:{history:{action:'RECOVERY_DEPARTED',at:new Date(),details:'Recovery '+(flight.departureFlight||'TBC')+' departed'}}},
+                {new:true});
+            if(closed){
+                await Turnaround.updateOne({_id:closed.sourceTurnaroundId,groundStayId:closed._id},
+                    {$set:{status:'RECOVERY_COMPLETED'}});
+                req.app.get('io').emit('groundStayUpdated');
+            }
+        }
 
         req.app
 .get("io")
