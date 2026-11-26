@@ -26,6 +26,10 @@ async function processEvent(
         return;
     }
 
+    const keepGroundStatus=turnaround.departureStatus==='CANCELLED'&&!turnaround.isRecovery&&!!turnaround.groundStayId;
+    const previousStatus=turnaround.status;
+    if(keepGroundStatus&&['CHECKIN_OPEN','CHECKIN_CLOSE','BOARDING_START','BOARDING_COMPLETE','LOAD_COMPLETE','LOADING_COMPLETE','DOORS_CLOSED','PUSHBACK','AIRBORNE'].includes(eventType))
+        throw new Error('Original departure cancelled by Ground Stay. Use the linked Recovery Flight.');
     switch(eventType){
 
         // ARRIVAL
@@ -173,7 +177,19 @@ turnaround.readiness =
 readiness.percentage;
 
 
+    // Late/corrected arrival milestones must not reopen a cancelled departure.
+    if(keepGroundStatus)turnaround.status=previousStatus;
     await turnaround.save();
+    if(eventType==='AIRBORNE'&&turnaround.isRecovery&&turnaround.groundStayId){
+        const Stay=require('../models/AircraftGroundStay');
+        const closed=await Stay.findOneAndUpdate(
+          {_id:turnaround.groundStayId,status:{$ne:'CLOSED'},recoveryTurnaroundId:turnaround._id},
+          {$set:{status:'CLOSED',closedAt:eventTime||new Date()},
+           $push:{history:{action:'RECOVERY_DEPARTED',at:new Date(),details:'Recovery '+(turnaround.departureFlight||'TBC')+' airborne'}}},
+          {new:true});
+        if(closed)await Turnaround.updateOne({_id:closed.sourceTurnaroundId,groundStayId:closed._id},
+          {$set:{status:'RECOVERY_COMPLETED'}});
+    }
 
 }
 
