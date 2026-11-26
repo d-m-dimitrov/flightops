@@ -33,7 +33,8 @@ function toLocalDateTime(value,occurrence){
  return time.fromLocal(value,occurrence||'reject');
 }
 const self=(flight)=>flight?{id:flight._id,arrivalFlight:flight.arrivalFlight,departureFlight:flight.departureFlight,
- operatingDate:flight.operatingDate,status:flight.status,aircraft:flight.aircraft,departure:flight.departure}:null;
+ operatingDate:flight.operatingDate,status:flight.status,aircraft:flight.aircraft,arrival:flight.arrival,departure:flight.departure,
+ origin:flight.origin,destination:flight.destination,isRecovery:flight.isRecovery,departureStatus:flight.departureStatus}:null;
 async function withFlights(stays){
  const ids=[...new Set(stays.flatMap(s=>[s.sourceTurnaroundId,s.recoveryTurnaroundId]).filter(Boolean).map(String))];
  const flights=await Turnaround.find({_id:{$in:ids}}).lean();
