@@ -97,6 +97,7 @@ app.use("/api/acknowledgements", require("./routes/acknowledgements"));
 app.use("/api/events", eventRoutes);
 app.use("/api/schedules", scheduleRoutes);
 app.use("/api/flights", flightRoutes);
+app.use("/api/ground-stays",require("./routes/groundStays"));
 
 app.get("/", (req, res) => {
 
