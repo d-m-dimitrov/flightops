@@ -8,6 +8,11 @@
 <label>Operating date · London<input id="date" type="date"></label><label>Search<input id="search" type="search" placeholder="Flight, airline, stand or agent"></label>
 <label>Show<select id="filter"><option value="all">All flights</option><option value="open">Open flights</option><option value="gaps">Assignment gaps</option><option value="attention">Pending actions</option><option value="late">Delayed / past STD</option></select></label><button id="refresh">Refresh</button><button id="suggestAllocation" type="button">Suggest Allocation</button>
 </section><p id="message" role="status"></p><section id="summary" class="summary" aria-label="Operational summary"></section>
+<section class="board" id="aogShiftBoard" aria-label="Aircraft on ground shift handover">
+<div class="section-title"><h2>Aircraft on Ground · Shift Handover</h2><span id="aogShiftSummary" class="note" role="status">Loading AOG cases…</span></div>
+<p class="note">Unresolved aircraft from earlier dates are carried forward automatically. Every shift should review open cases. An outgoing Operations Duty Manager may send a handover note; the incoming manager must acknowledge the latest revision. This is separate from Check-in → Gate handover.</p>
+<div id="aogShiftCases" class="aog-grid" aria-live="polite"></div>
+</section>
 <section class="board"><div class="section-title"><h2>Flight board</h2><span id="updated"></span></div><div class="table-scroll"><table><thead><tr><th>Flight / stand</th><th>London times</th><th>Status / remaining</th><th>Assignments</th><th>Pending actions</th><th>Manage</th></tr></thead><tbody id="flights"></tbody></table></div></section>
 <section class="board"><div class="section-title"><h2>Shift roster · London</h2><div><a href="staff-roster.html">Monthly Staff Roster →</a> <button id="copyShifts">Copy previous day…</button></div></div>
 <p class="note">Green: working shift · amber: break · blue: flight task. Times follow the selected London calendar day, including overnight carry-over. Task windows are estimates. Click Edit to record Working, Off or Absent.</p>
@@ -16,6 +21,15 @@
 <section class="board"><div class="section-title"><h2>Team workload</h2></div><p class="note">Review the recorded shifts above alongside assigned work. Estimated windows: Arrival Agent / Arrival Dispatcher ETA/STA −30 to +30 minutes; other roles ETD/STD −150 to +30 minutes. Warnings cover this operating date only.</p><div id="team" class="team-grid"></div></section>
 <p class="note">Assignment gaps show Arrival Agent, Arrival Dispatcher, Departure Dispatcher, Check-in, Gate and RAMP coverage to review; not every role is required on every flight. Pending actions are workflow reminders, not overdue deadlines. Updates arrive live, with a 15-second refresh fallback.</p>
 </main>
+<dialog id="aogShiftDialog" aria-label="Aircraft ground stay shift handover">
+<form id="aogShiftForm">
+<h2 id="aogShiftTitle">AOG Shift Handover</h2>
+<p id="aogShiftHelp" class="note"></p>
+<label for="aogShiftNotes" class="aog-field-label">Handover notes · outstanding actions / engineer update / next departure / responsible team</label>
+<textarea id="aogShiftNotes" rows="6" minlength="10" maxlength="2000" required placeholder="Enter the operational situation and actions the next shift must follow up"></textarea>
+<p id="aogShiftError" role="alert"></p>
+<div class="dialog-actions"><button type="button" id="aogShiftCancel">Cancel</button><button type="submit" id="aogShiftSend">Send shift handover</button></div>
+</form></dialog>
 <dialog id="suggestDialog"><h2>Suggested dispatcher allocation</h2><p>Preview only. Confirm each suggestion in the allocation editor.</p><div id="suggestResults"></div><button id="closeSuggestions" type="button">Close</button></dialog><dialog id="allocation"><form id="allocationForm"><h2 id="allocationTitle">Assign team</h2><p id="allocationHelp"></p><label class="availability-filter"><input id="availableOnly" type="checkbox"> Show only qualified agents available for the estimated task window</label><div id="assignmentFields"></div><p id="saveMessage" role="alert"></p><div class="dialog-actions"><button type="button" id="cancel">Cancel</button><button type="submit" id="save">Save assignments</button></div></form></dialog>
 <dialog id="shiftEditor"><form id="shiftForm"><h2 id="shiftTitle">Edit shift</h2><p id="shiftDateLabel"></p>
 <label>Status<select id="shiftStatus"><option value="WORKING">Working</option><option value="OFF">Off</option><option value="ABSENT">Absent</option></select></label>
@@ -25,4 +39,4 @@
 <p id="shiftError" role="alert"></p><div class="dialog-actions"><button type="button" id="closeShift">Cancel</button><button type="submit" id="saveShift">Save shift</button></div></form></dialog>
 <dialog id="copyShiftDialog"><h2>Copy working shifts</h2><p id="copyShiftInfo"></p><div id="copyShiftItems"></div><p id="copyShiftResult" role="status"></p><div class="dialog-actions"><button id="closeCopyShifts">Close</button><button id="applyCopyShifts">Copy selected</button></div></dialog>
 <script src="js/common.js"></script>
-<script src="js/airlineQualifications.js"></script><script src="js/operationalTime.js"></script><script src="js/controlModel.js"></script><script src="js/shiftAvailability.js"></script><script src="/socket.io/socket.io.js"></script><script src="js/control.js"></script><script src="js/controlRoster.js"></script><script src="js/controlSuggestions.js"></script></body></html>
+<script src="js/airlineQualifications.js"></script><script src="js/operationalTime.js"></script><script src="js/controlModel.js"></script><script src="js/shiftAvailability.js"></script><script src="/socket.io/socket.io.js"></script><script src="js/control.js"></script><script src="js/controlRoster.js"></script><script src="js/controlSuggestions.js"></script><script src="js/controlAog.js?v=1"></script></body></html>
