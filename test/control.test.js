@@ -21,6 +21,10 @@ test('Control actions reflect current assignment receipts, pending gate items an
  assert.equal(model.gaps(f).length,6);
  assert.deepEqual(model.actions({...f,status:'DEPARTED'}),[]);
  assert.deepEqual(model.gaps({...f,status:'CANCELLED'}),[]);
+ assert.equal(model.closed({...f,status:'GROUNDED',departureStatus:'CANCELLED'}),true);
+ assert.equal(model.late({...f,status:'GROUNDED',departureStatus:'CANCELLED'},Date.parse('2026-10-15T12:00:00Z')),false);
+ assert.deepEqual(model.actions({...f,status:'RECOVERY_COMPLETED'}),[]);
+ assert.ok(model.actions({...f,isRecovery:true,departureFlight:'',status:'RECOVERY_TBC',departure:{stdAt:null}}).includes('Recovery flight number / STD awaiting confirmation'));
  assert.equal(model.late(f,Date.parse('2026-10-15T12:00:00Z')),true);
  assert.equal(model.late({...f,status:'DEPARTED'},Date.parse('2026-10-15T12:00:00Z')),false);
 });
@@ -38,7 +42,9 @@ test('Control HTTP protects access, rejects invalid dates, and returns latest do
  const f=flight();
  const router=load('server/routes/control.js',{
   '../middleware/requireUser':(req,res,next)=>{if(!req.headers.authorization)return res.status(401).json({error:'Sign in'});req.user={active:true,department:'OPERATIONS',position:req.headers.authorization==='manager'?'OPERATIONS_DM':'DISPATCHER',name:'Manager'};next();},
-  '../models/Turnaround':{find:q=>{assert.ok(q.$or);return query([f]);}},
+  '../models/Turnaround':{find:q=>{if(q._id)return query([]);assert.ok(q.$or);return query([f]);}},
+  '../models/AircraftGroundStay':{find:()=>query([])},
+  '../models/AogShiftHandover':{find:()=>query([])},
   '../models/Assignment':{find:()=>query([{_id:'ramp2',turnaroundId:'f1',role:'RAMP',userId:{_id:'u1',name:'Ramp'}},{_id:'gate2',turnaroundId:'f1',role:'GATE',userId:{_id:'u2'}}])},
   '../models/User':{find:()=>query([])},
   '../models/Handover':{find:()=>query([{turnaroundId:'f1',revision:2,assignmentId:'old-checkin',receipts:[{assignmentId:'gate1'}]}])},
@@ -54,6 +60,7 @@ test('Control HTTP protects access, rejects invalid dates, and returns latest do
   assert.equal((await fetch(url+'?date=2026-02-30',{headers:{Authorization:'manager'}})).status,400);
   const response=await fetch(url+'?date=2026-10-15',{headers:{Authorization:'manager'}}),body=await response.json();
   assert.equal(response.status,200);assert.equal(body.roles.length,2);assert.equal(body.flights[0].assignments.length,0);
+  assert.deepEqual(body.aogCases,[]);assert.equal(body.permissions.aogHandover,true);
   assert.equal(body.flights[0].lir.received,false);assert.equal(body.flights[0].handover.current,false);assert.equal(body.flights[0].handover.received,false);
   assert.deepEqual(body.flights[0].gateItems,{total:2,received:1,loaded:1});
  }finally{await new Promise(r=>server.close(r));}
