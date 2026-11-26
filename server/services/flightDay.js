@@ -8,6 +8,11 @@ function query(date) {
   ]};
 }
 function context(f,date) {
+  if(f.isRecovery){
+    const departureDate=f.departure?.stdAt?time.localInput(f.departure.stdAt).slice(0,10):f.operatingDate;
+    return {arrivalDate:null,departureDate,arrivalToday:false,departureToday:departureDate===date,
+      dayLabel:'Recovery departure'};
+  }
   try { return time.dayContext(f,date); }
   catch { return {arrivalToday:f.operatingDate===date,departureToday:f.operatingDate===date,dayLabel:''}; }
 }
