@@ -90,6 +90,7 @@ app.use("/api/training", trainingRoutes);
 app.use("/api/airline-directory", require("./routes/airlineDirectory"));
 app.use("/api/roster-planning", require("./routes/rosterPlanning"));
 app.use("/api/control", require("./routes/control"));
+app.use("/api/ops-fids",require("./routes/opsFids"));
 app.use("/api/my-flights", require("./routes/myFlights"));
 app.use("/api/handovers", require("./routes/handovers"));
 app.use("/api/acknowledgements", require("./routes/acknowledgements"));
