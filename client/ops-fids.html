@@ -4,64 +4,42 @@
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="theme-color" content="#101c2c">
 <title>OPS FIDS · FlightOps</title>
-<link rel="stylesheet" href="css/ops-fids.css">
+<link rel="stylesheet" href="css/ops-fids.css?v=table2">
 </head>
 <body>
-<header class="fids-header">
- <div class="brand">
-  <a href="flights.html" class="home-link" title="Back to Flight Operations">← Flights</a>
-  <div><h1>FLIGHTOPS <span>OPS FIDS</span></h1><p>LONDON HEATHROW · OPERATIONAL FLIGHT INFORMATION</p></div>
- </div>
- <div class="header-right"><div class="live-block"><span id="liveDot" class="live-dot"></span><span id="connection" role="status">Connecting</span></div>
- <div class="clock-block"><strong id="londonClock">--:--:--</strong><small id="londonDate">London local time</small></div>
- <button type="button" id="fullscreen" aria-label="Toggle full screen">⛶ Full screen</button></div>
+<header class="topbar">
+  <a href="flights.html" class="back" title="Flight Operations">← Flights</a>
+  <strong class="app-title">OPS FIDS</strong>
+  <label class="compact-control"><span>Date</span><input id="date" type="date" aria-label="London operating date"></label>
+  <label class="compact-control"><span>View</span><select id="mode"><option value="combined">Combined</option><option value="arrivals">Arrivals</option><option value="departures">Departures</option></select></label>
+  <label class="compact-control"><span>Airline</span><select id="airline"><option value="">All</option></select></label>
+  <label class="compact-control search-control"><span>Search</span><input id="search" type="search" placeholder="Flight, reg, stand, dispatcher…" aria-label="Search flights or dispatchers"></label>
+  <button id="refresh" type="button" title="Refresh flight data">↻</button>
+  <button id="fullscreen" type="button" title="Full screen">⛶</button>
+  <span id="liveDot" class="live-dot offline" title="Live updates disconnected"></span>
+  <span id="connection" class="sr-only" role="status">Connecting</span>
+  <span id="lastUpdated" class="updated" aria-live="polite">—</span>
 </header>
 <main>
- <section class="toolbar" aria-label="Flight board filters">
-  <label>Date <input type="date" id="date" aria-label="London operating date"></label>
-  <label>View <select id="mode"><option value="combined">Combined</option><option value="arrivals">Arrivals</option><option value="departures">Departures</option></select></label>
-  <label>Airline <select id="airline"><option value="">All airlines</option></select></label>
-  <label>Search flight / aircraft / stand / dispatcher <input id="search" type="search" placeholder="Flight, stand, registration, dispatcher…"></label>
-  <label class="toggle"><input type="checkbox" id="hideCompleted"> Hide departed / cancelled</label>
-  <button id="refresh" type="button">↻ Refresh</button>
-  <span id="lastUpdated" aria-live="polite">Awaiting update</span>
- </section>
- <section class="metrics" aria-label="Flight board statistics" id="metrics">
-  <div class="metric"><strong id="metricFlights">—</strong><span>FLIGHTS</span></div>
-  <div class="metric"><strong id="metricArrivals">—</strong><span>ARRIVALS</span></div>
-  <div class="metric"><strong id="metricDepartures">—</strong><span>DEPARTURES</span></div>
-  <div class="metric"><strong id="metricDelayed">—</strong><span>DELAYED / OVERDUE</span></div>
-  <div class="metric"><strong id="metricAog">—</strong><span>GROUND STAYS</span></div>
- </section>
- <p class="notice" role="status" id="notice" hidden></p>
- <section class="board">
-  <div class="section-heading"><h2>FLIGHT OPERATIONS</h2><span>Click a flight to open its dashboard · Dispatcher assignments from FlightOps</span></div>
-  <div class="table-wrap">
-   <table id="board" data-mode="combined">
-    <thead><tr>
-     <th scope="col">Flight</th>
-     <th scope="col">Aircraft / Reg</th>
-     <th scope="col">Stand</th>
-     <th scope="col" class="arrival-col">STA / ETA / ATA</th>
-     <th scope="col" class="departure-col">STD / ETD / ATD</th>
-     <th scope="col" class="arrival-col">ARR Dispatcher</th>
-     <th scope="col" class="departure-col">DEP Dispatcher</th>
-     <th scope="col">RAMP</th>
-     <th scope="col">LIR / Loading</th>
-     <th scope="col">Status</th>
-    </tr></thead>
-    <tbody id="flightRows"><tr><td colspan="10" class="empty">Loading live flights…</td></tr></tbody>
-   </table>
-  </div>
- </section>
- <section class="ground-board" id="aogSection">
-  <div class="section-heading"><h2>AIRCRAFT ON GROUND / RECOVERY</h2><span id="aogCount">—</span></div>
-  <div id="aogRows" class="aog-grid"><p>Loading aircraft ground stays…</p></div>
- </section>
+<p class="notice" id="notice" role="status" hidden></p>
+<div class="table-wrap">
+<table id="board" data-mode="combined">
+<thead><tr>
+  <th scope="col">FLIGHT</th>
+  <th scope="col">A/C · REG</th>
+  <th scope="col">STAND</th>
+  <th scope="col" class="arrival-col">STA / ETA / ATA</th>
+  <th scope="col" class="departure-col">STD / ETD / ATD</th>
+  <th scope="col" class="arrival-col">ARR DISPATCHER</th>
+  <th scope="col" class="departure-col">DEP DISPATCHER</th>
+  <th scope="col">STATUS</th>
+</tr></thead>
+<tbody id="flightRows"><tr><td colspan="8" class="empty">Loading flights…</td></tr></tbody>
+</table>
+</div>
 </main>
-<footer><span>OPS FIDS · Internal operational display · Read-only</span><span>Europe/London · Live events + automatic refresh</span></footer>
 <script src="/socket.io/socket.io.js"></script>
 <script src="js/operationalTime.js"></script>
-<script src="js/ops-fids.js?v=1"></script>
+<script src="js/ops-fids.js?v=table2"></script>
 </body>
 </html>
