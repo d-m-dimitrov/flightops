@@ -8,7 +8,7 @@ const Lir=require('../models/Lir');
 const LirChecklist=require('../models/LirChecklist');
 const AircraftGroundStay=require('../models/AircraftGroundStay');
 const flightDay=require('../services/flightDay');
-const turnaroundView=require('../services/turnaroundView');
+
 const access=require('../services/departmentAccess');
 const time=require('../../client/js/operationalTime');
 const router=express.Router();
@@ -39,11 +39,22 @@ router.get('/',async(req,res)=>{
  const date=req.query.date||time.operatingDate();
  if(!validDate(date))return res.status(400).json({error:'Choose a valid London operating date'});
  const found=await Turnaround.find(flightDay.query(date))
-  .select('airline arrivalFlight departureFlight aircraft arrival departure operatingDate status departureStatus isRecovery groundStayId flightNumberDisplay serviceType')
+  .select('airline arrivalFlight departureFlight aircraft arrival departure operatingDate departureDayOffset timeDisambiguation status departureStatus isRecovery groundStayId flightNumberDisplay serviceType')
   .lean();
  const selected=[];
  for(const record of found){
-  const f=await turnaroundView(record);
+  let f=record;
+  // Legacy turnarounds may have only London STA/STD text. Compute missing
+  // instants without querying MGT rules for every row on every FIDS refresh.
+  if(!f.isRecovery&&(!f.arrival?.staAt||!f.departure?.stdAt)&&
+     f.operatingDate&&f.arrival?.sta&&f.departure?.std){
+   try{
+    const times=time.scheduleTimes(f.operatingDate,f.arrival.sta,f.departure.std,
+      f.departureDayOffset,f.timeDisambiguation);
+    f={...f,arrival:{...f.arrival,staAt:f.arrival.staAt||times.staAt},
+      departure:{...f.departure,stdAt:f.departure.stdAt||times.stdAt}};
+   }catch{/* Keep original timestamps and show missing values rather than guessing. */}
+  }
   const context=flightDay.context(f,date);
   if(context.arrivalToday||context.departureToday)selected.push({...f,...context});
  }
