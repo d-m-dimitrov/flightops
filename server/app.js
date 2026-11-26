@@ -61,6 +61,7 @@ async function startGenerator() {
     await seedEvents();
     await require("./services/ensureTurnaroundIndex")(require("./models/Turnaround"));
     await require("./models/Lir").init();
+    await require("./models/AircraftGroundStay").init();
     await require("./models/Handover").init();
     await require("./models/GateItems").init();
     await require("./models/ChatReadState").init();
