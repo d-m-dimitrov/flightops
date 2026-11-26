@@ -1,6 +1,6 @@
 (function(root) {
   const roles = ['ARRIVAL','ARRIVAL_DISPATCH','DISPATCH','CHECKIN','GATE','ARRIVAL_RAMP','RAMP'];
-  function closed(f) { return ['CANCELLED','DEPARTED','AIRBORNE'].includes(f.status) || Boolean(f.departure?.atd || f.departure?.airborne || f.departure?.pushback); }
+  function closed(f) { return f.departureStatus==='CANCELLED' || ['CANCELLED','DEPARTED','AIRBORNE','GROUNDED','RECOVERY_COMPLETED','AOG_CLOSED'].includes(f.status) || Boolean(f.departure?.atd || f.departure?.airborne || f.departure?.pushback); }
   function target(f) { return f.departureToday === false ? f.arrival?.eta || f.arrival?.staAt : f.departure?.etd || f.departure?.stdAt; }
   function late(f, now = Date.now()) {
     const std = Date.parse(f.departure?.stdAt), etd = Date.parse(f.departure?.etd);
@@ -11,6 +11,7 @@
     if (closed(f)) return [];
     const result = [];
     if (f.operationalTimeError) result.push('Check flight times');
+    if (f.isRecovery && (!f.departureFlight || !f.departure?.stdAt)) result.push('Recovery flight number / STD awaiting confirmation');
     for (const a of f.assignments) {
       if (a.qualificationWarning) result.push(`${a.role}: ${a.qualificationWarning}`);
       if (!a.userId || a.userId.active === false) result.push(`${a.role}: agent unavailable`);
