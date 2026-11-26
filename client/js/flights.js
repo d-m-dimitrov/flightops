@@ -10,6 +10,14 @@ function getStatusBadge(
 
     switch(status){
 
+        case "GROUNDED":
+            return '<span class="badge bg-danger">🔴 GROUNDED · departure cancelled</span>';
+        case "RECOVERY_TBC":
+            return '<span class="badge bg-warning text-dark">RECOVERY · TBC</span>';
+        case "RECOVERY_COMPLETED":
+            return '<span class="badge bg-secondary">RECOVERY COMPLETED</span>';
+        case "AOG_CLOSED":
+            return '<span class="badge bg-secondary">AOG CLOSED</span>';
         case "READY":
             return `
             <span class="badge bg-success">
@@ -99,6 +107,10 @@ function getStatusBorderColor(status){
 
     switch(status){
 
+        case "GROUNDED":
+            return "#dc3545";
+        case "RECOVERY_TBC":
+            return "#ffc107";
         case "ARRIVING":
             return "#6c757d";
 
@@ -337,7 +349,7 @@ card.className =
 
 <strong>
 
-    ${flight.arrivalFlight}/${flight.departureFlight}
+    ${flight.isRecovery?'Recovery · '+(flight.departureFlight||'TBC'):(flight.arrivalFlight||'—')+'/'+(flight.departureFlight||'—')}
 
 </strong>
 
@@ -438,6 +450,14 @@ ${formatTime(
 
 `;
 
+            // Managers can ground a physical aircraft without changing the recurring schedule.
+            if(window.GroundStayUI?.canManage&&!flight.isRecovery&&!flight.groundStayId&&
+               !['DEPARTED','PUSHBACK'].includes(flight.status)){
+                const aog=document.createElement('button');aog.type='button';aog.className='btn btn-sm btn-outline-danger mt-2';
+                aog.textContent='Ground Aircraft';
+                aog.addEventListener('click',event=>{event.stopPropagation();window.GroundStayUI.openGroundForm(flight);});
+                card.querySelector('.card-body')?.append(aog);
+            }
             card.onclick = () => {
 
                 window.location =
