@@ -15,6 +15,8 @@
  };
  const formatted=value=>value&&Number.isFinite(Date.parse(value))?shortTime.format(new Date(value)):'—';
  const dateText=value=>value&&Number.isFinite(Date.parse(value))?dateFormat.format(new Date(value)):'—';
+ const dateTime=value=>value&&Number.isFinite(Date.parse(value))?
+  dateFormat.format(new Date(value))+' '+shortTime.format(new Date(value)):'TBC';
  const minutes=value=>value&&Number.isFinite(Date.parse(value))?Date.parse(value):null;
  const field=(t,c,v)=>{
   const td=el('td',null,c);
@@ -117,19 +119,27 @@
   const card=el('article',null,'aog-item'+(stay.status==='CLOSED'?' closed':stay.status==='RECOVERY_PLANNED'?' recovery':''));
   const head=el('div',null,'aog-head');
   head.append(el('strong',stay.registration||'Registration TBC'));
-  const dep=stay.status==='CLOSED'?'CLOSED':stay.status==='RECOVERY_PLANNED'?'RECOVERY PLANNED':'GROUNDED';
-  statusBadge(head,{label:dep,kind:stay.status==='CLOSED'?'good':stay.status==='RECOVERY_PLANNED'?'special':'bad'});
+  const dep=stay.displayStatus==='RECOVERY DEPARTED'?'RECOVERY DEPARTED':
+   stay.status==='CLOSED'?'CLOSED':stay.status==='RECOVERY_PLANNED'?'RECOVERY PLANNED':'GROUNDED';
+  statusBadge(head,{label:dep,kind:dep==='RECOVERY DEPARTED'?'good':stay.status==='CLOSED'?'neutral':stay.status==='RECOVERY_PLANNED'?'special':'bad'});
   card.append(head);
   card.append(el('p',(stay.aircraftType||'—')+' · Stand '+(stay.stand||'TBC')+
    ' · '+(stay.reason||'AOG')));
   card.append(el('p','Original '+(stay.arrivalFlight||'—')+' / '+(stay.originalDepartureFlight||'—')));
-  card.append(el('p','Grounded '+dateText(stay.groundedAt)+' · Release '+dateText(stay.expectedReleaseAt)));
+  card.append(el('p','Grounded '+dateTime(stay.groundedAt)+' · Release '+dateTime(stay.expectedReleaseAt)));
   card.append(el('p','Recovery '+(stay.recoveryFlight||'TBC')+
    (stay.recoveryDate?' · '+stay.recoveryDate:'')+
    (stay.recoveryStatus?' · '+stay.recoveryStatus:'')));
-  if(stay.recoveryFlightId){
-   const a=el('a','Open recovery flight');a.href='dashboard.html?id='+encodeURIComponent(String(stay.recoveryFlightId));card.append(a);
+  const links=el('div');
+  if(stay.originalFlightId){
+   const a=el('a','Original flight');a.href='dashboard.html?id='+encodeURIComponent(String(stay.originalFlightId));
+   links.append(a);
   }
+  if(stay.recoveryFlightId){
+   if(links.childNodes.length)links.append(el('span',' · '));
+   const a=el('a','Recovery flight');a.href='dashboard.html?id='+encodeURIComponent(String(stay.recoveryFlightId));links.append(a);
+  }
+  card.append(links);
   return card;
  }
  function filters(){
