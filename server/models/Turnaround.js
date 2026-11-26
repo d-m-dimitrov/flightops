@@ -63,6 +63,11 @@ unreadNotifications:{
         type: String,
         default: "SCHEDULED"
     },
+    // A cancelled departure does not undo the completed arrival.
+    departureStatus:{type:String,enum:['SCHEDULED','CANCELLED'],default:'SCHEDULED'},
+    groundStayId:{type:mongoose.Schema.Types.ObjectId,ref:'AircraftGroundStay',default:null},
+    isRecovery:{type:Boolean,default:false},
+    recoveryOf:{type:mongoose.Schema.Types.ObjectId,ref:'Turnaround',default:null},
 
 aircraft: {
 
