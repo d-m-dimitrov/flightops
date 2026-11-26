@@ -3,6 +3,11 @@ const resolveMgt = require("./getTurnaroundRule");
 module.exports = async function turnaroundView(flight) {
   const item = flight.toObject ? flight.toObject() : { ...flight };
   try {
+    // Recovery records are departure-only. Do not try to invent a previous arrival.
+    if(item.isRecovery){
+      if(item.mgt==null)item.mgt=0;
+      return item;
+    }
     if (!item.arrival?.staAt || !item.departure?.stdAt) {
       const times = time.scheduleTimes(item.operatingDate, item.arrival?.sta, item.departure?.std,
         item.departureDayOffset, item.timeDisambiguation);
