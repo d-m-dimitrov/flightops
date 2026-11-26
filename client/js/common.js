@@ -251,6 +251,7 @@ function setupFlightOpsNavigation(){
     addLink('Operations','flights.html');
     addLink('My Flights','my-flights.html');
     if(control)addLink('Control','control.html');
+    if(admin||(current.active&&['OPERATIONS','RAMP'].includes(current.department)))addLink('OPS FIDS','ops-fids.html');
     if(manager)addLink('Schedules','schedules.html');
     if(manager)addLink('Employees','staff.html');
     if(manager)addLink('Roster','staff-roster.html');
