@@ -59,6 +59,7 @@ function render() {
   }
   if(!workload.length)$('team').append(el('p','No staff assigned to open flights.','muted'));
   window.ControlRoster?.render();
+  window.ControlAog?.render(data.aogCases||[],data.user||null,data.permissions||{},refresh);
 }
 async function refresh() {
   const current=++version;
@@ -116,7 +117,7 @@ if(typeof io==='function'){
   socket=io();socket.on('connect',()=>{$('connection').textContent='Live connection · 15s refresh';refresh();});
   socket.on('disconnect',()=>{$('connection').textContent='Live connection offline · 15s refresh';});
   const schedule=()=>{clearTimeout(debounce);debounce=setTimeout(()=>{if(!document.hidden)refresh();},400);};
-  for(const event of ['flightUpdated','assignmentsUpdated'])socket.on(event,schedule);
+  for(const event of ['flightUpdated','assignmentsUpdated','groundStayUpdated'])socket.on(event,schedule);
 }else $('connection').textContent='15-second refresh';
 timer=setInterval(()=>{if(!document.hidden)refresh();},15000);
 window.addEventListener('pagehide',()=>{clearInterval(timer);clearTimeout(debounce);version++;socket?.disconnect();});
