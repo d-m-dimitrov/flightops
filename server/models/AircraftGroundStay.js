@@ -17,6 +17,7 @@ const schema=new mongoose.Schema({
  reason:{type:String,enum:['TECHNICAL','OPERATIONAL','WEATHER','CREW','OTHER'],required:true},
  notes:{type:String,maxlength:600,default:''},
  status:{type:String,enum:['GROUNDED','RECOVERY_PLANNED','CLOSED'],default:'GROUNDED',index:true},
+ handoverSequence:{type:Number,default:0},
  groundedAt:{type:Date,required:true},
  expectedReleaseAt:{type:Date,default:null},
  closedAt:{type:Date,default:null},
