@@ -1,6 +1,7 @@
 const express=require('express');
 const mongoose=require('mongoose');
 const Turnaround=require('../models/Turnaround');
+const FlightSchedule=require('../models/FlightSchedule');
 const AircraftGroundStay=require('../models/AircraftGroundStay');
 const requireUser=require('../middleware/requireUser');
 const access=require('../services/departmentAccess');
@@ -131,7 +132,20 @@ async function duplicateFlight(number,date,excludeId){
  const criteria={departureFlight:number,deleted:{$ne:true},
   $or:[{'departure.stdAt':{$gte:start,$lt:end}},{operatingDate:date,'departure.stdAt':null}]};
  if(excludeId)criteria._id={$ne:excludeId};
- return Turnaround.exists(criteria);
+ if(await Turnaround.exists(criteria))return true;
+ // Protect recurring flights even when their next instance has not yet
+ // been generated. An overnight scheduled departure can belong to yesterday.
+ const schedules=await FlightSchedule.find({active:true,departureFlight:number}).lean();
+ for(const schedule of schedules){
+  const offset=schedule.departureDayOffset==null?Number(schedule.std<schedule.sta):schedule.departureDayOffset;
+  const originDate=time.addDays(date,-offset);
+  const weekday=new Date(originDate+'T12:00:00Z').getUTCDay()||7;
+  if(!schedule.daysOfWeek?.includes(weekday))continue;
+  if(schedule.validFrom&&originDate<schedule.validFrom)continue;
+  if(schedule.validTo&&originDate>schedule.validTo)continue;
+  return true;
+ }
+ return false;
 }
 // Create a departure-only ad-hoc turnaround; NEVER alter tomorrow's recurring schedule.
 router.put('/:id/recovery',requireManager,async(req,res)=>{
@@ -162,7 +176,7 @@ router.put('/:id/recovery',requireManager,async(req,res)=>{
   operatingDate:date,flightDate:time.fromLocal(date+'T00:00'),
   airline:stay.airline,departureFlight:number,flightNumberDisplay:number||'Recovery flight · number TBC',
   destination:String(req.body.destination||existing?.destination||'').trim().toUpperCase()||undefined,
-  status:stdAt?'SCHEDULED':'RECOVERY_TBC',
+  status:number&&stdAt?'SCHEDULED':'RECOVERY_TBC',
   'departure.std':req.body.std||'', 'departure.stdAt':stdAt,'departure.flightType':kind
  };
  let recovery;
