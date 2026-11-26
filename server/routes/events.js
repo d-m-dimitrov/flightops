@@ -18,6 +18,11 @@ async function requireFlightAssignment(req,res,next) {
   if (!mongoose.isObjectIdOrHexString(flightId)) return res.status(400).json({error:"Invalid flight"});
   const flight = await Turnaround.findOne({_id:flightId,deleted:{$ne:true}});
   if (!flight) return res.status(404).json({error:"Flight not found"});
+  const eventType=req.method==="POST"?req.body?.eventType:req.eventForEdit?.eventType;
+  const departureEvents=new Set(['CHECKIN_OPEN','CHECKIN_CLOSE','BOARDING_START','BOARDING_COMPLETE',
+    'LOAD_COMPLETE','LOADING_COMPLETE','DOORS_CLOSED','PUSHBACK','AIRBORNE']);
+  if(flight.departureStatus==='CANCELLED'&&!flight.isRecovery&&departureEvents.has(eventType))
+    return res.status(409).json({error:'Original departure is CANCELLED due to Aircraft Ground Stay. Record departure milestones against the linked Recovery Flight instead.'});
   if (access.superAdmin(req.user) || (req.user.department==="OPERATIONS" && req.user.position==="OPERATIONS_DM")) return next();
   const roles = access.roles(req.user);
   const assigned = await Assignment.exists({turnaroundId:flightId,userId:req.user._id,role:{$in:roles}});
@@ -206,6 +211,7 @@ await addSystemMessage(
     event.eventTime
 
 );
+if(req.body.eventType==='AIRBORNE')req.app.get('io').emit('groundStayUpdated');
 
 
 req.app
