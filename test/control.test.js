@@ -38,7 +38,7 @@ test('Workload flags estimated overlaps across flights, not multiple roles on th
 });
 test('Control HTTP protects access, rejects invalid dates, and returns latest document receipts for current assignees',async()=>{
  const express=require('express');
- const query=rows=>({lean:async()=>rows,select(){return this;},sort(){return this;},populate(){return this;}});
+ const query=rows=>({lean:async()=>rows,select(){return this;},sort(){return this;},limit(){return this;},populate(){return this;}});
  const f=flight();
  const router=load('server/routes/control.js',{
   '../middleware/requireUser':(req,res,next)=>{if(!req.headers.authorization)return res.status(401).json({error:'Sign in'});req.user={active:true,department:'OPERATIONS',position:req.headers.authorization==='manager'?'OPERATIONS_DM':'DISPATCHER',name:'Manager'};next();},
